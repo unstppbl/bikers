@@ -38,6 +38,8 @@ The local review image is `bikerskz:skills-polish-20261104-arm64`, ID `1f657849c
 
 ## Repository deployments on Jarvis
 
+[GitHub Actions deployments](github-actions-deployment.md) describes the public CI, private deployment repository, homelab runner and automatic release gates. Manual releases use the same host lock and deployment helper.
+
 The owner requires production images to be built on Jarvis from pushed Git
 commits. The source checkout lives at `/home/user/apps/bikerskz/repo`; private
 runtime settings remain in `/home/user/apps/bikerskz/.env`, outside Git.

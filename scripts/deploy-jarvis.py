@@ -2,6 +2,7 @@
 """Build a clean Git checkout on Jarvis and replace only its app container."""
 
 import argparse
+from contextlib import contextmanager
 from datetime import datetime, timezone
 import fcntl
 import hashlib
@@ -149,7 +150,37 @@ def settle_migrator(checkout, name):
     run(['docker', 'container', 'rm', container], cwd=checkout)
 
 
+@contextmanager
+def deployment_lock(runtime):
+    """Share one host lock with a trusted parent process across make/exec."""
+    os.umask(0o077)
+    path = runtime / '.deploy.lock'
+    inherited = os.environ.get('BIKERSKZ_DEPLOY_LOCK_FD')
+    if inherited is None:
+        handle = path.open('a')
+    else:
+        if not inherited.isascii() or not inherited.isdigit() or int(inherited) < 3:
+            raise RuntimeError('Invalid inherited deployment lock descriptor')
+        descriptor = int(inherited)
+        expected, actual = path.stat(), os.fstat(descriptor)
+        if path.is_symlink() or (actual.st_dev, actual.st_ino) != (expected.st_dev, expected.st_ino):
+            raise RuntimeError('Inherited deployment lock does not match this runtime')
+        handle = os.fdopen(os.dup(descriptor), 'a')
+    try:
+        # An inherited descriptor shares the parent's open-file description.
+        # Taking flock again still acquires/verifies the real lock; no bypass exists.
+        fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        yield handle
+    finally:
+        handle.close()
+
+
 def deploy(checkout, runtime, migrate_to=None):
+    with deployment_lock(runtime):
+        _deploy(checkout, runtime, migrate_to)
+
+
+def _deploy(checkout, runtime, migrate_to=None):
     if migrate_to not in (None, 9):
         raise RuntimeError('Only the explicitly reviewed migration target 9 is supported')
     env_file = runtime / '.env'
@@ -166,172 +197,171 @@ def deploy(checkout, runtime, migrate_to=None):
     if platform not in ('linux/amd64', 'linux/x86_64'):
         raise RuntimeError('Run this deployment on the Linux/amd64 Jarvis Docker host')
     os.umask(0o077)
-    with (runtime / '.deploy.lock').open('a') as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        compose = ['docker', 'compose', '--project-directory', str(checkout),
-                   '--env-file', str(env_file), '-p', 'bikerskz',
-                   '-f', str(checkout / 'docker-compose.yml')]
+    compose = ['docker', 'compose', '--project-directory', str(checkout),
+               '--env-file', str(env_file), '-p', 'bikerskz',
+               '-f', str(checkout / 'docker-compose.yml')]
 
-        def inspect(container):
-            return json.loads(run(['docker', 'inspect', container], cwd=checkout))[0]
+    def inspect(container):
+        return json.loads(run(['docker', 'inspect', container], cwd=checkout))[0]
 
-        app_id = run(compose + ['ps', '-q', 'app'], cwd=checkout)
-        db_id = run(compose + ['ps', '-q', 'db'], cwd=checkout)
-        if not app_id or not db_id:
-            raise RuntimeError('This command upgrades the existing running app and database')
-        previous = inspect(app_id)
-        database = inspect(db_id)
-        if previous['State'].get('Health', {}).get('Status') != 'healthy':
-            raise RuntimeError('Existing app must be healthy before deployment')
-        if database['State'].get('Health', {}).get('Status') != 'healthy':
-            raise RuntimeError('Existing database must be healthy before deployment')
-        target_receipts = migration_checksums(checkout) if migrate_to else None
-        previous_receipts = schema_receipts(checkout, db_id) if migrate_to else None
-        if migrate_to and previous_receipts != {version: checksum for version, checksum in
-                                               target_receipts.items() if version <= 8}:
-            raise RuntimeError('Migration-9 mode requires exact source-matching schema-8 receipts')
-        original_env = env_file.read_bytes()
-        original_compose = json.loads(run(compose + ['config', '--format', 'json'], cwd=checkout))
-        if original_compose['services']['app']['image'] != previous['Config']['Image']:
-            raise RuntimeError('Runtime APP_IMAGE does not match the running app')
-        old_environment = dict(value.split('=', 1) for value in previous['Config']['Env'])
-        if any(old_environment.get(key) != str(value) for key, value in
-               original_compose['services']['app']['environment'].items()):
-            raise RuntimeError('Runtime environment changed; review configuration separately')
-        image = f'bikerskz:git-{revision}'
-        print(f'Building {image} on Jarvis', flush=True)
-        run(['docker', 'build', '--build-arg', f'VCS_REF={revision}', '-t', image, str(checkout)],
-            cwd=checkout, visible=True)
-        built = inspect(image)
-        if built['Config'].get('Labels', {}).get('org.opencontainers.image.revision') != revision:
-            raise RuntimeError('Built image does not identify the expected Git revision')
-        updated_env, replacements = re.subn(
-            rb'(?m)^APP_IMAGE=[^\r\n]*', b'APP_IMAGE=' + image.encode(), original_env)
-        if replacements != 1:
-            raise RuntimeError('Runtime .env must contain exactly one APP_IMAGE assignment')
-        if run(['git', 'status', '--porcelain', '--untracked-files=all'], cwd=checkout):
-            raise RuntimeError('Checkout changed during build')
-        if run(['git', 'rev-parse', 'HEAD'], cwd=checkout) != revision:
-            raise RuntimeError('Git revision changed during build')
-        if env_file.read_bytes() != original_env:
-            raise RuntimeError('Runtime .env changed during build')
+    app_id = run(compose + ['ps', '-q', 'app'], cwd=checkout)
+    db_id = run(compose + ['ps', '-q', 'db'], cwd=checkout)
+    if not app_id or not db_id:
+        raise RuntimeError('This command upgrades the existing running app and database')
+    previous = inspect(app_id)
+    database = inspect(db_id)
+    if previous['State'].get('Health', {}).get('Status') != 'healthy':
+        raise RuntimeError('Existing app must be healthy before deployment')
+    if database['State'].get('Health', {}).get('Status') != 'healthy':
+        raise RuntimeError('Existing database must be healthy before deployment')
+    target_receipts = migration_checksums(checkout) if migrate_to else None
+    previous_receipts = schema_receipts(checkout, db_id) if migrate_to else None
+    if migrate_to and previous_receipts != {version: checksum for version, checksum in
+                                           target_receipts.items() if version <= 8}:
+        raise RuntimeError('Migration-9 mode requires exact source-matching schema-8 receipts')
+    original_env = env_file.read_bytes()
+    original_compose = json.loads(run(compose + ['config', '--format', 'json'], cwd=checkout))
+    if original_compose['services']['app']['image'] != previous['Config']['Image']:
+        raise RuntimeError('Runtime APP_IMAGE does not match the running app')
+    old_environment = dict(value.split('=', 1) for value in previous['Config']['Env'])
+    if any(old_environment.get(key) != str(value) for key, value in
+           original_compose['services']['app']['environment'].items()):
+        raise RuntimeError('Runtime environment changed; review configuration separately')
+    image = f'bikerskz:git-{revision}'
+    print(f'Building {image} on Jarvis', flush=True)
+    run(['docker', 'build', '--build-arg', f'VCS_REF={revision}', '-t', image, str(checkout)],
+        cwd=checkout, visible=True)
+    built = inspect(image)
+    if built['Config'].get('Labels', {}).get('org.opencontainers.image.revision') != revision:
+        raise RuntimeError('Built image does not identify the expected Git revision')
+    updated_env, replacements = re.subn(
+        rb'(?m)^APP_IMAGE=[^\r\n]*', b'APP_IMAGE=' + image.encode(), original_env)
+    if replacements != 1:
+        raise RuntimeError('Runtime .env must contain exactly one APP_IMAGE assignment')
+    if run(['git', 'status', '--porcelain', '--untracked-files=all'], cwd=checkout):
+        raise RuntimeError('Checkout changed during build')
+    if run(['git', 'rev-parse', 'HEAD'], cwd=checkout) != revision:
+        raise RuntimeError('Git revision changed during build')
+    if env_file.read_bytes() != original_env:
+        raise RuntimeError('Runtime .env changed during build')
 
-        migration_started = False
-        migration_applied = False
-        migrator_settled = True
-        quiesced_state = None
-        new_migration_state = None
-        try:
-            if migrate_to:
-                print('Stopping only the app before the schema-9 upgrade.', flush=True)
-                run(compose + ['stop', '--timeout', '30', 'app'], cwd=checkout)
-                migration_started = True
-                # Fingerprint while all app writers/workers are stopped. Only the
-                # intentional new columns/tables/receipt are excluded from parity.
-                # The added consent defaults and empty reminder tables are verified separately.
-                quiesced_state = retained_state(checkout, db_id)
-            atomic_write(env_file, updated_env)
-            run(compose + ['config', '--quiet'], cwd=checkout)
-            if migrate_to:
-                migration_error = None
-                migrator_name = f'bikerskz-migrate-{uuid.uuid4().hex}'
-                migrator_settled = False
-                try:
-                    # compose run has no --no-build flag. Omitting --build and
-                    # forbidding pulls consumes the already verified local image.
-                    print('Applying the explicit schema-9 upgrade with the verified image.', flush=True)
-                    run(compose + ['run', '-T', '--name', migrator_name, '--no-deps', '--pull', 'never',
-                                   'app', 'migrate'], cwd=checkout)
-                except (OSError, RuntimeError) as error:
-                    migration_error = error
-                settle_migrator(checkout, migrator_name)
-                migrator_settled = True
-                observed = schema_receipts(checkout, db_id)
-                if observed == target_receipts:
-                    migration_applied = True
-                    if migration_error:
-                        print('Migration command failed, but exact schema-9 receipts confirm commit; continuing activation.',
-                              file=sys.stderr, flush=True)
-                elif observed == previous_receipts:
-                    raise RuntimeError('Migration did not commit; schema 8 remains intact') from migration_error
-                else:
-                    raise RuntimeError('Unexpected migration receipts; app remains stopped for explicit recovery')
-                if retained_state(checkout, db_id) != quiesced_state:
-                    raise RuntimeError('Migration changed retained database state; explicit recovery required')
-                new_migration_state = migration_additions(checkout, db_id)
-            run(compose + ['up', '-d', '--no-deps', '--no-build', '--wait',
-                           '--wait-timeout', '120', 'app'], cwd=checkout)
-            current = inspect(run(compose + ['ps', '-q', 'app'], cwd=checkout))
-            current_db = inspect(run(compose + ['ps', '-q', 'db'], cwd=checkout))
-            unchanged = (
-                sorted(previous['Config']['Env']) == sorted(current['Config']['Env'])
-                and previous['Mounts'] == current['Mounts']
-                and previous['HostConfig']['PortBindings'] == current['HostConfig']['PortBindings']
-                and database['Id'] == current_db['Id']
-                and database['State']['StartedAt'] == current_db['State']['StartedAt']
-            )
-            if not unchanged:
-                raise RuntimeError('Runtime environment, ports, mounts or database changed')
-            if current['Image'] != built['Id'] or current['State']['Health']['Status'] != 'healthy':
-                raise RuntimeError('New app did not become healthy with the expected image')
-            if current['Config']['User'] != '10001:10001' or not current['HostConfig']['ReadonlyRootfs']:
-                raise RuntimeError('App must remain unprivileged with a read-only root filesystem')
-        except Exception:
-            safe_old_image = not migration_started
-            if migration_started:
-                # CLI exit status cannot determine whether COMMIT succeeded.
-                # Never put the old executable back against schema 9 or an
-                # unknown/unreadable receipt state, and never erase new data.
-                try:
-                    safe_old_image = (migrator_settled and
-                                      schema_receipts(checkout, db_id) == previous_receipts)
-                except Exception:
-                    safe_old_image = False
-            if safe_old_image:
-                atomic_write(env_file, original_env)
-                print('Activation failed; restoring the previous app image.', file=sys.stderr, flush=True)
-                # Resolved configuration stays in memory; it includes private values.
-                rollback = compose[:-2] + ['-f', '-']
-                run(rollback + ['up', '-d', '--no-deps', '--no-build', '--wait',
-                                '--wait-timeout', '120', 'app'], cwd=checkout,
-                    stdin=json.dumps(original_compose))
-            else:
-                try:
-                    run(compose + ['stop', '--timeout', '30', 'app'], cwd=checkout)
-                except (OSError, RuntimeError):
-                    print('Could not confirm the target app stopped; inspect it before recovery.',
-                          file=sys.stderr, flush=True)
-                print('Schema changed or cannot be verified. Keeping the target image selected; '
-                      'do not restore the schema-8 image. Explicit roll-forward recovery is required.',
-                      file=sys.stderr, flush=True)
-            raise
-
-        receipt = {
-            'deployed_at': datetime.now(timezone.utc).isoformat(),
-            'revision': revision, 'image': image, 'image_id': built['Id'],
-            'previous_image': previous['Config']['Image'],
-            'checkout': str(checkout), 'database_container_unchanged': True,
-            'runtime_configuration_unchanged': True, 'healthy': True,
-        }
+    migration_started = False
+    migration_applied = False
+    migrator_settled = True
+    quiesced_state = None
+    new_migration_state = None
+    try:
         if migrate_to:
-            receipt.update({
-                'migration_from': 8, 'migration_to': migrate_to,
-                'migration_checksum': target_receipts[migrate_to],
-                'migration_applied': migration_applied,
-                'retained_state_unchanged': True,
-                'quiesced_retained_state': quiesced_state,
-                'migration_new_state': new_migration_state,
-            })
-        receipts = runtime / '.deploy'
-        receipts.mkdir(mode=0o700, exist_ok=True)
-        atomic_write(receipts / 'current-git-release.json',
-                     (json.dumps(receipt, indent=2) + '\n').encode())
-        print(f'Deployed {revision}; app healthy, database and runtime settings retained.')
+            print('Stopping only the app before the schema-9 upgrade.', flush=True)
+            run(compose + ['stop', '--timeout', '30', 'app'], cwd=checkout)
+            migration_started = True
+            # Fingerprint while all app writers/workers are stopped. Only the
+            # intentional new columns/tables/receipt are excluded from parity.
+            # The added consent defaults and empty reminder tables are verified separately.
+            quiesced_state = retained_state(checkout, db_id)
+        atomic_write(env_file, updated_env)
+        run(compose + ['config', '--quiet'], cwd=checkout)
+        if migrate_to:
+            migration_error = None
+            migrator_name = f'bikerskz-migrate-{uuid.uuid4().hex}'
+            migrator_settled = False
+            try:
+                # compose run has no --no-build flag. Omitting --build and
+                # forbidding pulls consumes the already verified local image.
+                print('Applying the explicit schema-9 upgrade with the verified image.', flush=True)
+                run(compose + ['run', '-T', '--name', migrator_name, '--no-deps', '--pull', 'never',
+                               'app', 'migrate'], cwd=checkout)
+            except (OSError, RuntimeError) as error:
+                migration_error = error
+            settle_migrator(checkout, migrator_name)
+            migrator_settled = True
+            observed = schema_receipts(checkout, db_id)
+            if observed == target_receipts:
+                migration_applied = True
+                if migration_error:
+                    print('Migration command failed, but exact schema-9 receipts confirm commit; continuing activation.',
+                          file=sys.stderr, flush=True)
+            elif observed == previous_receipts:
+                raise RuntimeError('Migration did not commit; schema 8 remains intact') from migration_error
+            else:
+                raise RuntimeError('Unexpected migration receipts; app remains stopped for explicit recovery')
+            if retained_state(checkout, db_id) != quiesced_state:
+                raise RuntimeError('Migration changed retained database state; explicit recovery required')
+            new_migration_state = migration_additions(checkout, db_id)
+        run(compose + ['up', '-d', '--no-deps', '--no-build', '--wait',
+                       '--wait-timeout', '120', 'app'], cwd=checkout)
+        current = inspect(run(compose + ['ps', '-q', 'app'], cwd=checkout))
+        current_db = inspect(run(compose + ['ps', '-q', 'db'], cwd=checkout))
+        unchanged = (
+            sorted(previous['Config']['Env']) == sorted(current['Config']['Env'])
+            and previous['Mounts'] == current['Mounts']
+            and previous['HostConfig']['PortBindings'] == current['HostConfig']['PortBindings']
+            and database['Id'] == current_db['Id']
+            and database['State']['StartedAt'] == current_db['State']['StartedAt']
+        )
+        if not unchanged:
+            raise RuntimeError('Runtime environment, ports, mounts or database changed')
+        if current['Image'] != built['Id'] or current['State']['Health']['Status'] != 'healthy':
+            raise RuntimeError('New app did not become healthy with the expected image')
+        if current['Config']['User'] != '10001:10001' or not current['HostConfig']['ReadonlyRootfs']:
+            raise RuntimeError('App must remain unprivileged with a read-only root filesystem')
+    except Exception:
+        safe_old_image = not migration_started
+        if migration_started:
+            # CLI exit status cannot determine whether COMMIT succeeded.
+            # Never put the old executable back against schema 9 or an
+            # unknown/unreadable receipt state, and never erase new data.
+            try:
+                safe_old_image = (migrator_settled and
+                                  schema_receipts(checkout, db_id) == previous_receipts)
+            except Exception:
+                safe_old_image = False
+        if safe_old_image:
+            atomic_write(env_file, original_env)
+            print('Activation failed; restoring the previous app image.', file=sys.stderr, flush=True)
+            # Resolved configuration stays in memory; it includes private values.
+            rollback = compose[:-2] + ['-f', '-']
+            run(rollback + ['up', '-d', '--no-deps', '--no-build', '--wait',
+                            '--wait-timeout', '120', 'app'], cwd=checkout,
+                stdin=json.dumps(original_compose))
+        else:
+            try:
+                run(compose + ['stop', '--timeout', '30', 'app'], cwd=checkout)
+            except (OSError, RuntimeError):
+                print('Could not confirm the target app stopped; inspect it before recovery.',
+                      file=sys.stderr, flush=True)
+            print('Schema changed or cannot be verified. Keeping the target image selected; '
+                  'do not restore the schema-8 image. Explicit roll-forward recovery is required.',
+                  file=sys.stderr, flush=True)
+        raise
+
+    receipt = {
+        'deployed_at': datetime.now(timezone.utc).isoformat(),
+        'revision': revision, 'image': image, 'image_id': built['Id'],
+        'previous_image': previous['Config']['Image'],
+        'checkout': str(checkout), 'database_container_unchanged': True,
+        'runtime_configuration_unchanged': True, 'healthy': True,
+    }
+    if migrate_to:
+        receipt.update({
+            'migration_from': 8, 'migration_to': migrate_to,
+            'migration_checksum': target_receipts[migrate_to],
+            'migration_applied': migration_applied,
+            'retained_state_unchanged': True,
+            'quiesced_retained_state': quiesced_state,
+            'migration_new_state': new_migration_state,
+        })
+    receipts = runtime / '.deploy'
+    receipts.mkdir(mode=0o700, exist_ok=True)
+    atomic_write(receipts / 'current-git-release.json',
+                 (json.dumps(receipt, indent=2) + '\n').encode())
+    print(f'Deployed {revision}; app healthy, database and runtime settings retained.')
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--runtime-dir', type=Path, default=Path('/home/user/apps/bikerskz'))
+    parser.add_argument('--runtime-dir', type=Path,
+                        default=Path(os.environ.get('BIKERSKZ_DEPLOY_RUNTIME_DIR', '/home/user/apps/bikerskz')))
     parser.add_argument('--migrate-to', type=int, choices=(9,),
                         help='Explicitly coordinate the reviewed schema 8 to 9 upgrade')
     args = parser.parse_args()
