@@ -54,6 +54,28 @@ func (s *Store) Bike(ctx context.Context, id string) (models.Bike, error) {
 	return scanBike(s.pool.QueryRow(ctx, "SELECT "+bikeColumns+" FROM bikes WHERE id=$1", id))
 }
 
+func (s *Store) PublicBikes(ctx context.Context, query database.PublicBikeQuery) ([]models.Bike, error) {
+	rows, err := s.pool.Query(ctx, `SELECT `+bikeColumns+` FROM bikes
+ WHERE visibility='public'
+   AND NOT EXISTS(SELECT 1 FROM moderation_hidden h WHERE h.target_type='bike' AND h.target_id=bikes.id)
+   AND ($1='' OR strpos(lower(make||' '||model),lower($1))>0)
+   AND ($2='' OR id>NULLIF($2,'')::uuid)
+ ORDER BY id LIMIT $3`, query.Search, query.AfterID, query.Limit)
+	if err != nil {
+		return nil, repositoryError(err)
+	}
+	defer rows.Close()
+	out := []models.Bike{}
+	for rows.Next() {
+		bike, err := scanBike(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, bike)
+	}
+	return out, repositoryError(rows.Err())
+}
+
 type garageOwnerTransaction struct {
 	ctx   context.Context
 	tx    pgx.Tx

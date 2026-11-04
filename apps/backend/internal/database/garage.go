@@ -13,9 +13,17 @@ type GarageRepository interface {
 	ContentHidden(context.Context, string, string) (bool, error)
 	PhotoRepository
 	Bikes(context.Context, string, string, int) ([]models.Bike, error)
+	PublicBikes(context.Context, PublicBikeQuery) ([]models.Bike, error)
 	Bike(context.Context, string) (models.Bike, error)
 	WithGarageOwner(context.Context, string, GarageOwnerDecision) error
 	WithBike(context.Context, string, BikeDecision) error
+}
+
+// PublicBikeQuery selects explicitly published, moderation-visible bikes before
+// keyset pagination. Search is a literal case-insensitive make/model substring.
+type PublicBikeQuery struct {
+	Search, AfterID string
+	Limit           int
 }
 
 type GarageOwnerTransaction interface {

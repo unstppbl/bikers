@@ -70,6 +70,11 @@ type BikePage struct {
 	NextCursor string `json:"next_cursor"`
 }
 
+type PublicBikePage struct {
+	Bikes      []PublicBike `json:"bikes"`
+	NextCursor string       `json:"next_cursor"`
+}
+
 type MaintenanceEntry struct {
 	ID            string    `json:"id"`
 	BikeID        string    `json:"bike_id"`

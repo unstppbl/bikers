@@ -27,7 +27,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setCsrfToken(value.csrf_token)
       const previousActor = queryClient.getQueryData<Session>(['session'])?.user?.id
       if (!value.user || previousActor !== value.user.id) {
-        const privateQuery = (query: { queryKey: readonly unknown[]; meta?: Record<string, unknown> }) => query.meta?.private === true || ['preferences', 'messages', 'participants', 'garage', 'bike', 'public-bike', 'bike-photos', 'maintenance', 'club', 'clubs', 'club-image', 'club-members', 'linkable-rides'].includes(String(query.queryKey[0])) || (query.queryKey[0] === 'ride' && query.queryKey[2] !== 'guest') || (query.queryKey[0] === 'rides' && query.queryKey[1] !== 'guest')
+        const privateQuery = (query: { queryKey: readonly unknown[]; meta?: Record<string, unknown> }) => query.meta?.private === true || ['preferences', 'messages', 'participants', 'garage', 'bike', 'public-bike', 'public-bikes', 'bike-photos', 'maintenance', 'club', 'clubs', 'club-image', 'club-members', 'linkable-rides'].includes(String(query.queryKey[0])) || (query.queryKey[0] === 'ride' && query.queryKey[2] !== 'guest') || (query.queryKey[0] === 'rides' && query.queryKey[1] !== 'guest')
         void queryClient.cancelQueries({ predicate: privateQuery })
         queryClient.removeQueries({ predicate: privateQuery })
       }

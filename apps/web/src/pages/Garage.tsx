@@ -73,6 +73,8 @@ function BikeForm({ bike, reload }: { bike?: Bike; reload: () => void }) {
       if (!currentSession()) return
       await queryClient.invalidateQueries({ queryKey: ['garage', user?.id] })
       if (!currentSession()) return
+      await queryClient.invalidateQueries({ queryKey: ['public-bikes'] })
+      if (!currentSession()) return
       queryClient.setQueryData(['bike', result.bike.id, user?.id], result)
       void navigate(`/garage/${result.bike.id}`)
     } catch (value) { setError(value) }
@@ -110,14 +112,14 @@ function BikeOwnerContent({ bike }: { bike: Bike }) {
     const publish = bike.visibility === 'private'
     if (!await confirm({ message: t(publish ? 'shareBikeConfirm' : 'hideBikeConfirm'), action: t(publish ? 'shareBike' : 'hideBike') }) || !currentSession()) return
     setBusy(true); setError(undefined)
-    try { const result = await mutation<{ bike: Bike }>(`/me/bikes/${bike.id}`, 'PATCH', { version: bike.version, visibility: publish ? 'public' : 'private' }); if (!currentSession()) return; queryClient.setQueryData(['bike', bike.id, user?.id], result); await queryClient.invalidateQueries({ queryKey: ['garage', user?.id] }); await queryClient.invalidateQueries({ queryKey: ['public-bike', bike.id] }) }
+    try { const result = await mutation<{ bike: Bike }>(`/me/bikes/${bike.id}`, 'PATCH', { version: bike.version, visibility: publish ? 'public' : 'private' }); if (!currentSession()) return; queryClient.setQueryData(['bike', bike.id, user?.id], result); await queryClient.invalidateQueries({ queryKey: ['garage', user?.id] }); if (!currentSession()) return; await queryClient.invalidateQueries({ queryKey: ['public-bikes'] }); if (!currentSession()) return; await queryClient.invalidateQueries({ queryKey: ['public-bike', bike.id] }) }
     catch (value) { setError(value) } finally { setBusy(false) }
   }
   async function remove() {
     const currentSession = captureSession()
     if (!await confirm({ message: t('deleteBikeConfirm'), action: t('deleteBike'), destructive: true }) || !currentSession()) return
     setBusy(true); setError(undefined)
-    try { await mutation(`/me/bikes/${bike.id}`, 'DELETE', { version: bike.version }); if (!currentSession()) return; queryClient.removeQueries({ queryKey: ['maintenance', bike.id] }); queryClient.removeQueries({ queryKey: ['bike-photos', bike.id] }); queryClient.removeQueries({ queryKey: ['bike', bike.id] }); queryClient.removeQueries({ queryKey: ['public-bike', bike.id] }); await queryClient.invalidateQueries({ queryKey: ['garage', user?.id] }); if (!currentSession()) return; void navigate('/garage') }
+    try { await mutation(`/me/bikes/${bike.id}`, 'DELETE', { version: bike.version }); if (!currentSession()) return; queryClient.removeQueries({ queryKey: ['maintenance', bike.id] }); queryClient.removeQueries({ queryKey: ['bike-photos', bike.id] }); queryClient.removeQueries({ queryKey: ['bike', bike.id] }); queryClient.removeQueries({ queryKey: ['public-bike', bike.id] }); await queryClient.invalidateQueries({ queryKey: ['garage', user?.id] }); if (!currentSession()) return; await queryClient.invalidateQueries({ queryKey: ['public-bikes'] }); if (!currentSession()) return; void navigate('/garage') }
     catch (value) { setError(value) } finally { setBusy(false) }
   }
   return <div className="page-content bike-detail-page">{dialog}<Link className="back-link" to="/garage"><ArrowLeft size={17} />{t('backToGarage')}</Link><div className="collection-heading"><div className="page-heading"><span className="eyebrow">{bike.make} · {bike.year}</span><h1>{bike.model}</h1><p>{t(bike.visibility === 'public' ? 'publicBikeNote' : 'privateBikeNote')}</p></div><Link className="button button-outline" to={`/garage/${bike.id}/edit`}><Pencil size={16} />{t('editBike')}</Link></div>
@@ -203,5 +205,5 @@ export function PublicBikePage() {
   if (query.isPending) return <Loading />
   if (query.isError) return <div className="page-content"><ErrorNotice text={t('publicBikeUnavailable')} /></div>
   const bike = query.data.bike
-  return <div className="page-content narrow-page"><Link className="back-link" to="/"><ArrowLeft size={17} />{t('back')}</Link><section className="surface public-bike-card"><span className="eyebrow">{t(managedBike(bike, user?.id) && bike.visibility === 'private' ? 'bikePrivate' : 'publicBikeEyebrow')}</span><div className="public-bike-year">{bike.year}</div><h1>{bike.make}<br /><span>{bike.model}</span></h1><BikeCover bike={bike} /><BikePhotos bike={bike} /><ReportButton targetType="bike" targetId={bike.id} /><div className="inline-note"><ShieldCheck size={20} /><p>{t('publicBikePrivacy')}</p></div>{managedBike(bike, user?.id) && <Link className="button button-outline" to={`/garage/${bike.id}`}>{t('garage')}<ArrowRight size={17} /></Link>}</section></div>
+  return <div className="page-content narrow-page"><Link className="back-link" to="/bikes"><ArrowLeft size={17} />{t('backToBikes')}</Link><section className="surface public-bike-card"><span className="eyebrow">{t(managedBike(bike, user?.id) && bike.visibility === 'private' ? 'bikePrivate' : 'publicBikeEyebrow')}</span><div className="public-bike-year">{bike.year}</div><h1>{bike.make}<br /><span>{bike.model}</span></h1><BikeCover bike={bike} /><BikePhotos bike={bike} /><ReportButton targetType="bike" targetId={bike.id} /><div className="inline-note"><ShieldCheck size={20} /><p>{t('publicBikePrivacy')}</p></div>{managedBike(bike, user?.id) && <Link className="button button-outline" to={`/garage/${bike.id}`}>{t('garage')}<ArrowRight size={17} /></Link>}</section></div>
 }

@@ -56,6 +56,7 @@ The web client translates error codes into its selected language; the server mes
 | GET (WebSocket) | `/events?ride_id={id}` | Foreground hints to refresh authorized state |
 | GET | `/bike-models?query=...` | Curated model/alias lookup with verified model-year image metadata, up to 20 results |
 | GET / POST | `/me/bikes` | Page the owner's garage or create a private-by-default bike |
+| GET | `/bikes` | Page explicitly public, non-hidden bikes; literal make/model search with `q`, UUID `cursor` |
 | GET | `/bikes/{id}` | Owner record or explicitly public basic projection |
 | PATCH / DELETE | `/me/bikes/{id}` | Edit/delete with `version` |
 | GET / POST | `/me/bikes/{bikeID}/maintenance` | Page or create private maintenance entries |
@@ -115,6 +116,21 @@ A full ride uses `title`, `city`, `description`, `starts_at` (RFC 3339), `timezo
 A message uses a caller-generated UUID `client_message_id` and `body`. Retrying the same ID with the same body returns the existing message; a different body conflicts. Database-assigned room sequences determine ordering. Use `GET .../messages?after={sequence}` and follow `next_sequence` to catch up in batches of up to 100. Persisted messages remain the source of truth after reconnects; WebSocket events are hints, not durable background delivery. Cancelled rooms retain their history and reject new messages.
 
 Bikes use `make`, `model`, optional curated `model_id`, `year`, and `visibility` (`private` by default or explicitly `public`). An owner sees the full record; everyone else sees only `id`, `make`, `model`, `model_id`, and `year` for a public bike. Private and missing bikes both return `404`. Maintenance is never included in public bike payloads. A selected model ID supplies canonical make/model values; freeform entries cover bikes outside the small curated vocabulary. Latin/Cyrillic aliases ignore case and punctuation.
+
+The public `/bikes` catalogue uses `GET /api/v1/bikes?q=...&cursor=...` and returns
+`{bikes, next_cursor}` with 20 results per page in stable UUID order. Search is a
+case-insensitive literal make/model substring, bounded to 200 bytes. Visibility,
+moderation and search filters apply before pagination. Every viewer, including
+the owner, receives only the same five public bike fields in this collection.
+Published-content blocking rules remain unchanged. No database migration is
+required.
+
+The catalogue reuses existing authorized photo covers and verified model
+references. Search and cursors live in the URL; changing search or session resets
+paging. Client cache entries whitelist the public projection and remain scoped
+to the resolved viewer. Owner edits, sharing/hiding and deletion invalidate the
+catalogue. Publishing confirmation explains that the bike and its public photos
+can be discovered here; new bikes remain private by default.
 
 Maintenance uses `service_date` (`YYYY-MM-DD`), integer `mileage_km` from 0 to 10,000,000, and trimmed `work_performed` up to 4,000 bytes. Dates must be valid and no later than today in Asia/Almaty. Backfilled entries do not require monotonic mileage. Owner-only bike pages use ascending UUID cursors; private maintenance pages use an opaque date/UUID cursor in descending date/ID order. Both return 50 records and `next_cursor` (empty at the end). Wrong bike/account entry IDs return `404`. Bike/entry edits and deletions require the current `version`; stale writes return `409 stale_version`.
 

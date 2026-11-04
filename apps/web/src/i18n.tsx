@@ -11,8 +11,10 @@ import { ridesEn, ridesKk, ridesRu } from './rides-i18n'
 import { clubNotificationsEn, clubNotificationsKk, clubNotificationsRu } from './club-notifications-i18n'
 import { clubDiscoveryEn, clubDiscoveryKk, clubDiscoveryRu } from './club-discovery-i18n'
 import { notificationFeaturesEn, notificationFeaturesKk, notificationFeaturesRu } from './notification-features-i18n'
+import { bikeCatalogueEn, bikeCatalogueKk, bikeCatalogueRu } from './bike-catalogue-i18n'
 
 const en = {
+  ...bikeCatalogueEn,
   ...clubDiscoveryEn,
   ...notificationFeaturesEn,
   ...clubNotificationsEn,
@@ -94,6 +96,7 @@ const en = {
 
 type Key = keyof typeof en
 const ru: Record<Key, string> = {
+  ...bikeCatalogueRu,
   ...clubDiscoveryRu,
   ...notificationFeaturesRu,
   ...clubNotificationsRu,
@@ -174,6 +177,7 @@ const ru: Record<Key, string> = {
 }
 
 const kk: Record<Key, string> = {
+  ...bikeCatalogueKk,
   ...clubDiscoveryKk,
   ...notificationFeaturesKk,
   ...clubNotificationsKk,

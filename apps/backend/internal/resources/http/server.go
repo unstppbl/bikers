@@ -129,6 +129,7 @@ func New(settings Settings, managers Managers) *Server {
 	m.HandleFunc("POST /api/v1/rides/{id}/messages", s.postMessage)
 	m.HandleFunc("GET /api/v1/events", s.events)
 	m.HandleFunc("GET /api/v1/bike-models", s.searchBikeModels)
+	m.HandleFunc("GET /api/v1/bikes", s.publicBikes)
 	m.HandleFunc("GET /api/v1/me/bikes", s.listBikes)
 	m.HandleFunc("POST /api/v1/me/bikes", s.createBike)
 	m.HandleFunc("GET /api/v1/bikes/{id}", s.getBike)

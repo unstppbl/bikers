@@ -3598,6 +3598,16 @@ svg {
   color: var(--text);
 }
 
+.bike-catalogue-filters .ride-filter-fields {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.catalogue-bike-card .bike-identity h2 {
+  margin: 0;
+  font: var(--type-heading-5);
+  overflow-wrap: anywhere;
+}
+
 @media(max-width:760px) {
 
   .model-reference-detail {
