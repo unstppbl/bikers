@@ -1,0 +1,59 @@
+name: Request production deployment
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: request-production-deployment
+  cancel-in-progress: false
+
+jobs:
+  dispatch-deployment:
+    name: Dispatch private deployment
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == 'unstppbl/bikers'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Create a private deployment dispatch token
+        id: app-token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.DEPLOY_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DEPLOY_APP_PRIVATE_KEY }}
+          owner: unstppbl
+          repositories: bikers-deploy
+          permission-actions: write
+      - name: Dispatch tested revision
+        env:
+          DEPLOY_TOKEN: ${{ steps.app-token.outputs.token }}
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          python3 - <<'PY'
+          import json, os, re
+          from urllib.request import Request, urlopen
+          revision = os.environ['SOURCE_SHA']
+          if not re.fullmatch(r'[0-9a-f]{40}', revision):
+              raise SystemExit('Invalid source revision')
+          payload = {'ref': 'main', 'inputs': {'source_sha': revision, 'retry': False}}
+          request = Request(
+              'https://api.github.com/repos/unstppbl/bikers-deploy/actions/workflows/deploy.yml/dispatches',
+              data=json.dumps(payload).encode(), method='POST',
+              headers={'Authorization': 'Bearer ' + os.environ['DEPLOY_TOKEN'],
+                       'Accept': 'application/vnd.github+json',
+                       'X-GitHub-Api-Version': '2022-11-28',
+                       'User-Agent': 'bikers-tested-main-deployment'})
+          with urlopen(request, timeout=30) as response:
+              if response.status != 204:
+                  raise SystemExit('Private deployment dispatch was not accepted')
+          print('Private deployment requested for ' + revision)
+          PY
