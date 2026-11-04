@@ -50,3 +50,59 @@ func TestMalformedInboxCursorsAndDisabledPushFailBeforeRepositoryAccess(t *testi
 		t.Fatal("unconfigured push worker did not idle", err)
 	}
 }
+
+func TestClubPushEligibilityRechecksOwnershipMembershipAndSession(t *testing.T) {
+	base := models.PushDelivery{
+		Kind: "club.membership.requested", ClubID: "club", ClubStatus: "active", ClubOwnerID: "owner",
+		AccountActive: true, SessionActive: true,
+		Subscription: models.PushSubscriptionRecord{UserID: "owner"},
+	}
+	for _, test := range []struct {
+		name    string
+		change  func(*models.PushDelivery)
+		allowed bool
+	}{
+		{name: "current owner request", allowed: true},
+		{name: "transferred owner", change: func(d *models.PushDelivery) { d.ClubOwnerID = "new-owner" }},
+		{name: "closed club request", change: func(d *models.PushDelivery) { d.ClubStatus = "closed" }},
+		{name: "approved member", change: func(d *models.PushDelivery) {
+			d.Kind = "club.membership.approved"
+			d.Subscription.UserID = "member"
+			d.ClubMembershipState = "approved"
+		}, allowed: true},
+		{name: "approved became owner", change: func(d *models.PushDelivery) { d.Kind = "club.membership.approved" }, allowed: true},
+		{name: "approved member left", change: func(d *models.PushDelivery) {
+			d.Kind = "club.membership.approved"
+			d.Subscription.UserID = "member"
+			d.ClubMembershipState = "left"
+		}},
+		{name: "approved club closed", change: func(d *models.PushDelivery) { d.Kind = "club.membership.approved"; d.ClubStatus = "closed" }},
+		{name: "rejected applicant", change: func(d *models.PushDelivery) {
+			d.Kind = "club.membership.rejected"
+			d.Subscription.UserID = "applicant"
+			d.ClubMembershipState = "rejected"
+		}, allowed: true},
+		{name: "removed member", change: func(d *models.PushDelivery) {
+			d.Kind = "club.membership.removed"
+			d.Subscription.UserID = "member"
+			d.ClubMembershipState = "removed"
+		}, allowed: true},
+		{name: "outcome after closure", change: func(d *models.PushDelivery) { d.Kind = "club.membership.rejected"; d.ClubStatus = "closed" }, allowed: true},
+		{name: "revoked session", change: func(d *models.PushDelivery) { d.SessionActive = false }},
+		{name: "restricted account", change: func(d *models.PushDelivery) { d.AccountActive = false }},
+		{name: "unknown kind", change: func(d *models.PushDelivery) { d.Kind = "club.membership.future" }},
+		{name: "ambiguous target", change: func(d *models.PushDelivery) { d.RideID = "ride" }},
+		{name: "missing club", change: func(d *models.PushDelivery) { d.ClubID = "" }},
+		{name: "missing recipient", change: func(d *models.PushDelivery) { d.Subscription.UserID = "" }},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			delivery := base
+			if test.change != nil {
+				test.change(&delivery)
+			}
+			if allowed := pushAllowed(delivery); allowed != test.allowed {
+				t.Fatalf("push allowed=%v, want %v", allowed, test.allowed)
+			}
+		})
+	}
+}

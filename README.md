@@ -10,7 +10,7 @@ The application implements Telegram OTP sign-in, profile onboarding, paginated r
 
 Structured garages support multiple bikes, curated model/alias lookup with freeform entry and verified model-year reference photos, explicit public sharing, private maintenance logs, and processed owner-uploaded bike photos. Catalogue pictures remain the default until an owner explicitly chooses an uploaded cover; deleting that cover restores the catalogue. Photos follow the bike's visibility. Basic clubs support owner-approved membership, ownership transfer, closure, linked public ride previews, and one optional public club image. Club images remain public after closure; closed clubs reject image changes. Club membership never grants private ride access.
 
-The agreed MVP also includes profile avatars, participant-only ride albums and external video links, separate organizer announcements, a durable notification inbox, opt-in Web Push, reporting, bilateral blocks, an administrator review queue, audited manual community badges, and independent country/language/currency settings. Telegram phone verification does not award a badge. Public pilot operations and real-device push acceptance remain separate from local software verification.
+The agreed MVP also includes profile avatars, participant-only ride albums and external video links, separate organizer announcements, a durable notification inbox for ride updates and club membership requests/decisions, opt-in Web Push, reporting, bilateral blocks, an administrator review queue, audited manual community badges, and independent country/language/currency settings. Telegram phone verification does not award a badge. Public pilot operations and real-device push acceptance remain separate from local software verification.
 
 ## Run with Docker Compose
 
@@ -27,7 +27,7 @@ make up
 
 Open the origin configured by `BASE_URL` (the example is `http://localhost:3042`). `make logs` follows application logs; `make down` stops services while preserving volumes. Migration is explicit. PostgreSQL has no published host port. The application runs as an unprivileged user with persistent database and media volumes.
 
-The migration command applies versions 1–7 and verifies applied checksums. Versions 5–7 add avatars/ride media, moderation/admin state, and announcements/notifications/preferences. Versions 1–4 stay unchanged. Upgrade an existing database explicitly before expecting readiness. All uploaded images share bounded PostgreSQL `bytea` storage and processing limits, so database backups include them; `MEDIA_DIR` remains reserved for future media.
+The migration command applies versions 1–8 and verifies applied checksums. Versions 5–7 add avatars/ride media, moderation/admin state, and announcements/notifications/preferences; version 8 adds club membership notification targets. Previously applied SQL stays unchanged. Upgrade an existing database explicitly before expecting readiness. All uploaded images share bounded PostgreSQL `bytea` storage and processing limits, so database backups include them; `MEDIA_DIR` remains reserved for future media.
 
 See [Operations](docs/operations.md) for audited administrator bootstrap, optional VAPID configuration, backup/restore and rollback. Users opt into push in Settings; the inbox works without push credentials or permissions.
 
@@ -50,8 +50,8 @@ make deploy-jarvis
 The deployment builds the clean checkout on Jarvis, tags the image with the full
 Git commit and records the revision in an OCI label. It replaces only the app;
 the existing private `/home/user/apps/bikerskz/.env`, database and media volumes
-remain in place. Activation failure restores the previous app image. Migrations
-are a separate explicit operation. See [repository deployments](docs/operations.md#repository-deployments-on-jarvis)
+remain in place. Activation failure restores the previous app image. Schema upgrades require an explicit coordinated operation; migration 8 uses
+`make deploy-jarvis DEPLOY_ARGS='--migrate-to 8'`. See [repository deployments](docs/operations.md#repository-deployments-on-jarvis)
 for initial cloning, verification and rollback. Production images are built on
 Jarvis rather than built locally and copied there.
 

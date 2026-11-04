@@ -15,7 +15,8 @@ type PreferencesPatch struct {
 type Notification struct {
 	ID        string     `json:"id"`
 	Kind      string     `json:"kind"`
-	RideID    string     `json:"ride_id"`
+	RideID    string     `json:"ride_id,omitempty"`
+	ClubID    string     `json:"club_id,omitempty"`
 	CreatedAt time.Time  `json:"created_at"`
 	ReadAt    *time.Time `json:"read_at"`
 	Sequence  int64      `json:"-"`
@@ -26,9 +27,9 @@ type NotificationPage struct {
 	UnreadCount   int            `json:"unread_count"`
 }
 type NotificationIntent struct {
-	EventID, Kind, RideID string
-	Recipients            []string
-	CreatedAt             time.Time
+	EventID, Kind, RideID, ClubID string
+	Recipients                    []string
+	CreatedAt                     time.Time
 }
 type Announcement struct {
 	ID                   string    `json:"id"`
@@ -75,11 +76,12 @@ type PushAccount struct {
 	Preferences Preferences
 }
 type PushDelivery struct {
-	ID, LeaseID, Kind, Locale                 string
-	NotificationID, RideID                    string
-	Subscription                              PushSubscriptionRecord
-	Attempts                                  int
-	AccountActive, SessionActive, RideAllowed bool
+	ID, LeaseID, Kind, Locale                    string
+	NotificationID, RideID, ClubID               string
+	ClubStatus, ClubOwnerID, ClubMembershipState string
+	Subscription                                 PushSubscriptionRecord
+	Attempts                                     int
+	AccountActive, SessionActive, RideAllowed    bool
 }
 type PushDeliveryResult struct {
 	State              string

@@ -20,6 +20,7 @@ type ClubTransaction interface {
 	Club() models.Club
 	Membership(string) (models.ClubMembership, error)
 	SetMembership(string, string, time.Time) error
+	Notify(models.NotificationIntent) error
 	UpdateClub(models.Club, time.Time) error
 	Members(bool) ([]models.ClubMember, error)
 	LinkedRides(time.Time, int) ([]models.RideSummary, error)

@@ -146,7 +146,38 @@ Health endpoints are `/health/live` and `/health/ready`. Readiness checks all se
 
 An avatar has one current image and one pending replacement. Context endpoints expose no self-edit version and there is no global avatar directory. Album defaults are 24 photos per ride/six per uploader and twelve video links per ride/three per uploader. Removed members lose album and avatar access. Upload finalization rejects removal/reapproval, plan changes and account restriction during processing. Cancelled rides keep readable albums and allow deletion but reject new media. External videos are validated HTTPS links opened with safe browser attributes; the server does not fetch them.
 
-Announcements use `client_announcement_id` and plain `body` up to 4,000 bytes, with UUID/body-bound retries and descending `before` pagination. They remain separate from chat and readable after cancellation. Significant plan changes, cancellations, announcements and participation transitions write inbox/outbox intent atomically. Inbox and push payloads contain generic kinds/ride IDs, never exact meeting details or bodies. Push is optional and uses bounded leased retries outside locks; see [Operations](operations.md#optional-web-push).
+Announcements use `client_announcement_id` and plain `body` up to 4,000 bytes, with UUID/body-bound retries and descending `before` pagination. They remain separate from chat and readable after cancellation. Significant plan changes, cancellations, announcements and participation transitions write inbox/outbox intent atomically. Inbox entries contain a kind and exactly one optional target field: `ride_id` for ride/participation events, or `club_id` for club membership events. They contain no applicant names, club names, meeting details or message bodies. Push payloads remain generic and always open `/inbox`. Push is optional and uses bounded leased retries outside locks; see [Operations](operations.md#optional-web-push).
+
+### Club membership notifications
+
+New membership requests create `club.membership.requested` for the current
+owner. Actual approval, rejection and removal create
+`club.membership.approved`, `club.membership.rejected` and
+`club.membership.removed` for the affected rider. The inbox action opens
+`/clubs/{club_id}` using the normal club permissions. A membership notice does
+not grant roster or ride access.
+
+Membership state, inbox insertion and optional push jobs commit together.
+Repeating a request or a decision without changing state creates no duplicate
+notice. A failed notification write rolls back the membership transition.
+Withdrawal followed by a new request is a new event. Existing requests are not
+backfilled, and ownership transfer does not move historical inbox entries to
+the new owner; subsequent requests notify the current owner.
+
+Push delivery retains account/session checks. Request alerts additionally
+require an active club and current owner; approval alerts require an active
+club and current approved membership or ownership. Rejection/removal notices
+can reach the affected rider after membership access ends. These are
+application decisions in `managers/notifications`; the repository loads current
+club facts while claiming jobs, then network delivery occurs after commit.
+The existing generic localized lock-screen text and `/inbox` destination stay
+unchanged.
+
+Migration 8 adds nullable `club_id` and enforces exactly one kind-matching
+ride/club target while preserving old ride notices and push jobs. Versions 1–7
+remain immutable. Apply the explicit schema upgrade as a coordinated rollout
+before activating this executable; the deployment helper only applies this upgrade with the explicit
+`--migrate-to 8` target. See [the coordinated rollout](operations.md#club-notification-schema-upgrade).
 
 ## Reporting blocking and administration
 
@@ -253,6 +284,12 @@ cd apps/backend
 BROWSER_HARNESS=1 TEST_DATABASE_URL='postgres://user:password@127.0.0.1:5432/test_db?sslmode=disable' go test ./internal/app -run '^TestBrowserHarness$' -v -timeout 20m
 ```
 
-Open `http://127.0.0.1:8081`. In this test binary only, use a valid phone number and code `123456`. Each run creates an isolated schema, and the harness stops after ten minutes by default. Set `BROWSER_HARNESS_SECONDS` and the Go test timeout together for longer reviews. Cleanup removes the test schema on normal exit; do not use this against a production database.
+Open `http://127.0.0.1:8081`. In this test binary only, use a valid phone number and code `123456`. Each run creates an isolated schema, and the harness stops after ten minutes by default. Set `BROWSER_HARNESS_SECONDS` and the Go test timeout together for longer reviews. Cleanup removes the test schema on normal exit; do not use this against a production database. For the club-notification browser fixture,
+set `BROWSER_HARNESS_CLUB_NOTICES=1`. This seeds a disposable club, owner
+`+77011239902` and applicant `+77011239903`, with actual request/decision inbox
+history; both use the fake code `123456`. The latest request remains pending so
+an owner can approve it through the UI, then sign in as the applicant to inspect
+the new notice. All fixture generation is compiled only into the test binary.
+
 
 For frontend hot reload, run Vite on a fixed port (`npm run dev -- --port 5173 --strictPort`) and run the API on port 8080 with `BASE_URL=http://localhost:5173`. The browser origin, including hostname and port, must match. The Go CLI reads exported environment variables; it does not load `.env` automatically. Compose loads the root `.env` and supplies the internal paths and database URL.

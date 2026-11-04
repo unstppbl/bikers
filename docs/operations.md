@@ -50,7 +50,7 @@ Initial checkout, once the intended commit has been pushed:
 ```sh
 ssh user@100.64.0.3
 cd /home/user/apps/bikerskz
-git clone git@github.com:unstppbl/bikers.git repo
+git clone https://github.com/unstppbl/bikers.git repo
 cd repo
 make deploy-jarvis
 ```
@@ -71,11 +71,14 @@ image `bikerskz:git-<full-commit>`. The image's
 
 Activation atomically changes only `APP_IMAGE` in the private runtime file and
 runs Compose with an explicit environment path, checkout directory and project
-name. It replaces only the app with `--no-deps --no-build --wait`; it never runs
-migrations or starts/recreates the database. It verifies retained environment,
+name. The default app-only mode replaces the app with `--no-deps --no-build --wait`
+and never runs migrations or starts/recreates the database. The explicit
+[migration-8 mode](#club-notification-schema-upgrade) coordinates its schema cutover. It verifies retained environment,
 ports and media mounts, an unchanged database container/start time, and a
-healthy non-root/read-only app. Failure restores the previous environment
-bytes and app image using the resolved configuration held in memory. It does
+healthy non-root/read-only app. App-only failures, or migration failures with
+confirmed unchanged schema 7, restore the previous environment bytes and app
+image using the resolved configuration held in memory. A committed or unknown
+schema upgrade keeps the app stopped for roll-forward recovery. It does
 not create environment copies, database dumps or backups.
 
 After success, `.deploy/current-git-release.json` records the commit, image,
@@ -90,8 +93,8 @@ git log -1 --oneline
 curl --fail --silent https://bikers.kz/health/ready
 ```
 
-Configuration or schema changes need their own reviewed rollout. The helper
-does not apply migrations automatically. For a same-schema rollback, select a
+Configuration or schema changes need their own reviewed rollout. Migrations
+require an explicit supported target; the default helper never applies them. For a same-schema rollback, select a
 retained previous image in the private runtime `.env`, then use the repository
 Compose file while keeping the database running:
 
@@ -106,6 +109,49 @@ Use the schema-generation constraints in [Backup and restore](#backup-and-restor
 when considering older images. Secrets, sessions, push keys and database state
 stay outside the checkout.
 
+### Club notification schema upgrade
+
+The club membership notification executable requires migration 8. Its source
+implementation does not mean the production database has been upgraded; inspect
+the deployed receipt and schema before rollout. Migration 8 preserves existing
+ride notices/read state, push subscriptions/jobs and membership data, and does
+not backfill notifications or send messages.
+
+The coordinated path is explicit:
+
+```sh
+cd /home/user/apps/bikerskz/repo
+git pull --ff-only
+make deploy-jarvis DEPLOY_ARGS='--migrate-to 8'
+```
+
+This mode accepts only the reviewed schema-7 to schema-8 transition. It checks
+all stored migration checksums and the source migration list, then builds the
+clean pushed commit on Jarvis before pausing the app. It stops only the app,
+leaving PostgreSQL and persistent volumes running. The new image's `migrate`
+command runs without dependencies, published ports or application/push workers.
+After checking the exact schema-8 receipt and retained data, the helper activates
+the new app and waits for readiness.
+
+The migration window captures read-only row fingerprints and sequence
+values with app writes paused. Comparison excludes the newly added nullable
+notification target field and separately verifies unchanged receipts 1–7 and
+one matching receipt 8. The release receipt records these safe checks without
+storing database rows or private environment copies.
+
+If migration reports an error, recovery reads the actual receipts before
+selecting an image. The old app is restarted only when schema 7 is confirmed
+unchanged. A committed schema 8 keeps the new image selected and requires
+roll-forward recovery if activation fails; the helper never silently restores
+schema-7 code against schema 8 and never reverses database changes or deletes
+club notification data. See [Backup and restore](#backup-and-restore) for the
+cross-schema recovery boundary.
+
+Without `--migrate-to 8`, `make deploy-jarvis` remains app-only and does not run
+migrations. This migration opt-in does not create database dumps or backups,
+regenerate credentials, or send OTPs/test notifications. Normal opted-in push
+processing resumes with the app after activation.
+
 ## Configure and start
 
 Keep `.env` private and outside version control. Set `BASE_URL` to the exact browser origin, `APP_PORT` to a free homelab port, a unique URL-safe `POSTGRES_PASSWORD`, and `TELEGRAM_GATEWAY_TOKEN`. Do not enable fake authentication in the deployed executable; test authentication exists only in Go test binaries.
@@ -117,7 +163,7 @@ make migrate
 make up
 ```
 
-Migrations are explicit. Version 5 adds avatars and ride media, version 6 adds moderation, blocks, roles and badges, and version 7 adds preferences, announcements, inboxes and push delivery. All seven receipts and their checksums are checked by readiness. Previously applied SQL is immutable. Unknown versions and mismatched checksums fail closed.
+Migrations are explicit. Version 5 adds avatars and ride media, version 6 adds moderation, blocks, roles and badges, version 7 adds preferences, announcements, inboxes and push delivery, and version 8 adds club membership notification targets. All eight receipts and their checksums are checked by readiness. Previously applied SQL is immutable. Unknown versions and mismatched checksums fail closed.
 
 ## Administrator access
 
@@ -146,7 +192,7 @@ Use an actual operator contact URI. This command creates a new mode-0600 file an
 
 Users enable notifications in Settings. Permission is requested only after their button press; denied, unsupported and unconfigured states have guidance. iPhone/iPad users need a supported Home Screen web app. Test supported devices through the real HTTPS origin. [Push API](https://developer.mozilla.org/en-US/docs/Web/API/Push_API), [Apple Web Push guidance](https://developer.apple.com/documentation/usernotifications/sending-web-push-notifications-in-web-apps-and-browsers)
 
-Subscriptions are tied to a session, with at most five per account and device-removal controls. Delivery rechecks account, session and applicable ride membership. Rebinding an endpoint clears queued deliveries from its previous session. The worker leases durable jobs, makes network calls outside transactions, retries transient failures up to five attempts, and removes expired endpoints on 404/410. Delivery is at least once; notification tags reduce duplicates. Push uses generic localized text and a fixed `/inbox` link, with no rider name, ride title, meeting place, phone number or announcement body on the lock screen.
+Subscriptions are tied to a session, with at most five per account and device-removal controls. Delivery rechecks account, session and applicable ride/club membership or ownership. Club request alerts require the current active-club owner; club approvals require current active-club membership/ownership. Rejection and removal alerts can reach the affected rider after membership access ends. Rebinding an endpoint clears queued deliveries from its previous session. The worker leases durable jobs, makes network calls outside transactions, retries transient failures up to five attempts, and removes expired endpoints on 404/410. Delivery is at least once; notification tags reduce duplicates. Push uses generic localized text and a fixed `/inbox` link, with no rider name, club name, ride title, meeting place, phone number or announcement body on the lock screen.
 
 Provider HTTPS endpoints are allowlisted and DNS results must be public addresses. Redirects and proxy environment variables are ignored. Unsupported push providers require an explicit allowlist update. The client uses the established [webpush-go library](https://github.com/SherClockHolmes/webpush-go) for encryption and VAPID.
 

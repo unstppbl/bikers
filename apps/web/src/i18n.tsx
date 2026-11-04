@@ -8,8 +8,10 @@ import { installEn, installKk, installRu } from './install-i18n'
 import { preferencesEn, preferencesKk, preferencesRu } from './preferences-i18n'
 import { mvpEn, mvpKk, mvpRu } from './mvp-i18n'
 import { ridesEn, ridesKk, ridesRu } from './rides-i18n'
+import { clubNotificationsEn, clubNotificationsKk, clubNotificationsRu } from './club-notifications-i18n'
 
 const en = {
+  ...clubNotificationsEn,
   ...ridesEn,
   ...mvpEn,
   ...preferencesEn,
@@ -87,6 +89,7 @@ const en = {
 
 type Key = keyof typeof en
 const ru: Record<Key, string> = {
+  ...clubNotificationsRu,
   ...ridesRu,
   ...mvpRu,
   ...preferencesRu,
@@ -163,6 +166,7 @@ const ru: Record<Key, string> = {
 }
 
 const kk: Record<Key, string> = {
+  ...clubNotificationsKk,
   ...ridesKk,
   ...mvpKk,
   ...preferencesKk,

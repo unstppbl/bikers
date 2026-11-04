@@ -87,3 +87,20 @@ receipts and retained-state checks are in [Operations](operations.md#current-dep
 
 No schema migration is needed. Verification uses disposable local accounts and
 a fake authentication provider; it does not send real OTPs or push notifications.
+
+
+## Club membership notification follow-up — 4 November 2026
+
+The requested follow-up adds owner join-request alerts and applicant
+approval/rejection/removal alerts through the existing inbox and opt-in push.
+Membership and notification changes are atomic, and unchanged retries do not
+create duplicate alerts. Club inbox links use the existing access rules.
+Migration 8 is explicit and is verified only in disposable local databases;
+production rollout is a separate operation.
+
+Verified: 107 frontend tests, typecheck/lint/build, full PostgreSQL-backed Go
+race suite, vet and architecture checks. Schema-7 upgrade/replay preserves old
+inbox/read state, session, club, subscription/job lease and prior receipts.
+The isolated browser flow verifies owner request → club queue → approval →
+applicant inbox/member view, read-all state and EN/RU/KK phone layouts. Real OTPs,
+production push deliveries and production schema changes are outside this check.

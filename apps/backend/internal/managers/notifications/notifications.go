@@ -221,10 +221,27 @@ func pushAllowed(d models.PushDelivery) bool {
 	if !d.AccountActive || !d.SessionActive {
 		return false
 	}
-	if strings.HasPrefix(d.Kind, "ride.") {
+	switch d.Kind {
+	case "ride.updated", "ride.cancelled", "ride.announcement":
 		return d.RideAllowed
+	case "participation.requested", "participation.approved", "participation.rejected", "participation.removed":
+		return true
+	case "club.membership.requested", "club.membership.approved", "club.membership.rejected", "club.membership.removed":
+		if d.ClubID == "" || d.RideID != "" || d.Subscription.UserID == "" || d.ClubStatus == "" {
+			return false
+		}
+		switch d.Kind {
+		case "club.membership.requested":
+			return d.ClubStatus == "active" && d.ClubOwnerID == d.Subscription.UserID
+		case "club.membership.approved":
+			return d.ClubStatus == "active" && (d.ClubMembershipState == "approved" || d.ClubOwnerID == d.Subscription.UserID)
+		default:
+			// An outcome about lost membership must reach the former applicant or
+			// member even though they no longer have approved club access.
+			return true
+		}
 	}
-	return true
+	return false
 }
 func genericBody(locale string) string {
 	switch locale {
