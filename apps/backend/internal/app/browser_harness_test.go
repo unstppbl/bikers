@@ -41,6 +41,18 @@ func TestBrowserHarness(t *testing.T) {
 		expect(t, f.request("PUT", path, nil, applicant), 200)
 		t.Logf("TEST-ONLY club inbox fixture: owner=+77011239902; applicant=+77011239903; OTP=123456; club=%s", club)
 	}
+	if os.Getenv("BROWSER_HARNESS_PUBLIC_BIKES") == "1" {
+		owner := f.login("+77011239904", "Test Catalogue Owner")
+		for _, fields := range []map[string]any{
+			{"model_id": "yamaha-mt-07", "year": 2021, "visibility": "public"},
+			{"model_id": "honda-cb500x", "year": 2019, "visibility": "public"},
+			{"model_id": "ktm-390-adventure", "year": 2024, "visibility": "public"},
+			{"make": "Private Catalogue Fixture", "model": "Never Public", "year": 2020},
+		} {
+			catalogueBike(t, f, owner, fields)
+		}
+		t.Log("TEST-ONLY public catalogue fixture: three public reference-image bikes and one private bike; owner=+77011239904; OTP=123456")
+	}
 	f.ts.Close()
 	port := os.Getenv("BROWSER_HARNESS_PORT")
 	if port == "" {

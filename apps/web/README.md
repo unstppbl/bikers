@@ -22,6 +22,15 @@ Ride, garage and club collection pages use server cursors. Discovery applies cit
 
 Automatic motorcycle references come from the public model catalogue, separately from owner bike records. The client requires an exact canonical model ID and a verified year/generation range; it never substitutes a nearby year or another model. Only local `/bike-models/` image assets render, with visible author/source/license credits. Unsupported or failed images are omitted; valid known-model forms explain when a reference is unavailable. These catalogue references are separate from owner-uploaded photos. Public bike payloads remain the same five basic fields, and model image requests use a shared public query cache. JPEG references are not added to the PWA's static-shell precache.
 
+`/bikes` is the public catalogue of members' explicitly shared garage bikes,
+separate from that model reference lookup. Guests and members can search by
+make/model, page through results and open public bike details. Search/cursors
+live in the URL; session changes reset paging and abort old requests. Catalogue
+cache entries retain only the five public bike fields for every viewer,
+including the owner. Cards reuse the authorized uploaded cover or verified
+model reference. Publishing consent names catalogue discovery; sharing, hiding,
+editing and deletion invalidate the collection. New bikes remain private.
+
 The inbox combines ride updates and club membership requests/decisions. Known
 club kinds link only to their validated `club_id`; ride kinds link only to
 `ride_id`. Missing, conflicting or unknown targets have no action link. Read

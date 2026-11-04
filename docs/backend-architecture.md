@@ -15,7 +15,7 @@ All paths below are relative to `apps/backend/internal`.
 | `managers/accounts` | OTP challenges, account and session rules, profiles, authentication limits, the external Gateway interface, and strict provider request/phone/status binding decisions. |
 | `managers/rides` | Ride plans, public and participant visibility, organizer decisions, participation, capacity, plan versions, discovery/personal-list selection, filter validation and signed pagination cursors. |
 | `managers/rooms` | Room access, message decisions, idempotency, history, and foreground event behavior. |
-| `managers/garage` | Bike ownership/public projections, model lookup, private maintenance, bike-photo visibility, quotas, reservations, cover selection, optimistic versions, and cursor pagination. |
+| `managers/garage` | Bike ownership/public projections and public catalogue search, model lookup, private maintenance, bike-photo visibility, quotas, reservations, cover selection, optimistic versions, and cursor pagination. |
 | `managers/clubs` | Club previews/roster permissions, membership decisions, ownership transfer/closure, public ride-association rules, and club-image access, reservations, and replacement. |
 | `managers/photos` | Shared image decoding/orientation/re-encoding, metadata stripping, budget defaults, and the two-slot processing module used by garage, clubs and media. |
 | `managers/media` | Self/context avatar permissions and replacement, participant-only ride albums, external video links and upload finalization decisions. |

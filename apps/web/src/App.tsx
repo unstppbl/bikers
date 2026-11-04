@@ -19,6 +19,7 @@ const GaragePage = lazy(() => import('./pages/Garage').then((module) => ({ defau
 const BikeFormPage = lazy(() => import('./pages/Garage').then((module) => ({ default: module.BikeFormPage })))
 const BikeOwnerPage = lazy(() => import('./pages/Garage').then((module) => ({ default: module.BikeOwnerPage })))
 const PublicBikePage = lazy(() => import('./pages/Garage').then((module) => ({ default: module.PublicBikePage })))
+const BikesPage = lazy(() => import('./pages/Bikes').then((module) => ({ default: module.BikesPage })))
 const ClubsPage = lazy(() => import('./pages/Clubs').then((module) => ({ default: module.ClubsPage })))
 const MyClubsPage = lazy(() => import('./pages/Clubs').then((module) => ({ default: module.MyClubsPage })))
 const ClubFormPage = lazy(() => import('./pages/Clubs').then((module) => ({ default: module.ClubFormPage })))
@@ -114,6 +115,7 @@ export function App() {
         <span className="nav-group-label">{t('navExplore')}</span>
         <NavLink to="/" end onClick={() => setMenuOpen(false)}><Motorbike size={20} />{t('rides')}<ArrowUpRight className="nav-arrow" size={17} /></NavLink>
         <NavLink to="/clubs" end onClick={() => setMenuOpen(false)}><Users size={20} />{t('clubs')}</NavLink>
+        <NavLink to="/bikes" onClick={() => setMenuOpen(false)}><Motorbike size={20} />{t('bikeCatalogue')}</NavLink>
         <span className="nav-group-label">{t('navYourSpace')}</span>
         <NavLink to="/my-rides" onClick={() => setMenuOpen(false)}><CalendarDays size={20} />{t('myRides')}</NavLink>
         <NavLink to="/garage" onClick={() => setMenuOpen(false)}><Wrench size={20} />{t('garage')}</NavLink>
@@ -160,6 +162,7 @@ export function App() {
           <Route path="/garage/:bikeId/edit" element={<RequireUser><BikeFormPage edit /></RequireUser>} />
           <Route path="/garage/:bikeId" element={<RequireUser><BikeOwnerPage /></RequireUser>} />
           <Route path="/bikes/:bikeId" element={<PublicBikePage />} />
+          <Route path="/bikes" element={<BikesPage />} />
           <Route path="/clubs" element={<ClubsPage />} />
           <Route path="/my-clubs" element={<RequireUser><MyClubsPage /></RequireUser>} />
           <Route path="/clubs/new" element={<RequireUser><ClubFormPage /></RequireUser>} />

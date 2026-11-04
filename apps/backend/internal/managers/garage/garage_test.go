@@ -19,12 +19,30 @@ import (
 )
 
 type memoryGarage struct {
-	mu         sync.Mutex
-	owners     map[string]models.GarageOwner
-	bikes      map[string]models.Bike
-	entries    map[string]models.MaintenanceEntry
-	writes     int
-	photoState *memoryPhotoState
+	mu          sync.Mutex
+	owners      map[string]models.GarageOwner
+	bikes       map[string]models.Bike
+	entries     map[string]models.MaintenanceEntry
+	writes      int
+	photoState  *memoryPhotoState
+	publicCalls int
+	publicQuery database.PublicBikeQuery
+}
+
+func (r *memoryGarage) PublicBikes(_ context.Context, query database.PublicBikeQuery) ([]models.Bike, error) {
+	r.publicCalls++
+	r.publicQuery = query
+	out := []models.Bike{}
+	for _, bike := range r.bikes {
+		if bike.Visibility == "public" && bike.ID > query.AfterID && strings.Contains(strings.ToLower(bike.Make+" "+bike.Model), strings.ToLower(query.Search)) {
+			out = append(out, bike)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	if len(out) > query.Limit {
+		out = out[:query.Limit]
+	}
+	return out, nil
 }
 
 func newMemoryGarage() *memoryGarage {

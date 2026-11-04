@@ -16,6 +16,7 @@ import (
 )
 
 const pageSize = 50
+const cataloguePageSize = 20
 const lookupLimit = 20
 const cursorByteLimit = 256
 
@@ -57,6 +58,9 @@ func canonicalID(raw string) (string, error) {
 	return id.String(), nil
 }
 func ownerView(bike models.Bike) models.Bike { bike.CanManage = true; return bike }
+func publicView(bike models.Bike) models.PublicBike {
+	return models.PublicBike{ID: bike.ID, Make: bike.Make, Model: bike.Model, ModelID: bike.ModelID, Year: bike.Year}
+}
 func approvedOwner(owner models.GarageOwner, actor models.User) bool {
 	return owner.ID == actor.ID && owner.Status == "active"
 }
@@ -108,6 +112,38 @@ func (m *Manager) List(ctx context.Context, actor models.User, cursor string) (m
 	}
 	return page, nil
 }
+
+func (m *Manager) Catalogue(ctx context.Context, search, cursor string) (models.PublicBikePage, error) {
+	page := models.PublicBikePage{Bikes: []models.PublicBike{}}
+	search = strings.TrimSpace(search)
+	if len(search) > 200 {
+		return page, models.Fail("invalid_query", "Search query is too long")
+	}
+	query := database.PublicBikeQuery{Search: search, Limit: cataloguePageSize + 1}
+	if cursor != "" {
+		if len(cursor) > cursorByteLimit {
+			return page, invalidCursor()
+		}
+		id, err := uuid.Parse(cursor)
+		if err != nil || cursor != id.String() {
+			return page, invalidCursor()
+		}
+		query.AfterID = id.String()
+	}
+	bikes, err := m.repo.PublicBikes(ctx, query)
+	if err != nil {
+		return page, storageError(err)
+	}
+	if len(bikes) > cataloguePageSize {
+		bikes = bikes[:cataloguePageSize]
+		page.NextCursor = bikes[len(bikes)-1].ID
+	}
+	for _, bike := range bikes {
+		page.Bikes = append(page.Bikes, publicView(bike))
+	}
+	return page, nil
+}
+
 func (m *Manager) View(ctx context.Context, id string, session *models.Session) (any, error) {
 	id, err := canonicalID(id)
 	if err != nil {
@@ -130,7 +166,7 @@ func (m *Manager) View(ctx context.Context, id string, session *models.Session) 
 		if hidden || bike.Visibility != "public" {
 			return notFound()
 		}
-		out = models.PublicBike{ID: bike.ID, Make: bike.Make, Model: bike.Model, ModelID: bike.ModelID, Year: bike.Year}
+		out = publicView(bike)
 		return nil
 	})
 	return out, storageError(err)

@@ -26,6 +26,16 @@ func (s *Server) listBikes(w http.ResponseWriter, r *http.Request) {
 	}
 	respond(w, 200, page)
 }
+
+func (s *Server) publicBikes(w http.ResponseWriter, r *http.Request) {
+	page, err := s.managers.Garage.Catalogue(r.Context(), r.URL.Query().Get("q"), r.URL.Query().Get("cursor"))
+	if err != nil {
+		failure(w, err)
+		return
+	}
+	respond(w, 200, page)
+}
+
 func (s *Server) createBike(w http.ResponseWriter, r *http.Request) {
 	session := s.require(w, r, true)
 	if session == nil {
