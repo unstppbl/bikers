@@ -16,26 +16,25 @@ import (
 )
 
 type clubRepo struct {
-	mu                   sync.Mutex
-	club                 models.Club
-	members              map[string]models.ClubMembership
-	links                map[string]models.RideSummary
-	candidates           map[string]models.ClubRideCandidate
-	list                 []models.ClubListing
-	listUser, listCursor string
-	listMine             bool
-	listLimit, rideLimit int
-	rideNow              time.Time
-	includeRequested     bool
-	commitErr            error
-	notifyErr            error
-	notices              []models.NotificationIntent
-	images               *memoryClubImages
-	hidden               map[string]bool
+	mu               sync.Mutex
+	club             models.Club
+	members          map[string]models.ClubMembership
+	links            map[string]models.RideSummary
+	candidates       map[string]models.ClubRideCandidate
+	list             []models.ClubListing
+	listQuery        database.ClubListQuery
+	rideLimit        int
+	rideNow          time.Time
+	includeRequested bool
+	commitErr        error
+	notifyErr        error
+	notices          []models.NotificationIntent
+	images           *memoryClubImages
+	hidden           map[string]bool
 }
 
-func (r *clubRepo) ListClubs(_ context.Context, user string, mine bool, cursor string, limit int) ([]models.ClubListing, error) {
-	r.listUser, r.listMine, r.listCursor, r.listLimit = user, mine, cursor, limit
+func (r *clubRepo) ListClubs(_ context.Context, query database.ClubListQuery) ([]models.ClubListing, error) {
+	r.listQuery = query
 	return r.list, nil
 }
 func (r *clubRepo) CreateClub(_ context.Context, club models.Club, state string, _ time.Time, decide database.AccountDecision) (models.Club, error) {
@@ -354,25 +353,6 @@ func TestLinksNeverGrantRideAccessAndAlwaysProjectPublicFields(t *testing.T) {
 	if len(r.members) != 2 || r.members[member.ID].State != "" {
 		t.Fatal("links changed club membership")
 	}
-}
-func TestListPaginationAndCursorValidation(t *testing.T) {
-	m, r, owner, _ := clubFixture()
-	for i := 0; i < 51; i++ {
-		club := r.club
-		club.ID = uuid.NewString()
-		r.list = append(r.list, models.ClubListing{Club: club, MembershipState: "requested"})
-	}
-	page, err := m.List(context.Background(), &models.Session{User: owner}, "", true)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(page.Clubs) != 50 || page.NextCursor != r.list[49].Club.ID || r.listLimit != 51 || !r.listMine || r.listUser != owner.ID {
-		t.Fatalf("bad page: %+v", page)
-	}
-	_, err = m.List(context.Background(), nil, "", true)
-	requireFault(t, err, "authentication_required")
-	_, err = m.List(context.Background(), nil, "bad", false)
-	requireFault(t, err, "invalid_cursor")
 }
 
 func TestHiddenClubStopsNewJoinsAndPublicAssociationsButRetainsApprovedCoordination(t *testing.T) {

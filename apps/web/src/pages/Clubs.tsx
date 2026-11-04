@@ -1,9 +1,10 @@
-import { CitySelector } from '../components/CitySelector'
+import { CitySelector, useCityOptions } from '../components/CitySelector'
+import { cityLabel } from '../cities'
 import { useCallback, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, ArrowRight, ArrowUpRight, Check, Clock3, DoorOpen, Link2, LockKeyhole, MapPin, Pencil, Plus, ShieldCheck, Users, X } from 'lucide-react'
-import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ApiError, mutation, request } from '../api'
 import { useI18n } from '../i18n'
 import { useSession, useSessionGuard } from '../session'
@@ -17,33 +18,103 @@ interface ClubPage { clubs: ClubSummary[]; next_cursor: string }
 const fullClub = (club?: ClubSummary | Club): club is Club => !!club && 'owner_id' in club && 'version' in club && 'member_count' in club
 const publicClub = (club: ClubSummary): ClubSummary => ({ id: club.id, name: club.name, city: club.city, description: club.description, status: club.status, can_manage: false })
 
-export function ClubsPage() {
+export function ClubsPage() { return <ClubCollection personal={false} /> }
+export function MyClubsPage() { return <ClubCollection personal /> }
+
+const personalClubViews = ['organizing', 'joined', 'pending'] as const
+type ClubView = 'discover' | typeof personalClubViews[number]
+interface ClubFilters { q: string; city: string }
+interface ClubPaging { scope: string; cursors: string[] }
+
+function ClubCollection({ personal }: { personal: boolean }) {
   const { user, loading, error, refresh } = useSession()
   const { t } = useI18n()
   const [params] = useSearchParams()
-  const mine = params.get('mine') === '1'
+  const location = useLocation()
+  const selected = params.get('view')
+  const view: ClubView = personal ? personalClubViews.find((value) => value === selected) ?? 'organizing' : 'discover'
   if (loading) return <Loading />
   if (error) return <div className="page-content"><ErrorNotice text={t('serviceUnavailable')} retry={() => void refresh()} /></div>
-  if (mine && !user) return <Navigate to="/login?next=%2Fclubs%3Fmine%3D1" replace />
-  return <ClubList key={`${user?.id ?? 'guest'}-${mine}`} mine={mine} />
+  if (personal && !user) return <Navigate to={`/login?next=${encodeURIComponent(location.pathname + location.search)}`} replace />
+  function tab(value: ClubView) {
+    const next = new URLSearchParams(params)
+    next.delete('cursor')
+    if (value === 'discover') next.delete('view')
+    else next.set('view', value)
+    return { pathname: value === 'discover' ? '/clubs' : '/my-clubs', search: next.toString() }
+  }
+  return <div className="page-content collection-page"><div className="collection-heading"><div className="page-heading"><span className="eyebrow">{t('clubsEyebrow')}</span><h1>{t(personal ? 'myClubs' : 'clubsTitle')}</h1><p>{t(personal ? 'myClubsText' : 'clubsText')}</p></div><Link className="button button-primary" to="/clubs/new"><Plus size={17} />{t('createClub')}</Link></div>
+    <nav className="collection-tabs" aria-label={t('clubs')}><Link className={!personal ? 'active' : ''} aria-current={!personal ? 'page' : undefined} to={tab('discover')}>{t('allClubs')}</Link><Link className={personal ? 'active' : ''} aria-current={personal ? 'page' : undefined} to={tab('organizing')}>{t('myClubs')}</Link></nav>
+    {personal && <nav className="collection-tabs ride-view-tabs" aria-label={t('myClubs')}>{personalClubViews.map((value) => <Link key={value} className={view === value ? 'active' : ''} aria-current={view === value ? 'page' : undefined} to={tab(value)}>{t(value)}</Link>)}</nav>}
+    <ClubList view={view} />
+  </div>
 }
 
-function ClubList({ mine }: { mine: boolean }) {
+function ClubList({ view }: { view: ClubView }) {
   const { user } = useSession()
   const { t } = useI18n()
-  const [cursors, setCursors] = useState([''])
+  const [params] = useSearchParams()
+  const location = useLocation()
+  const navigate = useNavigate()
+  const filters: ClubFilters = { q: params.get('q') ?? '', city: params.get('city') ?? '' }
+  const cursor = params.get('cursor') ?? ''
+  const scope = JSON.stringify([user?.id ?? 'guest', view, filters.q, filters.city])
+  const stored = (location.state as { clubPaging?: ClubPaging } | null)?.clubPaging
+  const staleCursor = !!cursor && !!stored && stored.scope !== scope
+  const cursors = stored?.scope === scope && stored.cursors.at(-1) === cursor ? stored.cursors : cursor ? ['', cursor] : ['']
   const page = cursors.length - 1
-  const params = new URLSearchParams()
-  if (mine) params.set('mine', '1')
-  if (cursors[page]) params.set('cursor', cursors[page])
-  const query = useQuery({ queryKey: ['clubs', user?.id ?? 'guest', mine, cursors[page]], queryFn: async ({ signal }) => {
-    const result = await request<ClubPage>(`/clubs${params.size ? `?${params}` : ''}`, { signal })
-    return user ? result : { ...result, clubs: result.clubs.map(publicClub) }
-  }, meta: { private: true } })
-  return <div className="page-content collection-page"><div className="collection-heading"><div className="page-heading"><span className="eyebrow">{t('clubsEyebrow')}</span><h1>{t('clubsTitle')}</h1><p>{t('clubsText')}</p></div><Link className="button button-primary" to="/clubs/new"><Plus size={17} />{t('createClub')}</Link></div><nav className="collection-tabs"><Link className={!mine ? 'active' : ''} to="/clubs">{t('allClubs')}</Link><Link className={mine ? 'active' : ''} to="/clubs?mine=1">{t('myClubs')}</Link></nav>
-    {query.isPending ? <Loading /> : query.isError ? <ErrorNotice error={query.error} retry={() => void query.refetch()} /> : !query.data.clubs.length ? <EmptyState title={t('clubsEmptyTitle')} text={t('clubsEmptyText')} action={<Link className="button button-outline" to="/clubs/new">{t('createClub')}<ArrowRight size={17} /></Link>} /> : <div className="club-grid">{query.data.clubs.map((club) => <Link className="surface club-card" key={club.id} to={`/clubs/${club.id}`}><div className="club-card-top"><ClubEmblem club={club} /><ArrowUpRight size={23} /></div><span className="city-label"><MapPin size={14} />{club.city}</span><h2>{club.name}</h2><p>{club.description}</p><div className="club-card-bottom"><span><ShieldCheck size={14} />{t('clubApprovalNote')}</span>{club.status === 'closed' ? <span className="status-pill cancelled">{t('clubClosed')}</span> : club.can_manage ? <span className="status-pill">{t('clubOwner')}</span> : club.membership_state === 'approved' ? <span className="status-pill approved">{t('clubMember')}</span> : club.membership_state === 'requested' ? <span className="status-pill pending">{t('requested')}</span> : null}</div></Link>)}</div>}
-    <Pagination page={page} hasNext={!!query.data?.next_cursor} busy={query.isFetching} previous={() => setCursors((values) => values.slice(0, -1))} next={() => { if (query.data?.next_cursor) setCursors((values) => [...values, query.data.next_cursor]) }} />
-  </div>
+  const queryParams = new URLSearchParams({ view })
+  for (const [key, value] of Object.entries(filters)) if (value) queryParams.set(key, value)
+  if (cursor) queryParams.set('cursor', cursor)
+  const query = useQuery({ queryKey: ['clubs', user?.id ?? 'guest', view, filters.q, filters.city, cursor], enabled: !staleCursor,
+    queryFn: async ({ signal }) => {
+      const result = await request<ClubPage>(`/clubs?${queryParams}`, { signal })
+      return user ? result : { ...result, clubs: result.clubs.map(publicClub) }
+    }, meta: { private: true } })
+  function goToCursor(nextCursors: string[]) {
+    const next = new URLSearchParams(params)
+    const current = nextCursors.at(-1) ?? ''
+    if (current) next.set('cursor', current)
+    else next.delete('cursor')
+    void navigate({ pathname: location.pathname, search: next.toString() }, { state: { clubPaging: { scope, cursors: nextCursors } } })
+  }
+  if (staleCursor) {
+    const next = new URLSearchParams(params); next.delete('cursor')
+    return <Navigate to={{ pathname: location.pathname, search: next.toString() }} replace />
+  }
+  const hasFilters = Object.values(filters).some(Boolean)
+  return <section className="club-list-section" aria-label={t('clubs')}>
+    <ClubSearch key={JSON.stringify(filters)} filters={filters} />
+    <div className="section-header"><h2>{t(view === 'discover' ? 'allClubs' : view)}</h2>{query.data && <span className="count-pill">{t('clubsOnPage', { count: query.data.clubs.length })}</span>}</div>
+    {query.isPending ? <Loading /> : query.isError ? <><ErrorNotice error={query.error} retry={() => void query.refetch()} />{cursor && <button type="button" className="text-button" onClick={() => goToCursor([''])}>{t('firstClubPage')}</button>}</> : !query.data.clubs.length ? <EmptyState title={t(hasFilters || cursor ? 'noResults' : 'clubsEmptyTitle')} text={t(hasFilters || cursor ? 'clubFiltersEmptyText' : view === 'discover' ? 'clubsEmptyText' : `${view}ClubsEmpty`)} action={<Link className="button button-outline" to={view === 'organizing' || view === 'discover' ? '/clubs/new' : '/clubs'}>{t(view === 'organizing' || view === 'discover' ? 'createClub' : 'allClubs')}<ArrowRight size={17} /></Link>} /> : <div className="club-grid">{query.data.clubs.map((club) => <ClubCard key={club.id} club={club} />)}</div>}
+    {!query.isError && <Pagination page={page} hasNext={!!query.data?.next_cursor} busy={query.isFetching} previous={() => goToCursor(cursors.slice(0, -1))} next={() => { if (query.data?.next_cursor) goToCursor([...cursors, query.data.next_cursor]) }} />}
+  </section>
+}
+
+function ClubSearch({ filters }: { filters: ClubFilters }) {
+  const { t } = useI18n()
+  const [params, setParams] = useSearchParams()
+  const [draft, setDraft] = useState(filters)
+  function apply(values: ClubFilters) {
+    const next = new URLSearchParams(params)
+    next.delete('cursor')
+    for (const [key, value] of Object.entries(values)) {
+      if (value.trim()) next.set(key, value.trim())
+      else next.delete(key)
+    }
+    setParams(next)
+  }
+  function submit(event: FormEvent) { event.preventDefault(); apply(draft) }
+  return <form className="ride-filters club-filters" aria-label={t('clubFilters')} onSubmit={submit}>
+    <div className="ride-filter-fields"><Field label={t('clubSearch')} type="search" value={draft.q} onChange={(event) => setDraft({ ...draft, q: event.target.value })} maxLength={200} placeholder={t('clubSearchPlaceholder')} /><CitySelector value={draft.city} onChange={(city) => setDraft({ ...draft, city })} label={t('city')} placeholder={t('allCities')} hint="" maxLength={160} /></div>
+    <div className="ride-filter-actions"><button type="submit" className="button button-dark">{t('applyFilters')}</button><button type="button" className="text-button" onClick={() => { const empty = { q: '', city: '' }; setDraft(empty); apply(empty) }}>{t('clearFilters')}</button></div>
+  </form>
+}
+
+function ClubCard({ club }: { club: ClubSummary }) {
+  const { t, locale } = useI18n()
+  const cities = useCityOptions()
+  return <Link className="surface club-card" to={`/clubs/${club.id}`}><div className="club-card-top"><ClubEmblem club={club} /><ArrowUpRight size={23} /></div><span className="city-label"><MapPin size={14} />{cityLabel(club.city, locale, cities.data?.cities ?? [])}</span><h2>{club.name}</h2><p>{club.description}</p><div className="club-card-bottom"><span><ShieldCheck size={14} />{t('clubApprovalNote')}</span>{club.status === 'closed' ? <span className="status-pill cancelled">{t('clubClosed')}</span> : club.can_manage ? <span className="status-pill">{t('clubOwner')}</span> : club.membership_state === 'approved' ? <span className="status-pill approved">{t('clubMember')}</span> : club.membership_state === 'requested' ? <span className="status-pill pending">{t('requested')}</span> : null}</div></Link>
 }
 
 export function ClubFormPage({ edit = false }: { edit?: boolean }) {

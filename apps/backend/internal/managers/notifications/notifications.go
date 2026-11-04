@@ -3,6 +3,7 @@ package notifications
 
 import (
 	"bikers.kz/backend/internal/database"
+	"bikers.kz/backend/internal/managers/reminders"
 	"bikers.kz/backend/internal/models"
 	"context"
 	"crypto/elliptic"
@@ -73,6 +74,20 @@ func (m *Manager) UpdatePreferences(ctx context.Context, actor models.User, patc
 		if patch.Locale != nil {
 			out.Locale = *patch.Locale
 		}
+		if p := patch.PushCategories; p != nil {
+			if p.RideUpdates != nil {
+				out.PushCategories.RideUpdates = *p.RideUpdates
+			}
+			if p.Participation != nil {
+				out.PushCategories.Participation = *p.Participation
+			}
+			if p.ClubMembership != nil {
+				out.PushCategories.ClubMembership = *p.ClubMembership
+			}
+			if p.RideReminders != nil {
+				out.PushCategories.RideReminders = *p.RideReminders
+			}
+		}
 		if !oneOf(out.CountryCode, "KZ", "KG", "UZ", "RU", "ZZ") || !oneOf(out.CurrencyCode, "KZT", "KGS", "UZS", "RUB", "USD", "EUR") || !models.ValidLocale(out.Locale) {
 			return models.Fail("invalid_preferences", "Choose supported independent country, currency and language settings")
 		}
@@ -112,6 +127,18 @@ func (m *Manager) List(ctx context.Context, actor models.User, cursor string) (m
 		}
 		out.Notifications = rows
 		out.UnreadCount, err = tx.UnreadCount()
+		return err
+	})
+	return out, outcome(err)
+}
+func (m *Manager) UnreadCount(ctx context.Context, actor models.User) (int, error) {
+	var out int
+	err := m.repo.WithNotifications(ctx, actor.ID, func(tx database.NotificationTransaction) error {
+		if err := active(tx); err != nil {
+			return err
+		}
+		var err error
+		out, err = tx.UnreadCount()
 		return err
 	})
 	return out, outcome(err)
@@ -217,17 +244,21 @@ func (m *Manager) Unsubscribe(ctx context.Context, actor models.User, id string)
 		return tx.DeleteSubscription(id)
 	}))
 }
-func pushAllowed(d models.PushDelivery) bool {
+func pushAllowed(d models.PushDelivery, now time.Time) bool {
 	if !d.AccountActive || !d.SessionActive {
 		return false
 	}
 	switch d.Kind {
+	case "ride.reminder":
+		return d.PushCategories.RideReminders && d.ReminderStartsAt != nil &&
+			d.ReminderContext.Ride.StartsAt.Equal(*d.ReminderStartsAt) &&
+			reminders.Due(d.ReminderContext, d.ReminderLeadMinutes, now)
 	case "ride.updated", "ride.cancelled", "ride.announcement":
-		return d.RideAllowed
+		return d.PushCategories.RideUpdates && d.RideAllowed
 	case "participation.requested", "participation.approved", "participation.rejected", "participation.removed":
-		return true
+		return d.PushCategories.Participation
 	case "club.membership.requested", "club.membership.approved", "club.membership.rejected", "club.membership.removed":
-		if d.ClubID == "" || d.RideID != "" || d.Subscription.UserID == "" || d.ClubStatus == "" {
+		if !d.PushCategories.ClubMembership || d.ClubID == "" || d.RideID != "" || d.Subscription.UserID == "" || d.ClubStatus == "" {
 			return false
 		}
 		switch d.Kind {
@@ -264,7 +295,7 @@ func (m *Manager) Dispatch(ctx context.Context) error {
 			return err
 		}
 		now := m.now().UTC()
-		d, err := m.repo.ClaimPush(ctx, now, now.Add(2*time.Minute), pushAllowed)
+		d, err := m.repo.ClaimPush(ctx, now, now.Add(2*time.Minute), func(d models.PushDelivery) bool { return pushAllowed(d, now) })
 		if err != nil {
 			return err
 		}

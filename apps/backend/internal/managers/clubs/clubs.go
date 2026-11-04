@@ -6,26 +6,31 @@ import (
 	"bikers.kz/backend/internal/managers/photos"
 	"bikers.kz/backend/internal/models"
 	"context"
+	"crypto/rand"
 	"errors"
 	"github.com/google/uuid"
 	"strings"
 	"time"
 )
 
-const pageSize = 50
 const rideLimit = 100
 
 type Manager struct {
-	repo   database.ClubsRepository
-	now    func() time.Time
-	photos *photos.Manager
+	repo      database.ClubsRepository
+	now       func() time.Time
+	photos    *photos.Manager
+	cursorKey [32]byte
 }
 
 func New(repo database.ClubsRepository, now func() time.Time, processor *photos.Manager) *Manager {
 	if now == nil {
 		now = time.Now
 	}
-	return &Manager{repo: repo, now: now, photos: processor}
+	manager := &Manager{repo: repo, now: now, photos: processor}
+	if _, err := rand.Read(manager.cursorKey[:]); err != nil {
+		panic("cannot initialize club cursor signing key")
+	}
+	return manager
 }
 func clubError(err error) error {
 	if errors.Is(err, database.ErrNotFound) {
@@ -113,35 +118,6 @@ func version(club models.Club, want int64) error {
 	return nil
 }
 
-func (m *Manager) List(ctx context.Context, session *models.Session, cursor string, mine bool) (models.ClubPage, error) {
-	out := models.ClubPage{Clubs: []models.ClubSummary{}}
-	user := ""
-	if session != nil {
-		user = session.User.ID
-	}
-	if mine && user == "" {
-		return out, models.Fail("authentication_required", "Sign in to continue")
-	}
-	if cursor != "" {
-		id, err := uuid.Parse(cursor)
-		if err != nil {
-			return out, models.Fail("invalid_cursor", "Invalid club cursor")
-		}
-		cursor = id.String()
-	}
-	rows, err := m.repo.ListClubs(ctx, user, mine, cursor, pageSize+1)
-	if err != nil {
-		return out, err
-	}
-	if len(rows) > pageSize {
-		rows = rows[:pageSize]
-		out.NextCursor = rows[len(rows)-1].Club.ID
-	}
-	for _, row := range rows {
-		out.Clubs = append(out.Clubs, summary(row.Club, user, row.MembershipState))
-	}
-	return out, nil
-}
 func (m *Manager) View(ctx context.Context, id string, session *models.Session) (any, error) {
 	id, err := identifier(id)
 	if err != nil {

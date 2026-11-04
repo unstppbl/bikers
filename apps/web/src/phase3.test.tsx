@@ -34,7 +34,8 @@ describe('cookie-bound public views', () => {
       if (url.endsWith(`/bikes/${bike.id}`)) return response({ bike })
       if (url.endsWith(`/clubs/${club.id}`)) return response({ club })
       if (url.endsWith(`/clubs/${club.id}/rides`)) return response({ rides: [] })
-      if (url.endsWith('/clubs')) return response({ clubs: [club], next_cursor: '' })
+      if (new URL(url, 'https://bikers.kz').pathname === '/api/v1/clubs') return response({ clubs: [club], next_cursor: '' })
+      if (url.endsWith('/cities')) return response({ cities: [] })
       throw new Error(`Unexpected private request ${url}`)
     })
     vi.stubGlobal('fetch', fetch)
@@ -44,7 +45,7 @@ describe('cookie-bound public views', () => {
     failing = false
     await userEvent.click(screen.getByRole('button', { name: 'Try again' }))
     await screen.findByText(kind === 'bike' ? 'Ténéré 700' : 'Test Riders')
-    const key = kind === 'bike' ? ['public-bike', bike.id, 'guest'] : kind === 'club' ? ['club', club.id, 'guest'] : ['clubs', 'guest', false, '']
+    const key = kind === 'bike' ? ['public-bike', bike.id, 'guest'] : kind === 'club' ? ['club', club.id, 'guest'] : ['clubs', 'guest', 'discover', '', '', '']
     const cached = client.getQueryData<Record<string, unknown>>(key)
     const value = kind === 'bike' ? cached?.bike : kind === 'club' ? cached?.club : (cached?.clubs as unknown[])?.[0]
     expect(value).not.toHaveProperty('owner_id')
@@ -382,7 +383,7 @@ describe('session completion boundaries', () => {
     }))
     const client = mount('/garage')
     await screen.findByRole('heading', { name: 'Room for your first bike.' })
-    const keys = [['bike', bike.id, rider.id], ['public-bike', bike.id, rider.id], ['maintenance', bike.id, rider.id, ''], ['club', club.id, rider.id], ['club-members', club.id, rider.id, 'owner'], ['clubs', rider.id, true, ''], ['linkable-rides', rider.id]]
+    const keys = [['bike', bike.id, rider.id], ['public-bike', bike.id, rider.id], ['maintenance', bike.id, rider.id, ''], ['club', club.id, rider.id], ['club-members', club.id, rider.id, 'owner'], ['clubs', rider.id, 'organizing', '', '', ''], ['linkable-rides', rider.id]]
     for (const key of keys) client.setQueryData(key, { private_value: 'not for the next actor' })
     active = false
     await act(async () => { await client.refetchQueries({ queryKey: ['session'] }) })

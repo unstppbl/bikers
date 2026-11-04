@@ -4,6 +4,7 @@ go 1.27.3
 
 require (
 	github.com/SherClockHolmes/webpush-go v1.4.0
+	github.com/arran4/golang-ical v0.3.7
 	github.com/bep/imagemeta v1.1.0
 	github.com/coder/websocket v1.8.15
 	github.com/google/uuid v1.6.0

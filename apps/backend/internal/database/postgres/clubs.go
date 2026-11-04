@@ -20,8 +20,21 @@ func countClubMembers(ctx context.Context, q querier, id string) (int, error) {
 	err := q.QueryRow(ctx, "SELECT count(*) FROM club_memberships WHERE club_id=$1 AND state='approved'", id).Scan(&count)
 	return count, repositoryError(err)
 }
-func (s *Store) ListClubs(ctx context.Context, user string, mine bool, cursor string, limit int) ([]models.ClubListing, error) {
-	rows, err := s.pool.Query(ctx, `SELECT c.id::text,c.owner_id::text,c.name,c.city,c.description,c.status,c.version,COALESCE(m.state,'') FROM clubs c LEFT JOIN club_memberships m ON m.club_id=c.id AND m.user_id::text=$1 WHERE (NOT EXISTS(SELECT 1 FROM moderation_hidden h WHERE h.target_type='club' AND h.target_id=c.id) OR c.owner_id::text=$1 OR m.state='approved') AND ($3='' OR c.id>NULLIF($3,'')::uuid) AND (($2 AND (c.owner_id::text=$1 OR m.state IN ('requested','approved'))) OR (NOT $2 AND c.status='active')) ORDER BY c.id LIMIT $4`, user, mine, cursor, limit)
+func (s *Store) ListClubs(ctx context.Context, query database.ClubListQuery) ([]models.ClubListing, error) {
+	rows, err := s.pool.Query(ctx, `
+ SELECT c.id::text,c.owner_id::text,c.name,c.city,c.description,c.status,c.version,COALESCE(m.state,'')
+ FROM clubs c LEFT JOIN club_memberships m ON m.club_id=c.id AND m.user_id::text=$1
+ WHERE (NOT EXISTS(SELECT 1 FROM moderation_hidden h WHERE h.target_type='club' AND h.target_id=c.id)
+        OR c.owner_id::text=$1 OR m.state='approved')
+   AND (COALESCE(cardinality($2::text[]),0)=0 OR EXISTS(SELECT 1 FROM unnest($2::text[]) AS a(city) WHERE lower(trim(c.city))=lower(a.city)))
+   AND ($3='' OR strpos(lower(c.name),lower($3))>0)
+   AND (NOT $4::boolean OR c.owner_id::text=$1)
+   AND (NOT $5::boolean OR c.owner_id::text<>$1)
+   AND ($6='' OR m.state=$6)
+   AND (NOT $7::boolean OR c.status='active')
+   AND ($8='' OR c.id>NULLIF($8,'')::uuid)
+ ORDER BY c.id LIMIT $9`, query.UserID, query.CityAliases, query.Search, query.OwnerOnly,
+		query.ExcludeOwner, query.MembershipState, query.ActiveOnly, query.AfterID, query.Limit)
 	if err != nil {
 		return nil, repositoryError(err)
 	}

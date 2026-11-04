@@ -12,6 +12,8 @@ Structured garages support multiple bikes, curated model/alias lookup with freef
 
 The agreed MVP also includes profile avatars, participant-only ride albums and external video links, separate organizer announcements, a durable notification inbox for ride updates and club membership requests/decisions, opt-in Web Push, reporting, bilateral blocks, an administrator review queue, audited manual community badges, and independent country/language/currency settings. Telegram phone verification does not award a badge. Public pilot operations and real-device push acceptance remain separate from local software verification.
 
+The community follow-up adds city/name club discovery and My clubs views for Organizing, Joined and Pending. Navigation shows unread inbox counts; push categories can be configured independently while the inbox retains every update. Approved riders and organizers can opt into 24-hour and 1-hour departure reminders and download a private calendar event. Calendar downloads are snapshots with stable event IDs, plan versions and cancellation status; they do not automatically synchronize later changes.
+
 ## Run with Docker Compose
 
 Requirements: Docker with Compose, and a Telegram Gateway token for real signup/login. The example port is a development default; check availability before deployment.
@@ -27,7 +29,7 @@ make up
 
 Open the origin configured by `BASE_URL` (the example is `http://localhost:3042`). `make logs` follows application logs; `make down` stops services while preserving volumes. Migration is explicit. PostgreSQL has no published host port. The application runs as an unprivileged user with persistent database and media volumes.
 
-The migration command applies versions 1–8 and verifies applied checksums. Versions 5–7 add avatars/ride media, moderation/admin state, and announcements/notifications/preferences; version 8 adds club membership notification targets. Previously applied SQL stays unchanged. Upgrade an existing database explicitly before expecting readiness. All uploaded images share bounded PostgreSQL `bytea` storage and processing limits, so database backups include them; `MEDIA_DIR` remains reserved for future media.
+The migration command applies versions 1–9 and verifies applied checksums. Versions 5–7 add avatars/ride media, moderation/admin state, and announcements/notifications/preferences; version 8 adds club membership notification targets; version 9 adds push category preferences and opted-in ride reminders. Previously applied SQL stays unchanged. Upgrade an existing database explicitly before expecting readiness. All uploaded images share bounded PostgreSQL `bytea` storage and processing limits, so database backups include them; `MEDIA_DIR` remains reserved for future media.
 
 See [Operations](docs/operations.md) for audited administrator bootstrap, optional VAPID configuration, backup/restore and rollback. Users opt into push in Settings; the inbox works without push credentials or permissions.
 
@@ -50,8 +52,8 @@ make deploy-jarvis
 The deployment builds the clean checkout on Jarvis, tags the image with the full
 Git commit and records the revision in an OCI label. It replaces only the app;
 the existing private `/home/user/apps/bikerskz/.env`, database and media volumes
-remain in place. Activation failure restores the previous app image. Schema upgrades require an explicit coordinated operation; migration 8 uses
-`make deploy-jarvis DEPLOY_ARGS='--migrate-to 8'`. See [repository deployments](docs/operations.md#repository-deployments-on-jarvis)
+remain in place. App-only activation failure restores the previous app image. The schema-8 to schema-9 upgrade uses
+`make deploy-jarvis DEPLOY_ARGS='--migrate-to 9'`; after a committed upgrade, recovery rolls forward with schema-9 code. See [repository deployments](docs/operations.md#repository-deployments-on-jarvis)
 for initial cloning, verification and rollback. Production images are built on
 Jarvis rather than built locally and copied there.
 

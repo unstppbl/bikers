@@ -1,0 +1,36 @@
+export const clubDiscoveryEn = {
+  myClubsText: 'Find the clubs you organize, belong to, or have asked to join.',
+  clubFilters: 'Club filters',
+  clubSearch: 'Search clubs',
+  clubSearchPlaceholder: 'Search by club name',
+  clubsOnPage: 'Clubs on this page: {count}',
+  firstClubPage: 'Return to the first club page',
+  clubFiltersEmptyText: 'Try a different club name or city, or clear the filters.',
+  organizingClubsEmpty: 'Create a club to bring riders together.',
+  joinedClubsEmpty: 'Clubs appear here after their owners approve your requests.',
+  pendingClubsEmpty: 'Your pending club membership requests will appear here.',
+}
+export const clubDiscoveryRu: Record<keyof typeof clubDiscoveryEn, string> = {
+  myClubsText: 'Клубы, которыми вы управляете, в которых состоите или ожидаете одобрения.',
+  clubFilters: 'Фильтры клубов',
+  clubSearch: 'Поиск клубов',
+  clubSearchPlaceholder: 'Поиск по названию клуба',
+  clubsOnPage: 'Клубов на странице: {count}',
+  firstClubPage: 'Вернуться на первую страницу клубов',
+  clubFiltersEmptyText: 'Измените название или город либо сбросьте фильтры.',
+  organizingClubsEmpty: 'Создайте клуб, чтобы объединить райдеров.',
+  joinedClubsEmpty: 'Клубы появятся здесь после одобрения ваших заявок.',
+  pendingClubsEmpty: 'Здесь появятся ваши заявки в клубы, ожидающие одобрения.',
+}
+export const clubDiscoveryKk: Record<keyof typeof clubDiscoveryEn, string> = {
+  myClubsText: 'Өзіңіз басқаратын, мүше болған немесе өтінім жіберген клубтарды табыңыз.',
+  clubFilters: 'Клуб сүзгілері',
+  clubSearch: 'Клубтарды іздеу',
+  clubSearchPlaceholder: 'Клуб атауы бойынша іздеу',
+  clubsOnPage: 'Осы беттегі клубтар: {count}',
+  firstClubPage: 'Клубтардың бірінші бетіне оралу',
+  clubFiltersEmptyText: 'Басқа атауды не қаланы таңдаңыз немесе сүзгілерді тазалаңыз.',
+  organizingClubsEmpty: 'Райдерлерді біріктіру үшін клуб құрыңыз.',
+  joinedClubsEmpty: 'Өтінімдеріңіз мақұлданған соң клубтар осы жерде көрінеді.',
+  pendingClubsEmpty: 'Мақұлдауды күткен клуб өтінімдеріңіз осы жерде көрінеді.',
+}

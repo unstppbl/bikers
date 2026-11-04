@@ -9,7 +9,7 @@ import { useSessionTask } from '../useSessionTask'
 import { ErrorNotice, Loading, Pagination, formatRideDateTime, useOnline } from '../ui'
 import type { InboxNotification, NotificationPage } from '../types'
 
-const rideNoticeKeys = { 'ride.updated': 'notice_ride_updated', 'ride.cancelled': 'notice_ride_cancelled', 'ride.announcement': 'notice_ride_announcement', 'participation.requested': 'notice_participation_requested', 'participation.approved': 'notice_participation_approved', 'participation.rejected': 'notice_participation_rejected', 'participation.removed': 'notice_participation_removed' } as const
+const rideNoticeKeys = { 'ride.updated': 'notice_ride_updated', 'ride.cancelled': 'notice_ride_cancelled', 'ride.announcement': 'notice_ride_announcement', 'ride.reminder': 'notice_ride_reminder', 'participation.requested': 'notice_participation_requested', 'participation.approved': 'notice_participation_approved', 'participation.rejected': 'notice_participation_rejected', 'participation.removed': 'notice_participation_removed' } as const
 const clubNoticeKeys = { 'club.membership.requested': 'notice_club_membership_requested', 'club.membership.approved': 'notice_club_membership_approved', 'club.membership.rejected': 'notice_club_membership_rejected', 'club.membership.removed': 'notice_club_membership_removed' } as const
 const noticeKeys = { ...rideNoticeKeys, ...clubNoticeKeys } as const
 const targetID = (value: unknown): value is string => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
@@ -30,11 +30,11 @@ export function InboxPage() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<unknown>()
   const page = cursors.length - 1
-  const query = useQuery({ queryKey: ['inbox', user?.id, cursors[page]], queryFn: ({ signal }) => request<NotificationPage>(`/me/notifications${cursors[page] ? `?before=${encodeURIComponent(cursors[page])}` : ''}`, { signal }), meta: { private: true }, retry: false, refetchInterval: 30_000 })
+  const query = useQuery({ queryKey: ['inbox', user?.id, cursors[page]], queryFn: ({ signal }) => request<NotificationPage>(`/me/notifications${cursors[page] ? `?before=${encodeURIComponent(cursors[page])}` : ''}`, { signal }), enabled: !!user, meta: { private: true }, retry: false, refetchInterval: 30_000 })
   async function read(id?: string) {
     const task = start(); if (!task.current()) { task.finish(); return }
     setBusy(true); setError(undefined)
-    try { await request(`/me/notifications/${id ? `${encodeURIComponent(id)}/` : ''}read`, { method: 'PUT', signal: task.signal }); if (task.current()) await client.invalidateQueries({ queryKey: ['inbox', user?.id] }) }
+    try { await request(`/me/notifications/${id ? `${encodeURIComponent(id)}/` : ''}read`, { method: 'PUT', signal: task.signal }); if (task.current()) await Promise.all([client.invalidateQueries({ queryKey: ['inbox', user?.id] }), client.invalidateQueries({ queryKey: ['notification-count', user?.id] })]) }
     catch (value) { if (task.current()) setError(value) }
     finally { if (task.current()) setBusy(false); task.finish() }
   }

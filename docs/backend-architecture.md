@@ -20,15 +20,16 @@ All paths below are relative to `apps/backend/internal`.
 | `managers/photos` | Shared image decoding/orientation/re-encoding, metadata stripping, budget defaults, and the two-slot processing module used by garage, clubs and media. |
 | `managers/media` | Self/context avatar permissions and replacement, participant-only ride albums, external video links and upload finalization decisions. |
 | `managers/trust` | Reporting/evidence access, blocks, administrator roles, moderated visibility, account restrictions and audited community badges. |
-| `managers/notifications` | Independent preferences, durable inbox/read state, push consent/subscription limits and retry/eligibility decisions. |
+| `managers/notifications` | Independent preferences, unread counts, durable inbox/read state, push-category consent/subscription limits and retry/eligibility decisions. |
+| `managers/reminders` | Per-ride consent, participation-generation binding, due-window checks and current reminder eligibility. |
 | `managers/system` | Explicit migration execution and timeouts, plus schema and media readiness checks. |
 | `clients/telegram` | Telegram Gateway protocol requests and response decoding, including transport settings and defaults. |
 | `clients/webpush` | Web Push encryption/VAPID through webpush-go, provider validation and bounded HTTPS transport with public-IP dialing. |
-| `workers` | Push polling cadence and shutdown; delivery behavior runs through the notifications manager. |
+| `workers` | Push and reminder polling cadence/shutdown; decisions run through their managers. |
 | `resources/http` | Request decoding, API routing, response mapping, cookies, CSRF, HTTP middleware, static assets, and WebSocket transport. Its Go package name is `httpapi` to distinguish it from `net/http`. |
 | `app` | Constructing and injecting dependencies, startup, shutdown, and composed integration tests. |
 
-`workers` contains the actual push polling loop; it calls an injected dispatcher interface. Keep feature and service packages one level below `managers` and `clients`; helpers stay with their owner. Commands remain under `cmd/<tool>`: `api` owns server/migration execution, audited administrator bootstrap and private VAPID key-file generation; `architecture` checks source boundaries.
+`workers` contains the actual push and reminder polling loops; it calls an injected dispatcher interface. Keep feature and service packages one level below `managers` and `clients`; helpers stay with their owner. Commands remain under `cmd/<tool>`: `api` owns server/migration execution, audited administrator bootstrap and private VAPID key-file generation; `architecture` checks source boundaries.
 
 ## Dependency direction
 
@@ -63,7 +64,7 @@ Run external network, model, and embedding calls before acquiring database locks
 
 Moving a type preserves serialization tags and field order. Moving behavior updates every caller and removes the old location; forwarding aliases are not part of the architecture.
 
-The explicit migration runner applies versions 1–8 in order, verifies stored checksums, and rejects unknown versions. Version 3 adds bike photos, version 4 club images, version 5 avatars/ride media, version 6 trust/reporting/admin state, version 7 preferences/announcements/notifications/push, and version 8 club notification targets. Applied versions 1–7 remain unchanged. Readiness requires all eight receipts. Schema mechanics remain in `database/postgres`; `managers/system` owns execution timeouts and readiness decisions.
+The explicit migration runner applies versions 1–9 in order, verifies stored checksums, and rejects unknown versions. Version 3 adds bike photos, version 4 club images, version 5 avatars/ride media, version 6 trust/reporting/admin state, version 7 preferences/announcements/notifications/push, version 8 club notification targets, and version 9 push categories/reminder consent/occurrence receipts. Applied versions 1–8 remain unchanged. Readiness requires all nine receipts. Schema mechanics remain in `database/postgres`; `managers/system` owns execution timeouts and readiness decisions.
 
 The photo storage choice and numeric limits are implementation defaults for this bounded slice. Filesystem or object storage remains a future proposal in the draft design, not a confirmed product decision or migration schedule.
 
@@ -89,3 +90,12 @@ Tests stay beside their owner. An external `<owner>_test` package can import the
 The command has positive and negative fixture tests and a test of the actual source tree. As a result, ordinary `go test ./...`, `make check-backend`, and `make check-integration` enforce the internal import rules. Go's compiler and test tools still check import cycles and build correctness.
 
 Import checks do not prove semantic ownership, pure callbacks, absence of external calls under locks, or correct transaction boundaries. Review those properties with the behavior and persistence tests. The checker adds no third-party import bans beyond the approved internal dependency rules.
+
+Reminder scheduling uses the existing aggregate lock order: common trust
+advisory lock, then ride and account rows. The repository reads current context
+and supplies it to the reminders manager callback, which decides whether to
+write an intent. A processed-occurrence receipt commits with any inbox/outbox
+rows, preventing duplicates across polls and restarts. Push claim callbacks
+share the reminder eligibility rules and recheck per-category consent. The
+calendar transport uses an iCalendar library for escaping and CRLF serialization;
+the rides manager owns authorization to the private plan snapshot.

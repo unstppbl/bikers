@@ -73,10 +73,10 @@ Activation atomically changes only `APP_IMAGE` in the private runtime file and
 runs Compose with an explicit environment path, checkout directory and project
 name. The default app-only mode replaces the app with `--no-deps --no-build --wait`
 and never runs migrations or starts/recreates the database. The explicit
-[migration-8 mode](#club-notification-schema-upgrade) coordinates its schema cutover. It verifies retained environment,
+[schema-9 mode](#community-follow-up-schema-9) coordinates its schema cutover. It verifies retained environment,
 ports and media mounts, an unchanged database container/start time, and a
 healthy non-root/read-only app. App-only failures, or migration failures with
-confirmed unchanged schema 7, restore the previous environment bytes and app
+confirmed unchanged schema 8, restore the previous environment bytes and app
 image using the resolved configuration held in memory. A committed or unknown
 schema upgrade keeps the app stopped for roll-forward recovery. It does
 not create environment copies, database dumps or backups.
@@ -111,46 +111,50 @@ stay outside the checkout.
 
 ### Club notification schema upgrade
 
-The club membership notification executable requires migration 8. Its source
-implementation does not mean the production database has been upgraded; inspect
-the deployed receipt and schema before rollout. Migration 8 preserves existing
-ride notices/read state, push subscriptions/jobs and membership data, and does
-not backfill notifications or send messages.
+The completed club-notification release upgraded schema 7 to 8 with a
+coordinated app pause. It preserved existing ride notices/read state, push
+subscriptions/jobs and membership data without backfilling alerts. That release
+is the source generation immediately before the current schema-9 upgrade.
+The current helper supports the explicit 8-to-9 transition below.
 
-The coordinated path is explicit:
+### Community follow-up schema 9
+
+Club discovery/My clubs, unread badges, push categories and explicit ride
+reminders/private calendar downloads require migration 9. Use the clean pushed
+checkout on Jarvis:
 
 ```sh
 cd /home/user/apps/bikerskz/repo
 git pull --ff-only
-make deploy-jarvis DEPLOY_ARGS='--migrate-to 8'
+make deploy-jarvis DEPLOY_ARGS='--migrate-to 9'
 ```
 
-This mode accepts only the reviewed schema-7 to schema-8 transition. It checks
-all stored migration checksums and the source migration list, then builds the
-clean pushed commit on Jarvis before pausing the app. It stops only the app,
-leaving PostgreSQL and persistent volumes running. The new image's `migrate`
-command runs without dependencies, published ports or application/push workers.
-After checking the exact schema-8 receipt and retained data, the helper activates
-the new app and waits for readiness.
+This mode accepts only source migrations 1–9 and exact matching existing
+receipts 1–8. It builds before stopping only the app, runs the verified image's
+`migrate` command without HTTP/push/reminder workers, confirms receipt 9, then
+activates and waits for health. PostgreSQL and persistent volumes stay running.
+A deployment lock prevents concurrent releases. A uniquely named migrator is
+confirmed terminated before an uncertain exit can be classified as uncommitted.
 
-The migration window captures read-only row fingerprints and sequence
-values with app writes paused. Comparison excludes the newly added nullable
-notification target field and separately verifies unchanged receipts 1–7 and
-one matching receipt 8. The release receipt records these safe checks without
-storing database rows or private environment copies.
+Migration 9 retains existing inbox/read state, sessions, subscriptions, queued
+push work and prior receipts. With app writes paused, the helper verifies all
+28 prior tables and both sequences, excluding only the four new users preference
+columns, the two new nullable notification reminder fields and receipt 9.
+Existing `club_id` values are retained in the comparison. It separately requires
+both new reminder tables to be empty and every existing push category enabled;
+no rider is automatically enrolled. Safe proof is saved in the release receipt.
 
-If migration reports an error, recovery reads the actual receipts before
-selecting an image. The old app is restarted only when schema 7 is confirmed
-unchanged. A committed schema 8 keeps the new image selected and requires
-roll-forward recovery if activation fails; the helper never silently restores
-schema-7 code against schema 8 and never reverses database changes or deletes
-club notification data. See [Backup and restore](#backup-and-restore) for the
-cross-schema recovery boundary.
+Explicit per-ride consent stores independent enabled-at timestamps for 24-hour
+and 1-hour choices, so changing one cannot suppress the other. Removing and
+reapproving a rider requires new consent. The reminder worker polls every
+30 seconds, with a ten-minute grace window and durable occurrence receipts.
 
-Without `--migrate-to 8`, `make deploy-jarvis` remains app-only and does not run
-migrations. This migration opt-in does not create database dumps or backups,
-regenerate credentials, or send OTPs/test notifications. Normal opted-in push
-processing resumes with the app after activation.
+If migration or activation fails, the old image is restored only after schema 8
+is confirmed unchanged and the migrator is settled. Committed or unreadable
+schema 9 keeps the app stopped and the target selected for roll-forward recovery;
+schema-8 code is never silently restored against schema 9. The default helper
+remains app-only. No mode creates dumps/backups, copies private environment
+files, regenerates credentials or sends diagnostic notifications/OTPs.
 
 ## Configure and start
 
@@ -163,7 +167,7 @@ make migrate
 make up
 ```
 
-Migrations are explicit. Version 5 adds avatars and ride media, version 6 adds moderation, blocks, roles and badges, version 7 adds preferences, announcements, inboxes and push delivery, and version 8 adds club membership notification targets. All eight receipts and their checksums are checked by readiness. Previously applied SQL is immutable. Unknown versions and mismatched checksums fail closed.
+Migrations are explicit. Version 5 adds avatars and ride media, version 6 adds moderation, blocks, roles and badges, version 7 adds preferences, announcements, inboxes and push delivery, version 8 adds club membership notification targets, and version 9 adds push categories and explicit ride reminders. All nine receipts and their checksums are checked by readiness. Previously applied SQL is immutable. Unknown versions and mismatched checksums fail closed.
 
 ## Administrator access
 

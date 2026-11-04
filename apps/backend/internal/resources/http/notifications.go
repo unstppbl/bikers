@@ -146,3 +146,16 @@ func (s *Server) announcements(w http.ResponseWriter, r *http.Request) {
 	}
 	respond(w, status, out)
 }
+
+func (s *Server) unreadNotificationCount(w http.ResponseWriter, r *http.Request) {
+	session := s.require(w, r, false)
+	if session == nil {
+		return
+	}
+	count, err := s.managers.Notifications.UnreadCount(r.Context(), session.User)
+	if err != nil {
+		failure(w, err)
+		return
+	}
+	respond(w, 200, map[string]int{"unread_count": count})
+}

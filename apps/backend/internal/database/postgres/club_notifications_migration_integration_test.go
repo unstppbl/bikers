@@ -13,6 +13,7 @@ import (
 func TestVersionSevenClubNotificationsUpgradePreservesInboxAndPushState(t *testing.T) {
 	store, pool := testStore(t)
 	ctx := context.Background()
+	removeNotificationPreferencesAndReminders(t, pool)
 	// Reconstruct schema seven only in this isolated test namespace. The old SQL
 	// and receipts remain immutable; the actual upgrade is migration eight.
 	if _, err := pool.Exec(ctx, `ALTER TABLE notifications DROP CONSTRAINT notifications_target_scope;
@@ -48,7 +49,7 @@ DELETE FROM schema_migrations WHERE version=8`); err != nil {
 		t.Fatal(err)
 	}
 	const originalState = `SELECT jsonb_build_object(
- 'notices',(SELECT jsonb_agg(to_jsonb(n)-'club_id' ORDER BY sequence) FROM notifications n),
+ 'notices',(SELECT jsonb_agg(to_jsonb(n)-'club_id'-'reminder_starts_at'-'reminder_lead_minutes' ORDER BY sequence) FROM notifications n),
  'subscriptions',(SELECT jsonb_agg(to_jsonb(p) ORDER BY id) FROM push_subscriptions p),
  'deliveries',(SELECT jsonb_agg(to_jsonb(d) ORDER BY id) FROM push_deliveries d),
  'sessions',(SELECT jsonb_agg(to_jsonb(s) ORDER BY created_at) FROM sessions s),

@@ -7,7 +7,7 @@ Club membership requests notify the current owner, and approval/rejection/remova
 notify the affected rider. These transitions and their inbox/push work commit
 atomically. Push payloads remain generic and open `/inbox`.
 
-The club-notification executable requires schema 8; its source implementation is
+This executable requires schema 9; its source implementation is
 separate from the currently deployed release. Migration is explicit and must be
 coordinated with the matching app. See [Operations](../../docs/operations.md).
 Photo bytes remain in bounded PostgreSQL `bytea` storage; the persistent media
@@ -30,18 +30,19 @@ records ownership, dependency direction, transaction callbacks, and test placeme
 | `database` | Repository interfaces and transaction callback types |
 | `database/postgres` | Queries, mappings, migrations, transactions, and locks |
 | `managers/accounts` | OTP, sessions, profiles, authentication limits, and provider request/phone/status binding |
-| `managers/rides` | Plans, visibility, participation, and organizer decisions |
+| `managers/rides` | Plans, visibility, participation, organizer decisions and private calendar access |
 | `managers/rooms` | Room access, messages, history, and foreground events |
 | `managers/garage` | Bike ownership/sharing, curated lookup, private maintenance, bike-photo access/reservations/covers, validation, and pagination |
 | `managers/clubs` | Club visibility, membership and atomic notification intent, ownership transfer/closure, safe ride associations, and club images |
-| `managers/notifications` | Preferences, durable inbox/read state, push consent, current eligibility and retry decisions |
+| `managers/notifications` | Preferences, unread counts, durable inbox/read state, push category consent, current eligibility and retry decisions |
+| `managers/reminders` | Per-ride reminder consent, current participation eligibility and bounded departure reminder decisions |
 | `managers/media` | Profile avatars and participant-scoped ride albums/video links |
 | `managers/trust` | Reports, blocks, moderation, administrator actions and badges |
 | `managers/photos` | Shared image decoding/orientation/re-encoding, metadata stripping, budget defaults, and the two-slot processing module |
 | `managers/system` | Explicit migration execution/timeouts and schema/media readiness |
 | `clients/telegram` | Telegram Gateway protocol transport, decoding, and defaults |
 | `clients/webpush` | Encrypted provider transport and endpoint/network restrictions |
-| `workers` | Push polling and graceful shutdown |
+| `workers` | Push and reminder polling and graceful shutdown |
 | `resources/http` | HTTP/WebSocket decoding, routing, middleware, and response mapping |
 | `app` | Dependency construction, startup/shutdown, and composed integration tests |
 
@@ -94,9 +95,9 @@ accounts/rides/chat; version 2 adds bikes, maintenance, clubs, memberships, and
 ride links; version 3 adds bike-photo content, gallery state, and upload attempts;
 version 4 adds club images and the current-image reference; versions 5–7 add
 avatars/ride media, trust/admin state and notifications/preferences/push; version
-8 adds club notification targets. Versions 1–7 remain unchanged. Applied receipts
+8 adds club notification targets; version 9 adds category push preferences and ride reminder state. Versions 1–8 remain unchanged. Applied receipts
 are verified before proceeding; unknown versions or changed checksums fail.
-Readiness requires all eight receipts.
+Readiness requires all nine receipts.
 Run `migrate` with the new executable before serving an older installation.
 
 ## API behavior
@@ -256,3 +257,36 @@ Use `BROWSER_HARNESS_CLUB_NOTICES=1` with the opt-in harness to seed a disposabl
 owner (`+77011239902`), applicant (`+77011239903`) and club membership inbox
 history. The fake code is `123456`; the latest request stays pending for manual
 approval. This fixture is test-only and does not send real OTPs or push.
+
+## Club discovery, reminders and calendar exports
+
+Club listing accepts `view=discover|organizing|joined|pending`, `city`, literal
+name substring `q` and `cursor`; it returns pages of 20 with unchanged public
+summary fields. Filters apply before pagination. Personal views require a
+session and exclude owners from Joined/Pending. Organizing/Joined retain
+authorized closed clubs; Discover/Pending include active clubs. Signed cursors
+bind the actor, view and filters and expire when the process restarts.
+
+`GET /me/notifications/unread-count` returns only `{unread_count}`. Preferences
+add `push_categories` booleans for `ride_updates`, `participation`,
+`club_membership` and `ride_reminders`; nested patches can change one category.
+All default to true to retain existing push behavior. Category consent is
+rechecked while claiming queued push jobs; the durable inbox is unaffected.
+
+`GET/PUT /rides/{id}/reminders` use `{day_before,hour_before}` and require current
+approved participation or organizer access. Both default false. Consent binds
+to the participation generation, so removal/reapproval requires renewed consent.
+Each lead retains its own consent timestamp when the other choice changes.
+The reminder worker runs every 30 seconds and processes bounded batches, with
+a ten-minute grace window. Occurrence receipts and inbox/push writes commit
+atomically. Current departure, participation, consent, visibility, account and
+block state are revalidated; outdated jobs cannot send after cancellation,
+rescheduling, access loss or opt-out. No reminder is backfilled for a rider who
+opts in after its due time.
+
+`GET /rides/{id}/calendar` returns a private, `no-store` iCalendar attachment to
+the organizer/current approved participants. It includes the real UTC departure
+instant and private meeting point, without inventing an end time or including
+roster/account identifiers. The ride UUID and plan version identify refreshes;
+cancelled rides export `STATUS:CANCELLED`. The download is a snapshot, not a
+public feed or automatically synchronized calendar subscription.

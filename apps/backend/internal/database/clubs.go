@@ -9,7 +9,7 @@ import (
 type ClubDecision func(ClubTransaction) error
 type ClubsRepository interface {
 	ClubImageRepository
-	ListClubs(context.Context, string, bool, string, int) ([]models.ClubListing, error)
+	ListClubs(context.Context, ClubListQuery) ([]models.ClubListing, error)
 	CreateClub(context.Context, models.Club, string, time.Time, AccountDecision) (models.Club, error)
 	WithClub(context.Context, string, ClubDecision) error
 }
@@ -29,4 +29,14 @@ type ClubTransaction interface {
 	UnlinkRide(string) error
 	Blocked(string, string) (bool, error)
 	ContentHidden(string, string) (bool, error)
+}
+
+// ClubListQuery contains manager-owned selection policy. Persistence applies
+// these filters and moderation visibility before keyset pagination.
+type ClubListQuery struct {
+	UserID, Search, AfterID             string
+	CityAliases                         []string
+	OwnerOnly, ExcludeOwner, ActiveOnly bool
+	MembershipState                     string
+	Limit                               int
 }

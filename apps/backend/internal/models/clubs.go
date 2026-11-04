@@ -51,3 +51,8 @@ type ClubRideCandidate struct {
 	Summary     RideSummary
 	OrganizerID string
 }
+
+// ClubListInput selects a public discovery or signed-in membership view.
+type ClubListInput struct {
+	View, City, Search, Cursor string
+}

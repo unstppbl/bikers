@@ -20,6 +20,7 @@ MIGRATION_FILES = (
     'schema_004_club_images.sql', 'schema_005_avatars_ride_media.sql',
     'schema_006_trust.sql', 'schema_007_notifications_preferences.sql',
     'schema_008_club_notifications.sql',
+    'schema_009_notification_preferences_reminders.sql',
 )
 
 SCHEMA_RECEIPTS_SQL = '''-- bikerskz schema receipts
@@ -38,16 +39,30 @@ SET LOCAL bytea_output = 'hex';
 SELECT format(
  'SELECT json_build_object(''table'',%L,''rows'',count(*),''sha256'',encode(sha256(convert_to(COALESCE(string_agg(row_hash, '''' ORDER BY row_hash COLLATE "C"), ''''),''UTF8'')),''hex''))::text FROM (SELECT encode(sha256(convert_to(%s,''UTF8'')),''hex'') AS row_hash FROM %I.%I t%s) hashed;',
  tablename,
- CASE WHEN tablename='notifications' THEN '(to_jsonb(t)-''club_id'')::text' ELSE 'to_jsonb(t)::text' END,
+ CASE WHEN tablename='users' THEN '(to_jsonb(t)-''push_ride_updates''-''push_participation''-''push_club_membership''-''push_ride_reminders'')::text'
+ WHEN tablename='notifications' THEN '(to_jsonb(t)-''reminder_starts_at''-''reminder_lead_minutes'')::text'
+ ELSE 'to_jsonb(t)::text' END,
  schemaname,tablename,
- CASE WHEN tablename='schema_migrations' THEN ' WHERE version<=7' ELSE '' END)
-FROM pg_tables WHERE schemaname='public' ORDER BY tablename
+ CASE WHEN tablename='schema_migrations' THEN ' WHERE version<=8' ELSE '' END)
+FROM pg_tables WHERE schemaname='public'
+ AND tablename NOT IN ('ride_reminders','ride_reminder_events') ORDER BY tablename
 \gexec
 SELECT json_build_object('sequences',COALESCE(json_agg(to_jsonb(s) ORDER BY sequencename),'[]'::json))::text
 FROM (SELECT sequencename,last_value,start_value,increment_by,min_value,max_value,cycle,cache_size
  FROM pg_sequences WHERE schemaname='public') s;
 COMMIT;
 """
+
+
+MIGRATION_ADDITIONS_SQL = '''-- bikerskz schema-9 additions
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
+SELECT json_build_object(
+ 'ride_reminders',(SELECT count(*) FROM ride_reminders),
+ 'ride_reminder_events',(SELECT count(*) FROM ride_reminder_events),
+ 'users_with_disabled_push_categories',(SELECT count(*) FROM users
+  WHERE NOT (push_ride_updates AND push_participation AND push_club_membership AND push_ride_reminders)))::text;
+COMMIT;
+'''
 
 
 def run(args, *, cwd, stdin=None, visible=False):
@@ -77,11 +92,11 @@ def atomic_write(path, content):
 def migration_checksums(checkout):
     directory = checkout / 'apps/backend/internal/database/postgres'
     source = (directory / 'migrations.go').read_text()
-    # This opt-in is deliberately limited to the reviewed 7 -> 8 transition.
+    # This opt-in is deliberately limited to the reviewed 8 -> 9 transition.
     # A future registered migration must not be applied by this mode silently.
     registered = [int(value) for value in re.findall(r'\{(\d+),\s*\w+\}', source)]
-    if registered != list(range(1, 9)):
-        raise RuntimeError('Migration-8 mode requires exactly source migrations 1 through 8')
+    if registered != list(range(1, 10)):
+        raise RuntimeError('Migration-9 mode requires exactly source migrations 1 through 9')
     return {version: hashlib.sha256((directory / name).read_bytes()).hexdigest()
             for version, name in enumerate(MIGRATION_FILES, 1)}
 
@@ -107,6 +122,14 @@ def retained_state(checkout, database_id):
             'sequences': next(row['sequences'] for row in rows if 'sequences' in row)}
 
 
+def migration_additions(checkout, database_id):
+    state = json.loads(query_database(checkout, database_id, MIGRATION_ADDITIONS_SQL))
+    if state != {'ride_reminders': 0, 'ride_reminder_events': 0,
+                 'users_with_disabled_push_categories': 0}:
+        raise RuntimeError('Migration-9 additions must have no reminder work and all push categories enabled')
+    return state
+
+
 def settle_migrator(checkout, name):
     # A failed Compose client can leave the one-off process running. Prove this
     # deployment's container is absent or terminated before classifying receipts.
@@ -127,8 +150,8 @@ def settle_migrator(checkout, name):
 
 
 def deploy(checkout, runtime, migrate_to=None):
-    if migrate_to not in (None, 8):
-        raise RuntimeError('Only the explicitly reviewed migration target 8 is supported')
+    if migrate_to not in (None, 9):
+        raise RuntimeError('Only the explicitly reviewed migration target 9 is supported')
     env_file = runtime / '.env'
     if not env_file.is_file() or env_file.is_symlink() or env_file.stat().st_mode & 0o077:
         raise RuntimeError('Runtime .env must be a private regular file (mode 0600)')
@@ -165,8 +188,8 @@ def deploy(checkout, runtime, migrate_to=None):
         target_receipts = migration_checksums(checkout) if migrate_to else None
         previous_receipts = schema_receipts(checkout, db_id) if migrate_to else None
         if migrate_to and previous_receipts != {version: checksum for version, checksum in
-                                               target_receipts.items() if version <= 7}:
-            raise RuntimeError('Migration-8 mode requires exact source-matching schema-7 receipts')
+                                               target_receipts.items() if version <= 8}:
+            raise RuntimeError('Migration-9 mode requires exact source-matching schema-8 receipts')
         original_env = env_file.read_bytes()
         original_compose = json.loads(run(compose + ['config', '--format', 'json'], cwd=checkout))
         if original_compose['services']['app']['image'] != previous['Config']['Image']:
@@ -197,13 +220,15 @@ def deploy(checkout, runtime, migrate_to=None):
         migration_applied = False
         migrator_settled = True
         quiesced_state = None
+        new_migration_state = None
         try:
             if migrate_to:
-                print('Stopping only the app before the schema-8 upgrade.', flush=True)
+                print('Stopping only the app before the schema-9 upgrade.', flush=True)
                 run(compose + ['stop', '--timeout', '30', 'app'], cwd=checkout)
                 migration_started = True
                 # Fingerprint while all app writers/workers are stopped. Only the
-                # intentional new nullable column/receipt are excluded from parity.
+                # intentional new columns/tables/receipt are excluded from parity.
+                # The added consent defaults and empty reminder tables are verified separately.
                 quiesced_state = retained_state(checkout, db_id)
             atomic_write(env_file, updated_env)
             run(compose + ['config', '--quiet'], cwd=checkout)
@@ -214,7 +239,7 @@ def deploy(checkout, runtime, migrate_to=None):
                 try:
                     # compose run has no --no-build flag. Omitting --build and
                     # forbidding pulls consumes the already verified local image.
-                    print('Applying the explicit schema-8 upgrade with the verified image.', flush=True)
+                    print('Applying the explicit schema-9 upgrade with the verified image.', flush=True)
                     run(compose + ['run', '-T', '--name', migrator_name, '--no-deps', '--pull', 'never',
                                    'app', 'migrate'], cwd=checkout)
                 except (OSError, RuntimeError) as error:
@@ -225,14 +250,15 @@ def deploy(checkout, runtime, migrate_to=None):
                 if observed == target_receipts:
                     migration_applied = True
                     if migration_error:
-                        print('Migration command failed, but exact schema-8 receipts confirm commit; continuing activation.',
+                        print('Migration command failed, but exact schema-9 receipts confirm commit; continuing activation.',
                               file=sys.stderr, flush=True)
                 elif observed == previous_receipts:
-                    raise RuntimeError('Migration did not commit; schema 7 remains intact') from migration_error
+                    raise RuntimeError('Migration did not commit; schema 8 remains intact') from migration_error
                 else:
                     raise RuntimeError('Unexpected migration receipts; app remains stopped for explicit recovery')
                 if retained_state(checkout, db_id) != quiesced_state:
                     raise RuntimeError('Migration changed retained database state; explicit recovery required')
+                new_migration_state = migration_additions(checkout, db_id)
             run(compose + ['up', '-d', '--no-deps', '--no-build', '--wait',
                            '--wait-timeout', '120', 'app'], cwd=checkout)
             current = inspect(run(compose + ['ps', '-q', 'app'], cwd=checkout))
@@ -254,7 +280,7 @@ def deploy(checkout, runtime, migrate_to=None):
             safe_old_image = not migration_started
             if migration_started:
                 # CLI exit status cannot determine whether COMMIT succeeded.
-                # Never put the old executable back against schema 8 or an
+                # Never put the old executable back against schema 9 or an
                 # unknown/unreadable receipt state, and never erase new data.
                 try:
                     safe_old_image = (migrator_settled and
@@ -276,7 +302,7 @@ def deploy(checkout, runtime, migrate_to=None):
                     print('Could not confirm the target app stopped; inspect it before recovery.',
                           file=sys.stderr, flush=True)
                 print('Schema changed or cannot be verified. Keeping the target image selected; '
-                      'do not restore the schema-7 image. Explicit roll-forward recovery is required.',
+                      'do not restore the schema-8 image. Explicit roll-forward recovery is required.',
                       file=sys.stderr, flush=True)
             raise
 
@@ -289,11 +315,12 @@ def deploy(checkout, runtime, migrate_to=None):
         }
         if migrate_to:
             receipt.update({
-                'migration_from': 7, 'migration_to': migrate_to,
+                'migration_from': 8, 'migration_to': migrate_to,
                 'migration_checksum': target_receipts[migrate_to],
                 'migration_applied': migration_applied,
                 'retained_state_unchanged': True,
                 'quiesced_retained_state': quiesced_state,
+                'migration_new_state': new_migration_state,
             })
         receipts = runtime / '.deploy'
         receipts.mkdir(mode=0o700, exist_ok=True)
@@ -305,8 +332,8 @@ def deploy(checkout, runtime, migrate_to=None):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--runtime-dir', type=Path, default=Path('/home/user/apps/bikerskz'))
-    parser.add_argument('--migrate-to', type=int, choices=(8,),
-                        help='Explicitly coordinate the reviewed schema 7 to 8 upgrade')
+    parser.add_argument('--migrate-to', type=int, choices=(9,),
+                        help='Explicitly coordinate the reviewed schema 8 to 9 upgrade')
     args = parser.parse_args()
     deploy(Path(__file__).resolve().parent.parent, args.runtime_dir.resolve(), args.migrate_to)
 

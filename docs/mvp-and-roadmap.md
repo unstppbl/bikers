@@ -12,6 +12,15 @@ Space snapshot: 3 November 2026
 
 The BIKERS.KZ name, Kazakhstan-first launch, English/Russian/Kazakh support, and all-in-one motorcycle vision are established. The first pass through all 32 catalogue features is complete. The launch table records agreed MVP slices; the notes below record deferrals. Delivery sequencing, dates, estimates, detailed behavior, and the proposed flagship positioning remain open.
 
+## Approved community follow-up — 4 November 2026
+
+After the deployed MVP, the owner approved club city/name discovery and separate
+Organizing/Joined/Pending My clubs views, global unread badges and independent
+push-category preferences, and per-ride 24-hour/1-hour reminders with private
+calendar export. These are additions to the original MVP boundary; maintenance
+reminders, recurring rides and club calendars remain deferred. Reminder consent
+is per approved rider and off by default; downloaded calendar files are snapshots.
+
 ## Platform and deployment
 
 **Confirmed — 3 November 2026:** Launch as a mobile-first web/PWA to test and iterate quickly. Mobile apps follow in a later phase; their framework, exact platform coverage, and timing remain open.

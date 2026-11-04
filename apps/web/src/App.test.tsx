@@ -29,6 +29,8 @@ class TestSocket {
 
 function response(value: unknown, status = 200) { return new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json' } }) }
 function mvpRead(url: string) {
+  if (url.endsWith('/me/notifications/unread-count')) return response({ unread_count: 0 })
+  if (url.endsWith('/reminders')) return response({ day_before: false, hour_before: false })
   if (url.endsWith('/cities')) return response({ cities: [] })
   if (url.endsWith('/me/trust')) return response({ is_admin: false })
   if (url.endsWith('/badge')) return response({ badge: null })

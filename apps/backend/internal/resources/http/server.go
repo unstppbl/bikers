@@ -6,6 +6,7 @@ import (
 	"bikers.kz/backend/internal/managers/garage"
 	"bikers.kz/backend/internal/managers/media"
 	"bikers.kz/backend/internal/managers/notifications"
+	"bikers.kz/backend/internal/managers/reminders"
 	"bikers.kz/backend/internal/managers/rides"
 	"bikers.kz/backend/internal/managers/rooms"
 	"bikers.kz/backend/internal/managers/system"
@@ -44,6 +45,7 @@ type Managers struct {
 	Clubs         *clubs.Manager
 	Media         *media.Manager
 	Notifications *notifications.Manager
+	Reminders     *reminders.Manager
 	Trust         *trust.Manager
 }
 type Server struct {
@@ -72,6 +74,7 @@ func New(settings Settings, managers Managers) *Server {
 	m.HandleFunc("GET /api/v1/me/preferences", s.preferences)
 	m.HandleFunc("PATCH /api/v1/me/preferences", s.preferences)
 	m.HandleFunc("GET /api/v1/me/notifications", s.notifications)
+	m.HandleFunc("GET /api/v1/me/notifications/unread-count", s.unreadNotificationCount)
 	m.HandleFunc("PUT /api/v1/me/notifications/read", s.readAllNotifications)
 	m.HandleFunc("PUT /api/v1/me/notifications/{notificationID}/read", s.readNotification)
 	m.HandleFunc("GET /api/v1/me/push/settings", s.pushSettings)
@@ -113,6 +116,9 @@ func New(settings Settings, managers Managers) *Server {
 	m.HandleFunc("GET /api/v1/rides", s.listRides)
 	m.HandleFunc("POST /api/v1/rides", s.createRide)
 	m.HandleFunc("GET /api/v1/rides/{id}", s.getRide)
+	m.HandleFunc("GET /api/v1/rides/{id}/calendar", s.rideCalendar)
+	m.HandleFunc("GET /api/v1/rides/{id}/reminders", s.rideReminders)
+	m.HandleFunc("PUT /api/v1/rides/{id}/reminders", s.rideReminders)
 	m.HandleFunc("PATCH /api/v1/rides/{id}", s.patchRide)
 	m.HandleFunc("POST /api/v1/rides/{id}/cancel", s.cancelRide)
 	m.HandleFunc("PUT /api/v1/rides/{id}/participation", s.joinRide)
@@ -247,9 +253,9 @@ func failure(w http.ResponseWriter, err error) {
 		status = 403
 	case "not_found", "report_content_unavailable":
 		status = 404
-	case "profile_required", "ride_cancelled", "stale_plan", "capacity_too_small", "organizer_cannot_leave", "participation_changed", "ride_full", "message_id_conflict", "stale_version", "club_closed", "owner_transfer_required", "membership_changed", "invalid_owner", "photo_limit", "photo_storage_limit", "photo_upload_expired", "club_image_busy", "avatar_upload_busy", "album_photo_limit", "album_video_limit", "block_limit", "action_id_conflict", "announcement_id_conflict", "user_blocked", "push_subscription_limit", "push_subscription_in_use":
+	case "profile_required", "ride_cancelled", "ride_unavailable", "stale_plan", "capacity_too_small", "organizer_cannot_leave", "participation_changed", "ride_full", "message_id_conflict", "stale_version", "club_closed", "owner_transfer_required", "membership_changed", "invalid_owner", "photo_limit", "photo_storage_limit", "photo_upload_expired", "club_image_busy", "avatar_upload_busy", "album_photo_limit", "album_video_limit", "block_limit", "action_id_conflict", "announcement_id_conflict", "user_blocked", "push_subscription_limit", "push_subscription_in_use":
 		status = 409
-	case "invalid_phone", "invalid_profile", "invalid_ride", "invalid_decision", "invalid_message", "invalid_cursor", "invalid_bike", "invalid_maintenance", "invalid_query", "invalid_club", "invalid_photo", "invalid_photo_choice", "invalid_video_link", "invalid_report", "invalid_block", "invalid_admin_action", "invalid_announcement", "invalid_preferences", "invalid_push_subscription":
+	case "invalid_phone", "invalid_profile", "invalid_ride", "invalid_decision", "invalid_message", "invalid_cursor", "invalid_bike", "invalid_maintenance", "invalid_query", "invalid_club", "invalid_photo", "invalid_photo_choice", "invalid_video_link", "invalid_report", "invalid_block", "invalid_admin_action", "invalid_announcement", "invalid_reminders", "invalid_preferences", "invalid_push_subscription":
 		status = 422
 	case "photo_too_large":
 		status = 413

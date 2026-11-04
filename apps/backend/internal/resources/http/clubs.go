@@ -11,8 +11,10 @@ func (s *Server) listClubs(w http.ResponseWriter, r *http.Request) {
 		failure(w, err)
 		return
 	}
-	mine := r.URL.Query().Get("mine") == "1"
-	page, err := s.managers.Clubs.List(r.Context(), v, r.URL.Query().Get("cursor"), mine)
+	params := r.URL.Query()
+	page, err := s.managers.Clubs.List(r.Context(), v, models.ClubListInput{
+		View: params.Get("view"), City: params.Get("city"), Search: params.Get("q"), Cursor: params.Get("cursor"),
+	})
 	if err != nil {
 		failure(w, err)
 		return

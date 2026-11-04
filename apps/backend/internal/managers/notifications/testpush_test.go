@@ -36,11 +36,18 @@ func (r *diagnosticRepository) WithNotifications(ctx context.Context, id string,
 
 type diagnosticTransaction struct {
 	database.NotificationTransaction
-	account models.PushAccount
-	rows    []models.PushSubscriptionRecord
-	err     error
+	account                       models.PushAccount
+	rows                          []models.PushSubscriptionRecord
+	preferenceWrites, unreadCount int
+	err                           error
 }
 
+func (t *diagnosticTransaction) SetPreferences(p models.Preferences) error {
+	t.preferenceWrites++
+	t.account.Preferences = p
+	return nil
+}
+func (t *diagnosticTransaction) UnreadCount() (int, error)   { return t.unreadCount, t.err }
 func (t *diagnosticTransaction) Account() models.PushAccount { return t.account }
 func (t *diagnosticTransaction) Subscriptions() ([]models.PushSubscriptionRecord, error) {
 	return t.rows, t.err

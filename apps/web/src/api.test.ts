@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, mutation, publicRide, request, safeExternalUrl, setCsrfToken, uploadFile } from './api'
+import { ApiError, mutation, publicRide, request, requestCalendar, safeExternalUrl, setCsrfToken, uploadFile } from './api'
 
 afterEach(() => { setCsrfToken(); vi.unstubAllGlobals() })
 
@@ -51,6 +51,43 @@ describe('same-origin API boundary', () => {
     setCsrfToken('test-csrf')
     await expect(request('/rides/example')).rejects.toMatchObject({ status: 409, code: 'ride_full' })
     expect(fetch.mock.calls[0][1].headers.has('X-CSRF-Token')).toBe(false)
+  })
+
+
+  it.each(['json', 'calendar'])('does not expire a new login when an old %s request returns 401', async (kind) => {
+    let finish: ((value: Response) => void) | undefined
+    const fetch = vi.fn<(url: string, options?: RequestInit) => Promise<Response>>(() => new Promise<Response>((resolve) => { finish = resolve }))
+    vi.stubGlobal('fetch', fetch)
+    const expired = vi.fn()
+    window.addEventListener('bikerskz:session-expired', expired)
+    try {
+      setCsrfToken('account-a')
+      const controller = new AbortController()
+      const pending = kind === 'calendar' ? requestCalendar('example', controller.signal) : request('/me/notifications/unread-count', { signal: controller.signal })
+      setCsrfToken('account-b')
+      finish!(new Response(JSON.stringify({ error: { code: 'authentication_required' } }), { status: 401 }))
+      await expect(pending).rejects.toMatchObject({ status: 401 })
+      expect(expired).not.toHaveBeenCalled()
+      fetch.mockResolvedValueOnce(new Response(JSON.stringify({ ok: true })))
+      await mutation('/me/preferences', 'PATCH', {})
+      expect(new Headers(fetch.mock.calls[1][1]?.headers).get('X-CSRF-Token')).toBe('account-b')
+    } finally { window.removeEventListener('bikerskz:session-expired', expired) }
+  })
+
+  it.each(['json', 'calendar'])('does not expire the current login for an aborted %s request that returns 401', async (kind) => {
+    let finish: ((value: Response) => void) | undefined
+    vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>((resolve) => { finish = resolve })))
+    const expired = vi.fn()
+    window.addEventListener('bikerskz:session-expired', expired)
+    try {
+      setCsrfToken('current-account')
+      const controller = new AbortController()
+      const pending = kind === 'calendar' ? requestCalendar('example', controller.signal) : request('/me/preferences', { signal: controller.signal })
+      controller.abort()
+      finish!(new Response(JSON.stringify({ error: { code: 'authentication_required' } }), { status: 401 }))
+      await expect(pending).rejects.toMatchObject({ status: 401 })
+      expect(expired).not.toHaveBeenCalled()
+    } finally { window.removeEventListener('bikerskz:session-expired', expired) }
   })
 
   it('signals expired authenticated sessions without exposing diagnostic content', async () => {

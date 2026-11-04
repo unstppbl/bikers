@@ -7,6 +7,20 @@
 - Fix the cause, not the symptom.
 - Search with `rg` instead of `grep`, and list files with `rg --files` instead
   of `find`. Add `--no-ignore` to search ignored vendored Go modules.
+- Never add AI model authorship or attribution: no `Co-Authored-By` trailers
+  naming an AI model and no "Generated with ..." lines in commits, merge
+  requests, code or docs or branch names.
+
+## Worktree cleanup
+
+- Keep task-specific worktrees until the user explicitly says the work is done
+  or the task's merge request is confirmed merged. Once either condition is met,
+  remove those worktrees.
+- For Codex-managed worktrees, use the `archive_worktree` tool to preserve a
+  recoverable snapshot. For other Git worktrees, preserve local changes and
+  unpushed commits before using `git worktree remove`.
+- Keep the primary checkout and worktrees still used by other active work.
+
 
 ## Production deployment
 

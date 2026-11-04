@@ -3,6 +3,7 @@ package notifications
 import (
 	"context"
 	"testing"
+	"time"
 
 	"bikers.kz/backend/internal/models"
 )
@@ -53,7 +54,8 @@ func TestMalformedInboxCursorsAndDisabledPushFailBeforeRepositoryAccess(t *testi
 
 func TestClubPushEligibilityRechecksOwnershipMembershipAndSession(t *testing.T) {
 	base := models.PushDelivery{
-		Kind: "club.membership.requested", ClubID: "club", ClubStatus: "active", ClubOwnerID: "owner",
+		PushCategories: models.PushCategories{RideUpdates: true, Participation: true, ClubMembership: true, RideReminders: true},
+		Kind:           "club.membership.requested", ClubID: "club", ClubStatus: "active", ClubOwnerID: "owner",
 		AccountActive: true, SessionActive: true,
 		Subscription: models.PushSubscriptionRecord{UserID: "owner"},
 	}
@@ -100,7 +102,7 @@ func TestClubPushEligibilityRechecksOwnershipMembershipAndSession(t *testing.T) 
 			if test.change != nil {
 				test.change(&delivery)
 			}
-			if allowed := pushAllowed(delivery); allowed != test.allowed {
+			if allowed := pushAllowed(delivery, time.Now()); allowed != test.allowed {
 				t.Fatalf("push allowed=%v, want %v", allowed, test.allowed)
 			}
 		})

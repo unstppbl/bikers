@@ -6145,3 +6145,38 @@ svg {
     transform: none;
   }
 }
+
+.notification-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 23px;
+  min-height: 23px;
+  padding: 2px 5px;
+  border-radius: 20px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.side-navigation .notification-badge { margin-left: auto; }
+.side-navigation a.active .notification-badge { background: var(--on-accent); color: var(--accent); }
+.topbar-inbox { position: relative; flex-shrink: 0; }
+.topbar-inbox .notification-badge { position: absolute; right: -4px; top: -4px; }
+.ride-schedule { margin: 24px 0; padding: 24px; }
+.notification-options { display: grid; gap: 4px; margin: 0 0 18px; padding: 0; border: 0; min-width: 0; }
+.notification-option { display: flex; gap: 12px; align-items: center; min-height: 44px; cursor: pointer; }
+.notification-option input { flex: 0 0 19px; width: 19px; height: 19px; accent-color: var(--accent); margin: 0; }
+.notification-option span { min-width: 0; }
+.calendar-download { margin-top: 24px; padding-top: 22px; border-top: 1px solid var(--border); }
+.calendar-download .section-intro { margin: 12px 0 0; }
+
+@media (max-width: 390px) {
+  .topbar-actions { gap: 8px; }
+  .topbar-inbox { width: 44px; min-width: 44px; }
+  .topbar-actions > .avatar-link { display: none; }
+  .ride-schedule { padding: 18px; }
+}

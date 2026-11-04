@@ -11,6 +11,7 @@ import { Avatar } from '../components/Avatar'
 import { Announcements } from '../components/Announcements'
 import type { AnnouncementDraft } from '../components/Announcements'
 import { RideMedia } from '../components/RideMedia'
+import { RideSchedule } from '../components/RideSchedule'
 import { CommunityBadge, ReportButton, UserSafety } from '../components/Trust'
 import { resetTrustQueries } from '../trust-cache'
 import type { Message, MessagesResponse, Participant, Ride } from '../types'
@@ -71,7 +72,7 @@ export function RideDetailPage() {
     const actorKey = user?.id ?? 'guest'
     void queryClient.cancelQueries({ queryKey: ['ride', rideId, actorKey] })
     queryClient.setQueryData<{ ride: Ride }>(['ride', rideId, actorKey], (value) => value ? { ride: publicRide(value.ride) } : undefined)
-    for (const name of ['messages', 'ride-album', 'announcements']) { void queryClient.cancelQueries({ queryKey: [name, rideId] }); queryClient.removeQueries({ queryKey: [name, rideId] }) }
+    for (const name of ['messages', 'ride-album', 'announcements', 'ride-reminders']) { void queryClient.cancelQueries({ queryKey: [name, rideId] }); queryClient.removeQueries({ queryKey: [name, rideId] }) }
     queryClient.removeQueries({ queryKey: ['avatar'] })
     queryClient.removeQueries({ queryKey: ['participants', rideId] })
     if (reconnectTimer.current) window.clearTimeout(reconnectTimer.current)
@@ -125,6 +126,7 @@ export function RideDetailPage() {
     {actionError != null && <ErrorNotice error={actionError} />}
     {canAccess ? <>
       <div className="detail-grid"><section className="surface plan-card"><div className="panel-title"><span className="panel-icon"><Navigation size={20} /></span><h2>{t('ridePlan')}</h2></div><dl className="plan-details"><div><dt><Clock3 size={16} />{t('departure')}</dt><dd>{ride.starts_at && formatRideDateTime(ride.starts_at, ride.timezone ?? 'Asia/Almaty', locale)}<small>{ride.timezone}</small></dd></div><div><dt><MapPin size={16} />{t('meetingPoint')}</dt><dd>{ride.meeting_point}<a className="inline-link" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ride.meeting_point ?? '')}`} target="_blank" rel="noopener noreferrer">{t('navigate')}<ArrowUpRight size={14} /></a></dd></div>{ride.destination && <div><dt><Navigation size={16} />{t('destination')}</dt><dd>{ride.destination}<a className="inline-link" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ride.destination)}`} target="_blank" rel="noopener noreferrer">{t('navigate')}<ArrowUpRight size={14} /></a></dd></div>}<div><dt><Users size={16} />{t('capacity')}</dt><dd>{ride.capacity}<small>{t('capacityHint')}</small></dd></div></dl>{ride.expectations && <div className="expectations"><h3>{t('expectations')}</h3><p>{ride.expectations}</p></div>}{safeExternalUrl(ride.route_url) && <a className="button button-outline button-wide" href={safeExternalUrl(ride.route_url)} target="_blank" rel="noopener noreferrer">{t('routeLink')}<ArrowUpRight size={17} /></a>}</section><ParticipantsPanel ride={ride} onAccessLost={recheckAccess} /></div>
+      <RideSchedule key={`schedule:${ride.id}:${user?.id}`} ride={ride} onAccessLost={recheckAccess} />
       <Announcements key={`announcements:${ride.id}:${user?.id}`} ride={ride} draft={announcementDraft} setDraft={setAnnouncementDraft} onAccessLost={recheckAccess} />
       <RideRoom ride={ride} draft={roomDraft} setDraft={setRoomDraft} onAccessLost={recheckAccess} onConnected={markConnected} />
       <RideMedia key={`media:${ride.id}:${user?.id}`} ride={ride} onAccessLost={recheckAccess} />

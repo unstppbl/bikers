@@ -20,6 +20,7 @@ import (
 	"bikers.kz/backend/internal/managers/media"
 	"bikers.kz/backend/internal/managers/notifications"
 	"bikers.kz/backend/internal/managers/photos"
+	"bikers.kz/backend/internal/managers/reminders"
 	"bikers.kz/backend/internal/managers/rides"
 	"bikers.kz/backend/internal/managers/rooms"
 	"bikers.kz/backend/internal/managers/system"
@@ -39,6 +40,7 @@ type Runtime struct {
 	System        *system.Manager
 	Trust         *trust.Manager
 	Notifications *notifications.Manager
+	Reminders     *reminders.Manager
 	settings      config.Config
 	close         func()
 }
@@ -75,8 +77,9 @@ func New(cfg config.Config, repository database.Repository, gateway accounts.Gat
 		push = webpushclient.New(webpushclient.Options{PublicKey: cfg.PushPublicKey, PrivateKey: cfg.PushPrivateKey, Subject: cfg.PushSubject})
 	}
 	nf := notifications.New(repository, push, cfg.PushPublicKey, now)
-	transport := httpapi.New(httpapi.Settings{Origin: origin, TrustedProxies: proxies, WebDistDir: cfg.WebDistDir}, httpapi.Managers{Accounts: a, Rides: r, Rooms: rm, System: sy, Events: events, Garage: g, Clubs: c, Media: md, Trust: tr, Notifications: nf})
-	return &Runtime{Handler: transport.Handler(), System: sy, Trust: tr, Notifications: nf, settings: cfg}, nil
+	reminderManager := reminders.New(repository, now)
+	transport := httpapi.New(httpapi.Settings{Origin: origin, TrustedProxies: proxies, WebDistDir: cfg.WebDistDir}, httpapi.Managers{Accounts: a, Rides: r, Rooms: rm, System: sy, Events: events, Garage: g, Clubs: c, Media: md, Trust: tr, Notifications: nf, Reminders: reminderManager})
+	return &Runtime{Handler: transport.Handler(), System: sy, Trust: tr, Notifications: nf, Reminders: reminderManager, settings: cfg}, nil
 }
 
 // Open owns construction and cleanup of production dependencies.
@@ -102,8 +105,9 @@ func (r *Runtime) Close() {
 func (r *Runtime) Run(ctx context.Context) error {
 	ctx, cancelWorkers := context.WithCancel(ctx)
 	var workerWG sync.WaitGroup
-	workerWG.Add(1)
+	workerWG.Add(2)
 	go func() { defer workerWG.Done(); workers.RunPush(ctx, r.Notifications) }()
+	go func() { defer workerWG.Done(); workers.RunReminders(ctx, r.Reminders) }()
 	defer func() { cancelWorkers(); workerWG.Wait() }()
 	if err := os.MkdirAll(r.settings.MediaDir, 0750); err != nil {
 		return errors.New("persistent media directory unavailable")

@@ -9,8 +9,12 @@ import { preferencesEn, preferencesKk, preferencesRu } from './preferences-i18n'
 import { mvpEn, mvpKk, mvpRu } from './mvp-i18n'
 import { ridesEn, ridesKk, ridesRu } from './rides-i18n'
 import { clubNotificationsEn, clubNotificationsKk, clubNotificationsRu } from './club-notifications-i18n'
+import { clubDiscoveryEn, clubDiscoveryKk, clubDiscoveryRu } from './club-discovery-i18n'
+import { notificationFeaturesEn, notificationFeaturesKk, notificationFeaturesRu } from './notification-features-i18n'
 
 const en = {
+  ...clubDiscoveryEn,
+  ...notificationFeaturesEn,
   ...clubNotificationsEn,
   ...ridesEn,
   ...mvpEn,
@@ -89,6 +93,8 @@ const en = {
 
 type Key = keyof typeof en
 const ru: Record<Key, string> = {
+  ...clubDiscoveryRu,
+  ...notificationFeaturesRu,
   ...clubNotificationsRu,
   ...ridesRu,
   ...mvpRu,
@@ -166,6 +172,8 @@ const ru: Record<Key, string> = {
 }
 
 const kk: Record<Key, string> = {
+  ...clubDiscoveryKk,
+  ...notificationFeaturesKk,
   ...clubNotificationsKk,
   ...ridesKk,
   ...mvpKk,

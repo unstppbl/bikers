@@ -2,15 +2,30 @@ package models
 
 import "time"
 
+// PushCategories controls optional device delivery. Inbox records are always retained.
+type PushCategories struct {
+	RideUpdates    bool `json:"ride_updates"`
+	Participation  bool `json:"participation"`
+	ClubMembership bool `json:"club_membership"`
+	RideReminders  bool `json:"ride_reminders"`
+}
+type PushCategoriesPatch struct {
+	RideUpdates    *bool `json:"ride_updates"`
+	Participation  *bool `json:"participation"`
+	ClubMembership *bool `json:"club_membership"`
+	RideReminders  *bool `json:"ride_reminders"`
+}
 type Preferences struct {
-	CountryCode  string `json:"country_code"`
-	CurrencyCode string `json:"currency_code"`
-	Locale       string `json:"locale"`
+	CountryCode    string         `json:"country_code"`
+	CurrencyCode   string         `json:"currency_code"`
+	Locale         string         `json:"locale"`
+	PushCategories PushCategories `json:"push_categories"`
 }
 type PreferencesPatch struct {
-	CountryCode  *string `json:"country_code"`
-	CurrencyCode *string `json:"currency_code"`
-	Locale       *string `json:"locale"`
+	CountryCode    *string              `json:"country_code"`
+	CurrencyCode   *string              `json:"currency_code"`
+	Locale         *string              `json:"locale"`
+	PushCategories *PushCategoriesPatch `json:"push_categories"`
 }
 type Notification struct {
 	ID        string     `json:"id"`
@@ -30,6 +45,8 @@ type NotificationIntent struct {
 	EventID, Kind, RideID, ClubID string
 	Recipients                    []string
 	CreatedAt                     time.Time
+	ReminderStartsAt              *time.Time
+	ReminderLeadMinutes           int
 }
 type Announcement struct {
 	ID                   string    `json:"id"`
@@ -82,6 +99,10 @@ type PushDelivery struct {
 	Subscription                                 PushSubscriptionRecord
 	Attempts                                     int
 	AccountActive, SessionActive, RideAllowed    bool
+	PushCategories                               PushCategories
+	ReminderContext                              ReminderContext
+	ReminderStartsAt                             *time.Time
+	ReminderLeadMinutes                          int
 }
 type PushDeliveryResult struct {
 	State              string

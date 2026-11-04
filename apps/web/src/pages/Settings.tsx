@@ -10,21 +10,22 @@ import { useSessionTask } from '../useSessionTask'
 import { ErrorNotice, Field, Loading, useOnline } from '../ui'
 import { PushSettings } from '../components/PushSettings'
 import { BlockedUsersPanel } from '../components/Trust'
-import type { Locale } from '../types'
+import { PushCategorySettings, safePushCategories } from '../components/PushCategorySettings'
+import type { Locale, PushCategories } from '../types'
 
 export const countries = ['KZ', 'KG', 'UZ', 'RU', 'ZZ'] as const
 export const currencies = ['KZT', 'KGS', 'UZS', 'RUB', 'USD', 'EUR'] as const
-export interface Preferences { country_code: typeof countries[number]; currency_code: typeof currencies[number]; locale: Locale }
+export interface Preferences { country_code: typeof countries[number]; currency_code: typeof currencies[number]; locale: Locale; push_categories: PushCategories }
 export function safePreferences(value: unknown): Preferences {
   if (!value || typeof value !== 'object' || !('country_code' in value) || !countries.some((code) => code === value.country_code) || !('currency_code' in value) || !currencies.some((code) => code === value.currency_code) || !('locale' in value) || !['en', 'ru', 'kk'].includes(String(value.locale))) throw new ApiError(502, 'request_failed')
-  return { country_code: value.country_code as Preferences['country_code'], currency_code: value.currency_code as Preferences['currency_code'], locale: value.locale as Locale }
+  return { country_code: value.country_code as Preferences['country_code'], currency_code: value.currency_code as Preferences['currency_code'], locale: value.locale as Locale, push_categories: safePushCategories('push_categories' in value ? value.push_categories : undefined) }
 }
 
 export function SettingsPage() {
   const { user } = useSession()
   const { t } = useI18n()
   const query = useQuery({ queryKey: ['preferences', user?.id], queryFn: async ({ signal }) => safePreferences(await request('/me/preferences', { signal })), enabled: !!user, meta: { private: true }, retry: false })
-  return <div className="page-content narrow-page"><Link className="back-link" to="/"><ArrowLeft size={17} />{t('back')}</Link><div className="page-heading"><span className="eyebrow">{t('settings')}</span><h1>{t('preferencesTitle')}</h1><p>{t('preferencesText')}</p></div>{query.isPending ? <Loading /> : query.isError ? <ErrorNotice error={query.error} retry={() => void query.refetch()} /> : <PreferencesForm key={user?.id} preferences={query.data} />}<PushSettings key={`push:${user?.id}`} /><BlockedUsersPanel key={`blocks:${user?.id}`} /><Link className="surface settings-link" to="/install"><span><Globe size={20} />{t('installApp')}</span><ArrowUpRight size={18} /></Link></div>
+  return <div className="page-content narrow-page"><Link className="back-link" to="/"><ArrowLeft size={17} />{t('back')}</Link><div className="page-heading"><span className="eyebrow">{t('settings')}</span><h1>{t('preferencesTitle')}</h1><p>{t('preferencesText')}</p></div>{query.isPending ? <Loading /> : query.isError ? <ErrorNotice error={query.error} retry={() => void query.refetch()} /> : <><PreferencesForm key={user?.id} preferences={query.data} /><PushCategorySettings key={`categories:${user?.id}`} categories={query.data.push_categories} /></>}<PushSettings key={`push:${user?.id}`} /><BlockedUsersPanel key={`blocks:${user?.id}`} /><Link className="surface settings-link" to="/install"><span><Globe size={20} />{t('installApp')}</span><ArrowUpRight size={18} /></Link></div>
 }
 
 function PreferencesForm({ preferences }: { preferences: Preferences }) {
@@ -43,7 +44,7 @@ function PreferencesForm({ preferences }: { preferences: Preferences }) {
     if (!task.current()) { task.finish(); return }
     setBusy(true); setSaved(false); setError(undefined)
     try {
-      const next = safePreferences(await request('/me/preferences', { method: 'PATCH', signal: task.signal, body: JSON.stringify(form) }))
+      const next = safePreferences(await request('/me/preferences', { method: 'PATCH', signal: task.signal, body: JSON.stringify({ country_code: form.country_code, currency_code: form.currency_code, locale: form.locale }) }))
       if (!task.current()) return
       queryClient.setQueryDefaults(['preferences', user?.id], { meta: { private: true } })
       queryClient.setQueryData(['preferences', user?.id], next)

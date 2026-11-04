@@ -20,6 +20,7 @@ export class ApiError extends Error {
 }
 
 export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const expectedEpoch = sessionEpoch
   const headers = new Headers(options.headers)
   headers.set('Accept', 'application/json')
   if (typeof options.body === 'string' && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
@@ -40,7 +41,7 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
   }
   if (!response.ok) {
     const payload = await response.json().catch(() => null)
-    if (response.status === 401 && csrfToken) {
+    if (response.status === 401 && csrfToken && sessionEpoch === expectedEpoch && !options.signal?.aborted) {
       setCsrfToken()
       window.dispatchEvent(new Event('bikerskz:session-expired'))
     }
@@ -48,6 +49,30 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
   }
   if (response.status === 204) return undefined as T
   return response.json() as Promise<T>
+}
+
+// Calendar content stays online-only and is never placed in the application cache.
+export async function requestCalendar(rideID: string, signal: AbortSignal): Promise<Blob> {
+  const expectedEpoch = sessionEpoch
+  let response: Response
+  try {
+    response = await fetch(`/api/v1/rides/${encodeURIComponent(rideID)}/calendar`, {
+      headers: { Accept: 'text/calendar' }, credentials: 'same-origin', cache: 'no-store', signal,
+    })
+  } catch (error) {
+    if (signal.aborted) throw error
+    throw new ApiError(0, 'network_error')
+  }
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null)
+    if (response.status === 401 && csrfToken && sessionEpoch === expectedEpoch && !signal.aborted) {
+      setCsrfToken()
+      window.dispatchEvent(new Event('bikerskz:session-expired'))
+    }
+    throw new ApiError(response.status, payload?.error?.code ?? 'request_failed')
+  }
+  if (response.headers.get('Content-Type')?.split(';')[0].trim().toLowerCase() !== 'text/calendar') throw new ApiError(502, 'request_failed')
+  return response.blob()
 }
 
 export function mutation<T>(path: string, method: string, body?: unknown) {

@@ -104,3 +104,29 @@ inbox/read state, session, club, subscription/job lease and prior receipts.
 The isolated browser flow verifies owner request → club queue → approval →
 applicant inbox/member view, read-all state and EN/RU/KK phone layouts. Real OTPs,
 production push deliveries and production schema changes are outside this check.
+
+## Club discovery, notifications and ride scheduling — 4 November 2026
+
+- [x] Club city/name search before paging and separate Organizing/Joined/Pending views.
+- [x] Actor/filter-bound cursors and URL/history restoration with first-page recovery.
+- [x] Global unread inbox badges and actor-owned lightweight count endpoint.
+- [x] Independent push categories that retain inbox history and recheck queued delivery consent.
+- [x] Explicit per-ride 24-hour/1-hour reminder consent with occurrence deduplication.
+- [x] Current departure, participation, visibility and consent checks for stale reminder work.
+- [x] Authenticated calendar snapshots with stable IDs, versions and cancellation status.
+- [x] Owner's AGENTS.md attribution and worktree-cleanup changes included.
+
+Migration 9 uses the explicit coordinated schema-8 to schema-9 rollout through
+`make deploy-jarvis DEPLOY_ARGS='--migrate-to 9'`. The default remains app-only. Verification uses
+disposable local accounts/database and fake notification providers.
+
+Verification: all 129 frontend tests, typecheck, lint and the production web build
+passed. The complete PostgreSQL-backed Go race suite, vet and architecture
+checks passed after the independent-consent fix. Upgrade/replay tests preserve
+schema-eight account/session/admin, inbox/read state, subscription/lease and
+prior receipt data. Browser review confirmed club search/city aliases/My clubs,
+unread clearing, category controls and EN/RU/KK layouts at 320–390px, with no
+console warnings or errors. The browser approval review blocked publishing a
+disposable test ride; reminder/calendar behavior is instead covered by manager,
+HTTP/PostgreSQL and frontend automated tests. No production data or real OTP/push
+provider was used.

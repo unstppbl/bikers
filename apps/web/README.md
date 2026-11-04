@@ -23,3 +23,18 @@ club kinds link only to their validated `club_id`; ride kinds link only to
 `ride_id`. Missing, conflicting or unknown targets have no action link. Read
 state, pagination and EN/RU/KK labels are shared. Push notifications continue
 to open the inbox with generic text rather than exposing membership details.
+
+## Club discovery and ride schedules
+
+`/clubs` supports city/name search; `/my-clubs` separates Organizing, Joined and
+Pending with the same actor-bound URL/cursor behavior as rides. Navigation and
+the header display a localized unread inbox count, capped visually at `99+`;
+reading notices invalidates the shared count and polling refreshes it.
+
+Settings has independent push categories. Muting push never hides durable inbox
+updates. Approved riders/organizers can choose 24-hour and/or 1-hour departure
+reminders on each ride; neither is selected by default. The private calendar
+download uses an abortable, same-origin `no-store` request and discards late
+responses after an account/session change. A visible hint explains that downloaded
+events do not synchronize future changes. All controls and guidance are in
+English, Russian and Kazakh.

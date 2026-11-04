@@ -65,7 +65,7 @@ The web client translates error codes into its selected language; the server mes
 | PUT | `/me/bikes/{bikeID}/photo-cover` | Choose a ready photo or restore catalogue with `{version, photo_id}` |
 | DELETE | `/me/bikes/{bikeID}/photos/{photoID}` | Delete with gallery `version`; returns `{gallery}` |
 | GET / HEAD | `/bikes/{bikeID}/photos/{photoID}/content` | Authorized, processed JPEG bytes; always `no-store` |
-| GET / POST | `/clubs` | Page public active clubs (`mine=1` for own/requested/approved, including closed) or create |
+| GET / POST | `/clubs` | Filter and page `view=discover|organizing|joined|pending` by `city`, name `q`, signed `cursor`, or create |
 | GET / PATCH | `/clubs/{id}` | Authorized view or owner edit with `version` |
 | POST | `/clubs/{id}/close` | Close explicitly with `version` |
 | PUT | `/clubs/{id}/ownership` | Transfer with `{version, user_id}` |
@@ -138,8 +138,11 @@ Health endpoints are `/health/live` and `/health/ready`. Readiness checks all se
 | GET / HEAD | `/rides/{id}/album/photos/{photoID}/content` | Current approved-participant image access |
 | POST / DELETE | `/rides/{id}/album/videos` or `/rides/{id}/album/videos/{videoID}` | HTTPS external link creation or scoped removal |
 | GET / POST | `/rides/{id}/announcements` | Approved read; organizer-only idempotent publication |
-| GET / PATCH | `/me/preferences` | Independent `{country_code,currency_code,locale}` preferences |
+| GET / PATCH | `/me/preferences` | Independent locale settings and nested `push_categories` booleans |
 | GET | `/me/notifications` | Descending cursor inbox, `unread_count` and `next_cursor` |
+| GET | `/me/notifications/unread-count` | Actor-owned `{unread_count}` for global badges |
+| GET / PUT | `/rides/{id}/reminders` | Current approved rider/organizer `{day_before,hour_before}` opt-in |
+| GET | `/rides/{id}/calendar` | Private `no-store` iCalendar attachment for the current approved rider/organizer |
 | PUT | `/me/notifications/{notificationID}/read` or `/me/notifications/read` | Idempotent read state for one or all |
 | GET | `/me/push/settings` | Optional availability and public VAPID key |
 | GET / POST / DELETE | `/me/push/subscriptions` or `/me/push/subscriptions/{subscriptionID}` | Consent registration and account-owned device removal |
@@ -176,8 +179,9 @@ unchanged.
 Migration 8 adds nullable `club_id` and enforces exactly one kind-matching
 ride/club target while preserving old ride notices and push jobs. Versions 1–7
 remain immutable. Apply the explicit schema upgrade as a coordinated rollout
-before activating this executable; the deployment helper only applies this upgrade with the explicit
-`--migrate-to 8` target. See [the coordinated rollout](operations.md#club-notification-schema-upgrade).
+before activating the matching executable. The current deployment helper coordinates
+schema 8 to 9 with `--migrate-to 9`; the schema-7 to schema-8 rollout is historical.
+See [the coordinated rollout](operations.md#community-follow-up-schema-9).
 
 ## Reporting blocking and administration
 
@@ -293,3 +297,22 @@ the new notice. All fixture generation is compiled only into the test binary.
 
 
 For frontend hot reload, run Vite on a fixed port (`npm run dev -- --port 5173 --strictPort`) and run the API on port 8080 with `BASE_URL=http://localhost:5173`. The browser origin, including hostname and port, must match. The Go CLI reads exported environment variables; it does not load `.env` automatically. Compose loads the root `.env` and supplies the internal paths and database URL.
+
+## Community and schedule follow-up — 4 November 2026
+
+The owner approved three additions: filtered club discovery/My clubs, unread
+badges and push-category settings, and opted-in ride reminders/private calendar
+exports. The implementation requires explicit migration 9; versions 1–8 remain
+immutable. Category preferences apply only to push, with every category enabled
+by default and all inbox updates retained. Per-ride reminder consent defaults
+to false and binds to the current participation generation.
+
+The reminders manager decides 24-hour/1-hour eligibility with a ten-minute grace
+window. PostgreSQL serializes occurrence receipts and inbox/outbox writes under
+the existing trust/ride locks. A 30-second worker calls the manager; provider
+network calls remain in the existing push dispatcher after commit. Rescheduling,
+cancellation, account restriction, removal/reapproval, hidden rides, blocks and
+opt-out invalidate stale reminder delivery. Downloaded calendar files use stable
+UIDs and plan sequences, UTC departure, private classification and cancellation
+status, and remain snapshots. This development change does not perform a
+production migration, OTP request or live notification test.

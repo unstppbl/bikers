@@ -12,6 +12,7 @@ import { RideDetailPage } from './pages/RideDetail'
 import { MyRidesPage } from './pages/RideList'
 import { Avatar } from './components/Avatar'
 import { useTrust } from './components/Trust'
+import { NotificationBadge, useUnreadNotifications } from './components/NotificationBadge'
 import type { Locale } from './types'
 
 const GaragePage = lazy(() => import('./pages/Garage').then((module) => ({ default: module.GaragePage })))
@@ -19,6 +20,7 @@ const BikeFormPage = lazy(() => import('./pages/Garage').then((module) => ({ def
 const BikeOwnerPage = lazy(() => import('./pages/Garage').then((module) => ({ default: module.BikeOwnerPage })))
 const PublicBikePage = lazy(() => import('./pages/Garage').then((module) => ({ default: module.PublicBikePage })))
 const ClubsPage = lazy(() => import('./pages/Clubs').then((module) => ({ default: module.ClubsPage })))
+const MyClubsPage = lazy(() => import('./pages/Clubs').then((module) => ({ default: module.MyClubsPage })))
 const ClubFormPage = lazy(() => import('./pages/Clubs').then((module) => ({ default: module.ClubFormPage })))
 const ClubDetailPage = lazy(() => import('./pages/Clubs').then((module) => ({ default: module.ClubDetailPage })))
 const InboxPage = lazy(() => import('./pages/Inbox').then((module) => ({ default: module.InboxPage })))
@@ -33,6 +35,8 @@ export function App() {
   const { t, locale, setLocale } = useI18n()
   const { user, clear } = useSession()
   const trust = useTrust()
+  const unread = useUnreadNotifications()
+  const unreadCount = user && !unread.isError ? unread.data ?? 0 : 0
   const captureSession = useSessionGuard()
   const [menuOpen, setMenuOpen] = useState(false)
   const [logoutError, setLogoutError] = useState<unknown>()
@@ -109,8 +113,9 @@ export function App() {
         <NavLink to="/" end onClick={() => setMenuOpen(false)}><Motorbike size={20} />{t('rides')}<ArrowUpRight className="nav-arrow" size={17} /></NavLink>
         <NavLink to="/my-rides" onClick={() => setMenuOpen(false)}><CalendarDays size={20} />{t('myRides')}</NavLink>
         <NavLink to="/garage" onClick={() => setMenuOpen(false)}><Wrench size={20} />{t('garage')}</NavLink>
-        <NavLink to="/clubs" onClick={() => setMenuOpen(false)}><Users size={20} />{t('clubs')}</NavLink>
-        <NavLink to="/inbox" onClick={() => setMenuOpen(false)}><Bell size={20} />{t('inbox')}</NavLink>
+        <NavLink to="/clubs" end onClick={() => setMenuOpen(false)}><Users size={20} />{t('clubs')}</NavLink>
+        <NavLink to="/my-clubs" onClick={() => setMenuOpen(false)}><Users size={20} />{t('myClubs')}</NavLink>
+        <NavLink to="/inbox" onClick={() => setMenuOpen(false)}><Bell size={20} />{t('inbox')}<NotificationBadge count={unreadCount} /></NavLink>
         {trust.data?.is_admin && <NavLink to="/admin" onClick={() => setMenuOpen(false)}><ShieldCheck size={20} />{t('admin')}</NavLink>}
         <NavLink to="/profile" onClick={() => setMenuOpen(false)}><UserRound size={20} />{t('profile')}</NavLink>
         <NavLink to="/settings" onClick={() => setMenuOpen(false)}><Settings size={20} />{t('settings')}</NavLink>
@@ -124,6 +129,7 @@ export function App() {
         <div className="mobile-brand"><button ref={menuTriggerRef} className="icon-button" aria-label={t('menu')} aria-controls={navigationId} aria-expanded={menuOpen} aria-haspopup="dialog" onClick={() => setMenuOpen(true)}><Menu size={22} /></button><Link to="/">BIKERS<span>.KZ</span></Link></div>
         <span className="topbar-country"><span className="status-dot" />{t('country')}<span className="topbar-divider">/</span>{t('community')}</span>
         <div className="topbar-actions"><label className="locale-select"><span className="sr-only">{t('locale')}</span><select aria-label={t('locale')} value={locale} onChange={(event) => setLocale(event.target.value as Locale)}><option value="en">EN</option><option value="ru">RU</option><option value="kk">KZ</option></select></label>
+          {user && <Link to="/inbox" className="icon-button topbar-inbox" aria-label={unreadCount ? t('notificationUnreadLabel', { count: unreadCount }) : t('inbox')}><Bell size={20} /><span aria-hidden="true"><NotificationBadge count={unreadCount} /></span></Link>}
           {user ? <Link to="/profile" className="avatar-link" aria-label={t('profile')} title={user.profile.display_name}><Avatar userId={user.id} name={user.profile.display_name} className="avatar-dark" /></Link> : <Link className="topbar-login" to="/login">{t('signIn')}<ArrowUpRight size={16} /></Link>}
           <Link className="button button-dark topbar-create" to="/rides/new"><Plus size={17} />{t('newRide')}</Link>
         </div>
@@ -151,6 +157,7 @@ export function App() {
           <Route path="/garage/:bikeId" element={<RequireUser><BikeOwnerPage /></RequireUser>} />
           <Route path="/bikes/:bikeId" element={<PublicBikePage />} />
           <Route path="/clubs" element={<ClubsPage />} />
+          <Route path="/my-clubs" element={<RequireUser><MyClubsPage /></RequireUser>} />
           <Route path="/clubs/new" element={<RequireUser><ClubFormPage /></RequireUser>} />
           <Route path="/clubs/:clubId/edit" element={<RequireUser><ClubFormPage edit /></RequireUser>} />
           <Route path="/clubs/:clubId" element={<ClubDetailPage />} />
