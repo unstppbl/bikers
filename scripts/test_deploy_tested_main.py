@@ -189,6 +189,17 @@ class GateTests(unittest.TestCase):
         self.assertEqual(self.fixture.comparisons, [(self.fixture.checkout, OLD, REVISION)])
         self.assertIn('make', self.fixture.events)
 
+    def test_successful_documentation_retry_clears_failure_for_later_checks(self):
+        self.fixture.runtime_changed = False
+        failure = self.fixture.runtime / '.deploy/automatic-failure.json'
+        failure.write_text(json.dumps({'revision': REVISION, 'reason': 'previous checkout failure'}))
+        with self.assertRaisesRegex(RuntimeError, 'previously failed'):
+            self.deploy()
+        self.assertEqual(self.deploy(retry=True)['status'], 'no-runtime-changes')
+        self.assertFalse(failure.exists())
+        self.assertEqual(self.deploy()['status'], 'no-runtime-changes')
+        self.assertNotIn('make', self.fixture.events)
+
     def test_stale_or_invalid_revision_never_fetches_or_builds(self):
         for revision in (OTHER, REVISION + ';touch /tmp/unwanted', REVISION.upper(), '', '0' * 39):
             with self.subTest(revision=revision), self.assertRaises(RuntimeError):

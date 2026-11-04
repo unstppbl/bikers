@@ -194,6 +194,8 @@ def deploy_tested_main(checkout, runtime, revision, retry=False):
                           'running_revision': live_revision, 'ci_run_id': ci_run,
                           'checked_at': datetime.now(timezone.utc).isoformat()}
                 record(receipts / 'last-automatic-check.json', result)
+                if failure.exists():
+                    failure.unlink()
                 return result
             invoke_make(checkout, runtime, lock)
             if live_release(checkout, runtime) != revision:
