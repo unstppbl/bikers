@@ -39,11 +39,20 @@
 
 ## Production deployment
 
+- Normal releases deploy automatically after successful `main` CI through the
+  private `unstppbl/bikers-deploy` repository and homelab runner.
+- For deployment, verification or recovery, read
+  [GitHub Actions deployments](docs/github-actions-deployment.md) and
+  [repository deployments](docs/operations.md#repository-deployments-on-jarvis).
+- Before reporting an automatic release complete, verify successful main CI
+  and private deployment runs, the expected live Git revision and release
+  receipts, and public readiness.
+- Pause automatic deployment using both documented controls before a manual
+  rollback, schema upgrade or runtime configuration change. Resume after
+  verifying the healthy live image and release receipts agree.
 - Commit and push changes before deployment. Build production images on Jarvis
   from the clean repository checkout using `make deploy-jarvis`.
-- For deployment, verification or rollback, read
-  [repository deployments](docs/operations.md#repository-deployments-on-jarvis).
-  Keep private runtime settings and persistent data outside the checkout.
+- Keep private runtime settings and persistent data outside the checkout.
 
 ## Backend package layout
 
