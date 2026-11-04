@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, ArrowRight, ArrowUpRight, CalendarDays, Check, Gauge, Globe, LockKeyhole, Pencil, Plus, Search, ShieldCheck, Trash2, Wrench } from 'lucide-react'
+import { ArrowLeftIcon as ArrowLeft, ArrowRightIcon as ArrowRight, ArrowUpRightIcon as ArrowUpRight, CalendarDotsIcon as CalendarDays, CheckIcon as Check, GaugeIcon as Gauge, GlobeIcon as Globe, LockKeyIcon as LockKeyhole, PencilSimpleIcon as Pencil, PlusIcon as Plus, MagnifyingGlassIcon as Search, ShieldCheckIcon as ShieldCheck, TrashIcon as Trash2, WrenchIcon as Wrench } from '@phosphor-icons/react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { formatInTimeZone } from 'date-fns-tz'
 import { ApiError, mutation, request } from '../api'

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { Bell, Check } from 'lucide-react'
+import { BellIcon as Bell, CheckIcon as Check } from '@phosphor-icons/react'
 import { ApiError, request } from '../api'
 import { useI18n } from '../i18n'
 import { useSession } from '../session'

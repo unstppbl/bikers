@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowUpRight, ImagePlus, Link2, Trash2, Upload, X } from 'lucide-react'
+import { ArrowUpRightIcon as ArrowUpRight, ImageSquareIcon as ImagePlus, LinkSimpleIcon as Link2, TrashIcon as Trash2, UploadSimpleIcon as Upload, XIcon as X } from '@phosphor-icons/react'
 import { ApiError, request, uploadFile } from '../api'
 import { useI18n } from '../i18n'
 import { useSession } from '../session'

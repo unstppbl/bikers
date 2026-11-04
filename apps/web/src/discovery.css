@@ -1,0 +1,554 @@
+/* Ride discovery, shared ride rows, and their responsive filters. */
+
+.browse-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 32px;
+  padding: 40px;
+  margin-bottom: 48px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.hero-copy {
+  position: relative;
+  min-width: 0;
+  max-width: 680px;
+}
+
+.hero-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent);
+}
+
+.hero-copy h1 {
+  font: var(--type-heading-1);
+  letter-spacing: -2px;
+  margin: 24px 0;
+  text-transform: none;
+  overflow-wrap: normal;
+  background: linear-gradient(90deg, #fff, #9b9b9b);
+  background-clip: text;
+  color: transparent;
+}
+
+.hero-copy p {
+  font: var(--type-body-3);
+  color: var(--text-muted);
+  max-width: 680px;
+}
+
+.hero-actions {
+  display: flex;
+  align-items: center;
+  margin-top: 24px;
+}
+
+.hero-actions .button {
+  padding: 8px 12px;
+}
+
+.hero-proof {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  font: var(--type-caption-4);
+  color: var(--text-muted);
+}
+
+.hero-proof > svg {
+  color: var(--accent);
+}
+
+.hero-motorcycle {
+  position: relative;
+  min-width: 0;
+  width: 100%;
+  margin: 0;
+  padding: 24px 0 0;
+}
+
+.hero-motorcycle::before {
+  content: '';
+  position: absolute;
+  width: 80%;
+  aspect-ratio: 1;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  top: 0;
+  left: 12%;
+  pointer-events: none;
+}
+
+.hero-motorcycle > img {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+.hero-motorcycle > figcaption {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0 12px;
+  margin-top: 16px;
+  color: var(--text-muted);
+  font: var(--type-caption-5);
+}
+
+.hero-motorcycle > figcaption > span {
+  flex-basis: 100%;
+  text-align: center;
+}
+
+.hero-motorcycle > figcaption > a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.hero-motorcycle > figcaption > a:hover {
+  color: var(--text);
+}
+
+.browse-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 272px;
+  gap: 32px;
+  align-items: start;
+}
+
+.browse-aside {
+  display: grid;
+  gap: 24px;
+}
+
+.how-card {
+  position: relative;
+  padding: 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.mini-icon {
+  color: var(--accent);
+  margin-bottom: 16px;
+}
+
+.how-card h3 {
+  font: var(--type-heading-6);
+  letter-spacing: -.5px;
+  margin-bottom: 24px;
+  padding-right: 16px;
+}
+
+.how-card ol {
+  display: grid;
+  gap: 24px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.how-card li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.step-number {
+  font: var(--type-caption-4);
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  padding-top: 2px;
+}
+
+.how-card strong {
+  display: block;
+  font: var(--type-title-4);
+}
+
+.how-card p {
+  font: var(--type-body-6);
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+
+.how-arrow {
+  position: absolute;
+  right: 24px;
+  top: 24px;
+  color: var(--text-subtle);
+}
+
+.browse-aside .privacy-note {
+  padding: 0 8px;
+}
+
+.ride-list {
+  display: grid;
+  gap: 12px;
+}
+
+.ride-card {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  min-height: 144px;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  transition: border-color var(--motion-fast) var(--motion-ease), background-color var(--motion-fast) var(--motion-ease), transform var(--motion-panel) var(--motion-ease);
+}
+
+.ride-card:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-raised);
+  transform: translateY(-2px);
+}
+
+.ride-card:active {
+  transform: scale(.99);
+}
+
+.date-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  gap: 4px;
+  width: 64px;
+  min-height: 80px;
+  background: var(--surface-raised);
+  border-radius: var(--radius-md);
+}
+
+.date-block strong {
+  font: var(--type-heading-4);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -1px;
+}
+
+.date-block span {
+  font: var(--type-caption-4);
+  color: var(--text-muted);
+}
+
+.ride-card-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.ride-card-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.city-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font: var(--type-caption-4);
+  color: var(--text-muted);
+}
+
+.ride-card h3 {
+  font: var(--type-title-3);
+  color: var(--text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.card-policy {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  color: var(--text-muted);
+  font: var(--type-caption-5);
+}
+
+.card-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  color: var(--accent);
+}
+
+.ride-filters {
+  margin-bottom: 24px;
+  padding: 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.ride-filter-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.ride-filter-fields .field {
+  min-width: 0;
+  margin: 0;
+}
+
+.ride-filter-fields input {
+  min-width: 0;
+  width: 100%;
+}
+
+.ride-filter-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.ride-filter-actions > .button {
+  font: var(--type-button-sm);
+}
+
+.ride-filter-note {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 8px;
+  font: var(--type-caption-5);
+  color: var(--text-muted);
+}
+
+.ride-filter-note > svg {
+  margin-top: 2px;
+}
+
+.loading-skeleton {
+  display: grid;
+  gap: 12px;
+  width: min(100%, 360px);
+}
+
+.loading-skeleton > span {
+  display: block;
+  height: 16px;
+  background: var(--surface-raised);
+  border-radius: var(--radius-sm);
+  animation: skeleton-pulse 1.6s var(--motion-ease) infinite alternate;
+}
+
+.loading-skeleton > span:first-child {
+  width: 48%;
+  height: 24px;
+}
+
+.loading-skeleton > span:last-child {
+  width: 72%;
+}
+
+@keyframes skeleton-pulse {
+
+  from {
+    opacity: .45;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@media (min-width: 1400px) {
+
+  .my-rides-page .ride-filter-fields {
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.2fr) repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1200px) {
+
+  .browse-hero {
+    padding: 32px;
+    gap: 24px;
+  }
+
+  .hero-copy h1 {
+    font: var(--type-heading-2);
+    letter-spacing: -1.5px;
+  }
+
+  .browse-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .browse-aside {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+@media (max-width: 1000px) and (min-width: 761px) {
+
+  .browse-hero {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hero-motorcycle {
+    display: none;
+  }
+
+  .hero-copy h1 br {
+    display: none;
+  }
+
+  .hero-copy h1 span::before {
+    content: ' ';
+  }
+}
+
+@media (max-width: 760px) {
+
+  .browse-hero {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+    padding: 24px;
+    margin-bottom: 32px;
+  }
+
+  .hero-copy h1 {
+    font: var(--type-heading-2);
+    letter-spacing: -1.5px;
+    margin: 24px 0 16px;
+  }
+
+  .hero-copy p {
+    font: var(--type-body-3);
+  }
+
+  .hero-motorcycle {
+    max-width: 400px;
+    justify-self: center;
+    padding: 0;
+  }
+
+  .hero-motorcycle::before {
+    width: 64%;
+    left: 18%;
+  }
+
+  .hero-motorcycle > img {
+    max-height: 200px;
+  }
+
+  .hero-motorcycle > figcaption {
+    margin-top: 8px;
+  }
+
+  .browse-grid {
+    gap: 32px;
+  }
+
+  .browse-aside {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .how-card {
+    padding: 24px;
+  }
+
+  .how-card h3 {
+    max-width: 400px;
+  }
+
+  .ride-card {
+    padding: 16px;
+    gap: 16px;
+  }
+
+  .date-block {
+    width: 48px;
+    min-height: 64px;
+  }
+
+  .date-block strong {
+    font: var(--type-heading-5);
+  }
+
+  .card-arrow {
+    width: 24px;
+  }
+
+  .ride-filters {
+    padding: 16px;
+  }
+
+  .ride-filter-fields .field:nth-child(-n+2) {
+    grid-column: 1 / -1;
+  }
+
+  .ride-filter-actions {
+    gap: 12px;
+    margin-top: 16px;
+  }
+}
+
+@media (max-width: 390px) {
+
+  .browse-hero {
+    padding: 24px 16px;
+  }
+
+  .hero-copy h1 {
+    font: var(--type-heading-3);
+    letter-spacing: -1px;
+  }
+
+  .ride-card {
+    gap: 12px;
+  }
+
+  .card-arrow {
+    display: none;
+  }
+}
+
+@media (max-width: 360px) {
+
+  .ride-filter-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .loading-skeleton > span {
+    animation: none;
+  }
+
+  .ride-card:hover, .ride-card:active {
+    transform: none;
+  }
+}

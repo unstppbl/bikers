@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ArrowLeft, ArrowUpRight, Check, Download, Monitor, Smartphone } from 'lucide-react'
+import { ArrowLeftIcon as ArrowLeft, ArrowUpRightIcon as ArrowUpRight, CheckIcon as Check, DownloadSimpleIcon as Download, MonitorIcon as Monitor, DeviceMobileIcon as Smartphone } from '@phosphor-icons/react'
 import { Link } from 'react-router-dom'
 import { useI18n } from '../i18n'
 import { ErrorNotice } from '../ui'

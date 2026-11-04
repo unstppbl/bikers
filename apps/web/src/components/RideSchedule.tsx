@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Bell, CalendarPlus, Check } from 'lucide-react'
+import { BellIcon as Bell, CalendarPlusIcon as CalendarPlus, CheckIcon as Check } from '@phosphor-icons/react'
 import { Link } from 'react-router-dom'
 import { ApiError, request, requestCalendar } from '../api'
 import { useI18n } from '../i18n'

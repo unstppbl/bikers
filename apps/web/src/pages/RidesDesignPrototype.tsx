@@ -2,7 +2,7 @@
 // Read-only data and local preview actions; the chosen design must be implemented separately.
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUpRight, Bell, CalendarDays, Check, ChevronRight, Compass, Gauge, Globe2, MapPin, Menu, Motorbike, Plus, Route, Search, ShieldCheck, Users, Wrench, X } from 'lucide-react'
+import { ArrowDownIcon as ArrowDown, ArrowLeftIcon as ArrowLeft, ArrowRightIcon as ArrowRight, ArrowUpRightIcon as ArrowUpRight, BellIcon as Bell, CalendarDotsIcon as CalendarDays, CheckIcon as Check, CaretRightIcon as ChevronRight, CompassIcon as Compass, GaugeIcon as Gauge, GlobeHemisphereEastIcon as Globe2, MapPinIcon as MapPin, ListIcon as Menu, MotorcycleIcon as Motorbike, PlusIcon as Plus, PathIcon as Route, MagnifyingGlassIcon as Search, ShieldCheckIcon as ShieldCheck, UsersThreeIcon as Users, WrenchIcon as Wrench, XIcon as X } from '@phosphor-icons/react'
 import type { Ride } from '../types'
 import './RidesDesignPrototype.css'
 

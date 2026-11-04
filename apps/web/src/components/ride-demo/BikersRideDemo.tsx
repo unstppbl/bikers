@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ArrowRight, CalendarDays, Check, ChevronRight, Clock3, LockKeyhole, MapPin, MessageCircle, Motorbike, Play, RotateCcw } from 'lucide-react'
+import { ArrowRightIcon as ArrowRight, CalendarDotsIcon as CalendarDays, CheckIcon as Check, CaretRightIcon as ChevronRight, ClockIcon as Clock3, LockKeyIcon as LockKeyhole, MapPinIcon as MapPin, ChatCircleIcon as MessageCircle, MotorcycleIcon as Motorbike, PlayIcon as Play, ArrowCounterClockwiseIcon as RotateCcw } from '@phosphor-icons/react'
 import type { Locale } from '../../types'
 import { Stage } from './kit/stage'
 import type { Act } from './kit/act'

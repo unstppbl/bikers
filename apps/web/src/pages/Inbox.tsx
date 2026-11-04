@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, ArrowUpRight, Bell, Check } from 'lucide-react'
+import { ArrowLeftIcon as ArrowLeft, ArrowUpRightIcon as ArrowUpRight, BellIcon as Bell, CheckIcon as Check } from '@phosphor-icons/react'
 import { Link } from 'react-router-dom'
 import { request } from '../api'
 import { useI18n } from '../i18n'

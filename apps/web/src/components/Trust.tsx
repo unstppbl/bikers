@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Ban, Flag, ShieldCheck } from 'lucide-react'
+import { ProhibitIcon as Ban, FlagIcon as Flag, ShieldCheckIcon as ShieldCheck } from '@phosphor-icons/react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ApiError, getSessionEpoch, request } from '../api'
 import { useI18n } from '../i18n'

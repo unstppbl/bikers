@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Check, ShieldCheck } from 'lucide-react'
+import { ArrowLeftIcon as ArrowLeft, CheckIcon as Check, ShieldCheckIcon as ShieldCheck } from '@phosphor-icons/react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { request, safeExternalUrl } from '../api'
 import { useI18n } from '../i18n'

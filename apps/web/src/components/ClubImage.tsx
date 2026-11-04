@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Globe, ImagePlus, Trash2, Upload, X } from 'lucide-react'
+import { GlobeIcon as Globe, ImageSquareIcon as ImagePlus, TrashIcon as Trash2, UploadSimpleIcon as Upload, XIcon as X } from '@phosphor-icons/react'
 import { ApiError, getSessionEpoch, request, uploadFile } from '../api'
 import { ReportButton } from './Trust'
 import { useI18n } from '../i18n'

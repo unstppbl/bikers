@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ImagePlus, ShieldCheck, Trash2, Upload, X } from 'lucide-react'
+import { ImageSquareIcon as ImagePlus, ShieldCheckIcon as ShieldCheck, TrashIcon as Trash2, UploadSimpleIcon as Upload, XIcon as X } from '@phosphor-icons/react'
 import { ApiError, getSessionEpoch, request, uploadFile } from '../api'
 import { useI18n } from '../i18n'
 import { useSession } from '../session'

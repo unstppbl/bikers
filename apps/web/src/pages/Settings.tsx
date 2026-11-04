@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, ArrowUpRight, Check, Globe, Languages } from 'lucide-react'
+import { ArrowLeftIcon as ArrowLeft, ArrowUpRightIcon as ArrowUpRight, CheckIcon as Check, GlobeIcon as Globe, TranslateIcon as Languages } from '@phosphor-icons/react'
 import { Link } from 'react-router-dom'
 import { ApiError, request } from '../api'
 import { useI18n } from '../i18n'
