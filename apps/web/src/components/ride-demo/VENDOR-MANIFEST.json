@@ -1,0 +1,163 @@
+{
+  "source": "Installed Stageshow skill, /Users/user/.codex/skills/stageshow",
+  "copyright": "Copyright (c) 2026 Benji Taylor",
+  "license": "MIT",
+  "files": [
+    {
+      "file": "kit/act.ts",
+      "sha256": "2f2835e6600cd62022467ab8b67534f4f478b8eed4122deffdfc21901e3da573",
+      "upstream": "Stageshow/kit/act.ts",
+      "unmodified": true
+    },
+    {
+      "file": "kit/clock.ts",
+      "sha256": "06f30986325edbd8d26273c94d3d92a0e68ce4bce09eb711aad68994d06bbc47",
+      "upstream": "Stageshow/kit/clock.ts",
+      "unmodified": true
+    },
+    {
+      "file": "kit/controls/Badge.css",
+      "sha256": "d71505b85615abe1160de5196a830ce30b73e449bbb43c6d2e57b8e300cb6093",
+      "upstream": "Stageshow/kit/controls/Badge.css",
+      "unmodified": true
+    },
+    {
+      "file": "kit/controls/Badge.tsx",
+      "sha256": "55edfeec962ff1bf139af7d0868760f63a9d0e438d83f8f6d0a88a003c644816",
+      "upstream": "Stageshow/kit/controls/Badge.tsx",
+      "unmodified": true
+    },
+    {
+      "file": "kit/cursor.css",
+      "sha256": "40c69aaff8c7c970f49ef9f9f4c6d8c3f89fdf4218d8aa703cf5b36483a9e42d",
+      "upstream": "Stageshow/kit/cursor.css",
+      "unmodified": true
+    },
+    {
+      "file": "kit/cursor.tsx",
+      "sha256": "e3c73976b0cc132af659c6079470a5fd22709f894058a044dceddcdd761b12f4",
+      "upstream": "Stageshow/kit/cursor.tsx",
+      "unmodified": true
+    },
+    {
+      "file": "kit/cursors.tsx",
+      "sha256": "cc5100bfe6393fb2635b644988557ca42589457b46faa81274e8683effadaae5",
+      "upstream": "Stageshow/kit/cursors.tsx",
+      "unmodified": true
+    },
+    {
+      "file": "kit/ease.ts",
+      "sha256": "0b1699fa40ff569f2d21f54c910565affed7fed3059b8a04514feacd9ab61636",
+      "upstream": "Stageshow/kit/ease.ts",
+      "unmodified": true
+    },
+    {
+      "file": "kit/keys.css",
+      "sha256": "929ef94999bfd7fd6bc78c5026c98f5b4ff8483c8aecfa3bc87cfb2e466cfc3c",
+      "upstream": "Stageshow/kit/keys.css",
+      "unmodified": true
+    },
+    {
+      "file": "kit/keys.tsx",
+      "sha256": "ab45f610aa1c2ccac54a966e8e8c804ed601258cc4e8071278d48cb8bc4f6c59",
+      "upstream": "Stageshow/kit/keys.tsx",
+      "unmodified": true
+    },
+    {
+      "file": "kit/looks.ts",
+      "sha256": "263a44eaa74b5d7f4efb7868080c1e04cbbd03a224c06ddf88fd27c47c6f92ac",
+      "upstream": "Stageshow/kit/looks.ts",
+      "unmodified": true
+    },
+    {
+      "file": "kit/measure.ts",
+      "sha256": "d782e507e8698952e2035260a41f7756c61dbeaf5cb81aede1e393bb0052964d",
+      "upstream": "Stageshow/kit/measure.ts",
+      "unmodified": true
+    },
+    {
+      "file": "kit/messages.css",
+      "sha256": "1836f406438fbe668c97f1fd2b5133ca5e0a598ee9c1f8ad0507002218d1eb72",
+      "upstream": "Stageshow/kit/messages.css",
+      "unmodified": true
+    },
+    {
+      "file": "kit/messages.tsx",
+      "sha256": "4f9df8004be1548f4bc62f248932caed0e6ef83be58f5378fe17b950d70f278a",
+      "upstream": "Stageshow/kit/messages.tsx",
+      "unmodified": true
+    },
+    {
+      "file": "kit/motion/Roll.css",
+      "sha256": "cd041a1258633dabe080eec018681f73124fdfced886542e2b0839d675d8bd51",
+      "upstream": "Stageshow/kit/motion/Roll.css",
+      "unmodified": true
+    },
+    {
+      "file": "kit/motion/Roll.tsx",
+      "sha256": "aa117429a1fcb103d8845e6897a86c78e05ab9b8e3da778194eff80e0c0c4a50",
+      "upstream": "Stageshow/kit/motion/Roll.tsx",
+      "unmodified": true
+    },
+    {
+      "file": "kit/motion/States.css",
+      "sha256": "6c12b54ce6d6d85182ae7276456921c46cf12281c6176cfb251b94035a50f40f",
+      "upstream": "Stageshow/kit/motion/States.css",
+      "unmodified": true
+    },
+    {
+      "file": "kit/motion/States.tsx",
+      "sha256": "fd0b87fb68ff207fc43195c48503e566d2860ed39bac27568e536a2d8ec2bf54",
+      "upstream": "Stageshow/kit/motion/States.tsx",
+      "unmodified": true
+    },
+    {
+      "file": "kit/parts/Row.css",
+      "sha256": "00405ccf9d7cc7242f6e8091b338a3d43c3cc34b2625d53d35c0dedee698a832",
+      "upstream": "Stageshow/kit/parts/Row.css",
+      "unmodified": true
+    },
+    {
+      "file": "kit/parts/Row.tsx",
+      "sha256": "3e67d13c07ad2b24258261f2a38245e6c53b3f2a266d4785f7c7f15fe366ea72",
+      "upstream": "Stageshow/kit/parts/Row.tsx",
+      "unmodified": true
+    },
+    {
+      "file": "kit/reduced-motion.ts",
+      "sha256": "9f8926f18ce0489f2c4073d7041c82ee3b6cfb6c16ecd75aea3ef76c43581113",
+      "upstream": "Stageshow/kit/reduced-motion.ts",
+      "unmodified": true
+    },
+    {
+      "file": "kit/stage.css",
+      "sha256": "fa1b22a158235b7d3d0a89a46348d216d392a3ebdfd247f2a9a6041045e0f866",
+      "upstream": "Stageshow/kit/stage.css",
+      "unmodified": true
+    },
+    {
+      "file": "kit/stage.tsx",
+      "sha256": "75f75e600ace3a75aa04ebb72f6d6300af01e84529a418e08ad0d3d6a867ced3",
+      "upstream": "Stageshow/kit/stage.tsx",
+      "unmodified": true
+    },
+    {
+      "file": "kit/util.ts",
+      "sha256": "b999c044ea0022744588ccb56fea58a41dcc94a60c030856bae05a9beb6ad67f",
+      "upstream": "Stageshow/kit/util.ts",
+      "unmodified": true
+    },
+    {
+      "file": "kit/window.css",
+      "sha256": "f95bae539dd0525d2be41b12de516ce37f0b64901a6ed7889038861ed2c0b4cd",
+      "upstream": "Stageshow/kit/window.css",
+      "unmodified": true
+    },
+    {
+      "file": "kit/window.tsx",
+      "sha256": "a854067dde2c9c4271bc355d48da45879face6ea2ecec96a16980b238d356783",
+      "upstream": "Stageshow/kit/window.tsx",
+      "unmodified": true
+    }
+  ]
+}

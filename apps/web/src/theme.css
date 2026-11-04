@@ -1,0 +1,71 @@
+@font-face {
+  font-family: 'BIKERS Condensed';
+  src: url('./assets/fonts/RobotoCondensed.ttf') format('truetype');
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: dark;
+  --font-body: Inter, 'Helvetica Neue', Arial, sans-serif;
+  --font-display: 'BIKERS Condensed', 'Arial Narrow', sans-serif;
+  --canvas: #18191d;
+  --chrome: #101113;
+  --surface: #202228;
+  --surface-raised: #2a2d34;
+  --surface-hover: #343841;
+  --media-backdrop: #15171b;
+  --text: #f3f4f7;
+  --text-muted: #b8bfcc;
+  --text-subtle: #9ca6b8;
+  --border: #414752;
+  --border-strong: #6c7687;
+  --accent: #d6ff41;
+  --accent-hover: #e2ff7a;
+  --accent-surface: #30381c;
+  --accent-border: #788f35;
+  --on-accent: #171c0c;
+  --focus: #8ab9ff;
+  --success: #a4e4bd;
+  --success-surface: #18372b;
+  --success-border: #4c8769;
+  --warning: #f5d28f;
+  --warning-surface: #3b2f1b;
+  --warning-border: #8d7447;
+  --danger: #ffb2ac;
+  --danger-surface: #42252a;
+  --danger-border: #a06167;
+  --info: #b9d4ff;
+  --info-surface: #23344d;
+  --info-border: #617fa7;
+  --overlay: #080b11cc;
+  --shadow-card: 0 8px 30px #00000026;
+  --shadow-floating: 0 16px 55px #00000080;
+  --shadow-dialog: 0 24px 100px #000000a6;
+  --radius-sm: 3px;
+  --radius-md: 5px;
+  --radius-lg: 8px;
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-base: 15px;
+  --text-control: 16px;
+  --motion-fast: 160ms;
+  --motion-panel: 200ms;
+  --motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--text);
+  background: var(--canvas);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-fast: 0ms;
+    --motion-panel: 0ms;
+  }
+}

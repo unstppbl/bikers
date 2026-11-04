@@ -1,0 +1,4 @@
+services:
+  app:
+    ports: !override
+      - "127.0.0.1:${APP_PORT:-33043}:8080"

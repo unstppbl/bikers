@@ -1,0 +1,128 @@
+package app
+
+import (
+	"context"
+	"errors"
+	"log"
+	"net"
+	"net/http"
+	"os"
+	"time"
+
+	"bikers.kz/backend/internal/clients/telegram"
+	webpushclient "bikers.kz/backend/internal/clients/webpush"
+	"bikers.kz/backend/internal/config"
+	"bikers.kz/backend/internal/database"
+	"bikers.kz/backend/internal/database/postgres"
+	"bikers.kz/backend/internal/managers/accounts"
+	"bikers.kz/backend/internal/managers/clubs"
+	"bikers.kz/backend/internal/managers/garage"
+	"bikers.kz/backend/internal/managers/media"
+	"bikers.kz/backend/internal/managers/notifications"
+	"bikers.kz/backend/internal/managers/photos"
+	"bikers.kz/backend/internal/managers/rides"
+	"bikers.kz/backend/internal/managers/rooms"
+	"bikers.kz/backend/internal/managers/system"
+	"bikers.kz/backend/internal/managers/trust"
+	httpapi "bikers.kz/backend/internal/resources/http"
+	"bikers.kz/backend/internal/workers"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"sync"
+)
+
+type Options struct {
+	Now         func() time.Time
+	PushGateway notifications.Gateway
+}
+type Runtime struct {
+	Handler       http.Handler
+	System        *system.Manager
+	Trust         *trust.Manager
+	Notifications *notifications.Manager
+	settings      config.Config
+	close         func()
+}
+
+// New composes explicitly supplied adapters, including the clock used by tests.
+func New(cfg config.Config, repository database.Repository, gateway accounts.Gateway, options Options) (*Runtime, error) {
+	if err := config.ValidatePush(cfg.PushPublicKey, cfg.PushPrivateKey, cfg.PushSubject); err != nil {
+		return nil, err
+	}
+	origin, err := config.ValidateBaseURL(cfg.BaseURL)
+	if err != nil {
+		return nil, err
+	}
+	proxies, err := config.ParseTrustedProxies(cfg.TrustedProxyCIDRs)
+	if err != nil {
+		return nil, err
+	}
+	now := options.Now
+	if now == nil {
+		now = func() time.Time { return time.Now().UTC() }
+	}
+	events := rooms.NewEventBus()
+	a := accounts.New(repository, gateway, events, accounts.Options{Now: now, DailyBudget: cfg.OTPDailyBudget})
+	r := rides.New(repository, events, now)
+	rm := rooms.New(repository, events, now)
+	sy := system.New(repository, cfg.MediaDir)
+	photoProcessing := photos.New(nil)
+	g := garage.New(repository, now, photoProcessing)
+	c := clubs.New(repository, now, photoProcessing)
+	md := media.New(repository, now, photoProcessing)
+	tr := trust.New(repository, events, now)
+	push := options.PushGateway
+	if push == nil && cfg.PushPublicKey != "" {
+		push = webpushclient.New(webpushclient.Options{PublicKey: cfg.PushPublicKey, PrivateKey: cfg.PushPrivateKey, Subject: cfg.PushSubject})
+	}
+	nf := notifications.New(repository, push, cfg.PushPublicKey, now)
+	transport := httpapi.New(httpapi.Settings{Origin: origin, TrustedProxies: proxies, WebDistDir: cfg.WebDistDir}, httpapi.Managers{Accounts: a, Rides: r, Rooms: rm, System: sy, Events: events, Garage: g, Clubs: c, Media: md, Trust: tr, Notifications: nf})
+	return &Runtime{Handler: transport.Handler(), System: sy, Trust: tr, Notifications: nf, settings: cfg}, nil
+}
+
+// Open owns construction and cleanup of production dependencies.
+func Open(ctx context.Context, cfg config.Config) (*Runtime, error) {
+	db, err := pgxpool.New(ctx, cfg.DatabaseURL)
+	if err != nil {
+		return nil, errors.New("invalid database configuration")
+	}
+	runtime, err := New(cfg, postgres.New(db), telegram.New(cfg.TelegramToken, telegram.Options{}), Options{})
+	if err != nil {
+		db.Close()
+		return nil, err
+	}
+	runtime.close = db.Close
+	return runtime, nil
+}
+func (r *Runtime) Close() {
+	if r.close != nil {
+		r.close()
+	}
+}
+
+func (r *Runtime) Run(ctx context.Context) error {
+	ctx, cancelWorkers := context.WithCancel(ctx)
+	var workerWG sync.WaitGroup
+	workerWG.Add(1)
+	go func() { defer workerWG.Done(); workers.RunPush(ctx, r.Notifications) }()
+	defer func() { cancelWorkers(); workerWG.Wait() }()
+	if err := os.MkdirAll(r.settings.MediaDir, 0750); err != nil {
+		return errors.New("persistent media directory unavailable")
+	}
+	h := http.Server{Addr: ":" + r.settings.Port, Handler: r.Handler, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 60 * time.Second, WriteTimeout: 60 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 << 10, BaseContext: func(net.Listener) context.Context { return ctx }}
+	errs := make(chan error, 1)
+	go func() {
+		log.Printf("HTTP application listening on port %s", r.settings.Port)
+		errs <- h.ListenAndServe()
+	}()
+	select {
+	case err := <-errs:
+		if errors.Is(err, http.ErrServerClosed) {
+			return nil
+		}
+		return err
+	case <-ctx.Done():
+		shutdown, done := context.WithTimeout(context.Background(), 10*time.Second)
+		defer done()
+		return h.Shutdown(shutdown)
+	}
+}
