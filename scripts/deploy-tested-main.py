@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 import importlib.util
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 import subprocess
 import sys
@@ -133,6 +133,24 @@ def require_current_schema(checkout):
         raise RuntimeError('Schema changes require an explicit reviewed migration before automatic deployment')
 
 
+def has_deployment_changes(checkout, base, revision):
+    result = subprocess.run(
+        ['git', 'diff', '--no-ext-diff', '--no-textconv', '--no-renames',
+         '--name-only', '-z', base, revision, '--'],
+        cwd=checkout, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+    if result.returncode:
+        raise RuntimeError('Cannot compare deployment revisions: ' + os.fsdecode(result.stderr).strip())
+    for value in result.stdout.split(b'\0'):
+        if not value:
+            continue
+        path = PurePosixPath(os.fsdecode(value))
+        if ((len(path.parts) > 1 and path.parts[0] == 'docs') or path.suffix.lower() == '.md'
+                or any(part in ('.agents', '.codex', '.claude') for part in path.parts[:-1])):
+            continue
+        return True
+    return False
+
+
 def invoke_make(checkout, runtime, lock):
     environment = dict(os.environ)
     environment['BIKERSKZ_DEPLOY_LOCK_FD'] = str(lock.fileno())
@@ -171,6 +189,12 @@ def deploy_tested_main(checkout, runtime, revision, retry=False):
             prepare_checkout(checkout, revision, live_revision)
             require_current_schema(checkout)
             require_current_main(revision)
+            if not has_deployment_changes(checkout, live_revision, revision):
+                result = {'status': 'no-runtime-changes', 'revision': revision,
+                          'running_revision': live_revision, 'ci_run_id': ci_run,
+                          'checked_at': datetime.now(timezone.utc).isoformat()}
+                record(receipts / 'last-automatic-check.json', result)
+                return result
             invoke_make(checkout, runtime, lock)
             if live_release(checkout, runtime) != revision:
                 raise RuntimeError('Deployment completed without the expected healthy live revision')

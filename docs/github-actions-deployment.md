@@ -24,13 +24,32 @@ homelab runner. The runner is registered only with the private repository.
    checks that the running image agrees with its healthy release receipt.
 6. Under the same host lock used by manual deployments, Jarvis fetches and
    fast-forwards its clean checkout, checks configuration and migration
-   receipts, then runs `make deploy-jarvis`. The existing native build, health
+   receipts, and compares that tree with the healthy running revision. If only
+   documentation or agent instructions changed, it records
+   `no-runtime-changes` and leaves the running image and container untouched.
+   Otherwise it runs `make deploy-jarvis`. The existing native build, health
    checks, retained runtime/data checks and app-only rollback remain in force.
 
 The public privileged trigger never checks out pull-request code or consumes
 its artifacts. A dispatch payload cannot authorize a release: the host gate
 checks the source and test evidence itself. An older main run cannot deploy
 after a newer main revision has become current.
+
+CI and the private deployment check still run for documentation-only merges.
+The host excludes root `docs/`, Markdown files (`.md`, case-insensitive), and
+files inside `.agents`, `.codex` or `.claude` directories from the release diff.
+Every other path requires deployment, including workflows, scripts, dependency
+files and static assets. Revisit this policy if Markdown becomes an imported
+or embedded runtime asset.
+
+The comparison includes all changes since the running revision, including
+deletions and both sides of renames. Code from an earlier cancelled or
+superseded CI run therefore still deploys when the newest main passes CI.
+After a documentation-only merge, main and the source checkout may be ahead
+of the live image. The unchanged release receipts identify what is actually
+running; `.deploy/last-automatic-check.json` records the skipped candidate,
+running revision and successful CI run. A successful private run can mean
+either a deployment or an explicit `no-runtime-changes` result.
 
 ## GitHub configuration
 
