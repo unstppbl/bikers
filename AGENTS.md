@@ -11,6 +11,21 @@
   naming an AI model and no "Generated with ..." lines in commits, merge
   requests, code or docs or branch names.
 
+## GitHub task workflow
+
+- Track every user-assigned task with an issue in `unstppbl/bikers` and add it
+  to the [BIKERSKZ project](https://github.com/users/unstppbl/projects/1).
+- When the user supplies an issue, read it before starting. For new tasks,
+  search for an existing issue first; reuse a matching issue or create one
+  with the requested scope and acceptance criteria before implementation.
+- Keep the issue and project status current as work progresses. Record
+  blockers, validation results, and the pull request link in the issue.
+  Mark work done only after completion or a confirmed merge.
+- Name task branches `bkrs/{issue-number}-{short-description}`, using a short,
+  lowercase, hyphen-separated description.
+- Title pull requests (merge requests) `[BKRS] {issue name}`, using the issue's
+  title, and link the issue in the pull request description.
+
 ## Worktree cleanup
 
 - Keep task-specific worktrees until the user explicitly says the work is done
