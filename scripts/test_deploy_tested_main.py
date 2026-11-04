@@ -55,6 +55,8 @@ class GateFixture:
         self.build_fails = False
         self.divergent = False
         self.changed_after_fetch = False
+        self.runtime_changed = True
+        self.comparisons = []
         self.receipt()
 
     def receipt(self):
@@ -121,6 +123,11 @@ class GateFixture:
         self.live = REVISION
         self.receipt()
 
+    def changes(self, checkout, base, revision):
+        self.require_lock()
+        self.comparisons.append((checkout, base, revision))
+        return self.runtime_changed
+
 
 class GateTests(unittest.TestCase):
     def setUp(self):
@@ -136,6 +143,7 @@ class GateTests(unittest.TestCase):
         patch.object(GATE.DEPLOY, 'run', self.fixture.command).start()
         patch.object(GATE.DEPLOY, 'schema_receipts', lambda *_: self.fixture.schema).start()
         patch.object(GATE, 'invoke_make', self.fixture.make).start()
+        patch.object(GATE, 'has_deployment_changes', self.fixture.changes).start()
 
     def deploy(self, revision=REVISION, retry=False):
         return GATE.deploy_tested_main(self.fixture.checkout, self.fixture.runtime, revision, retry)
@@ -155,6 +163,42 @@ class GateTests(unittest.TestCase):
         self.assertEqual(result['status'], 'already-deployed')
         self.assertEqual(self.fixture.head, OLD)
         self.assertEqual(self.fixture.events, [])
+
+    def test_documentation_only_check_preserves_live_release_and_records_the_skip(self):
+        self.fixture.runtime_changed = False
+        release = self.fixture.runtime / '.deploy/current-git-release.json'
+        automatic = self.fixture.runtime / '.deploy/current-automatic-deployment.json'
+        automatic.write_text(json.dumps({'revision': OLD, 'status': 'deployed', 'ci_run_id': 100}))
+        original_release, original_automatic = release.read_bytes(), automatic.read_bytes()
+        result = self.deploy()
+        self.assertEqual(result['status'], 'no-runtime-changes')
+        self.assertEqual(result['revision'], REVISION)
+        self.assertEqual(result['running_revision'], OLD)
+        self.assertEqual(self.fixture.events, ['fetch', 'fast-forward'])
+        self.assertEqual(self.fixture.live, OLD)
+        self.assertEqual(self.fixture.head, REVISION)
+        self.assertEqual(release.read_bytes(), original_release)
+        self.assertEqual(automatic.read_bytes(), original_automatic)
+        self.assertEqual(self.fixture.comparisons, [(self.fixture.checkout, OLD, REVISION)])
+        self.assertEqual(json.loads((self.fixture.runtime / '.deploy/last-automatic-check.json').read_text()), result)
+
+    def test_pending_code_is_compared_with_live_revision_even_when_checkout_is_current(self):
+        self.fixture.head = REVISION
+        result = self.deploy()
+        self.assertEqual(result['status'], 'deployed')
+        self.assertEqual(self.fixture.comparisons, [(self.fixture.checkout, OLD, REVISION)])
+        self.assertIn('make', self.fixture.events)
+
+    def test_successful_documentation_retry_clears_failure_for_later_checks(self):
+        self.fixture.runtime_changed = False
+        failure = self.fixture.runtime / '.deploy/automatic-failure.json'
+        failure.write_text(json.dumps({'revision': REVISION, 'reason': 'previous checkout failure'}))
+        with self.assertRaisesRegex(RuntimeError, 'previously failed'):
+            self.deploy()
+        self.assertEqual(self.deploy(retry=True)['status'], 'no-runtime-changes')
+        self.assertFalse(failure.exists())
+        self.assertEqual(self.deploy()['status'], 'no-runtime-changes')
+        self.assertNotIn('make', self.fixture.events)
 
     def test_stale_or_invalid_revision_never_fetches_or_builds(self):
         for revision in (OTHER, REVISION + ';touch /tmp/unwanted', REVISION.upper(), '', '0' * 39):
