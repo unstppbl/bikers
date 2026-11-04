@@ -195,6 +195,6 @@ Monitor `/health/live`, `/health/ready`, app/container restarts, private disk/WA
 
 Image payload defaults are 100 MiB per original uploader and 1 GiB globally across bike photos, club images, avatars and ride albums, including reservations. Two shared processing slots and twelve reserved attempts per uploader per hour limit image work. A ride permits 24 photos (six per uploader) and twelve external video links (three per uploader). Images are normalized to fresh JPEG up to 1,920 pixels per edge and 4 MiB, with metadata discarded. These caps do not bound database indexes, WAL, text records or backups; monitor total storage and define retention before a public pilot.
 
-Country, currency and UI language are independent preferences, defaulting to KZ/KZT/en. City is entered manually and distances/mileage use metric units. There is no commerce or exchange-rate behavior.
+Country, currency and UI language are independent preferences, defaulting to KZ/KZT/en. The city selector suggests localized Kazakhstan cities and also accepts manual entry without location permission. Distances/mileage use metric units. There is no commerce or exchange-rate behavior.
 
 Phone-number changes, lost-Telegram recovery, account deletion/retention, administrator reauthentication policy, translation review, badge criteria and moderation staffing remain explicit release decisions. They do not add alternative login channels or deferred catalogue features to the MVP.

@@ -26,6 +26,7 @@ function base(url: string, current: State) {
   if (url.endsWith(`/clubs/${club.id}`)) return response({ club: current.club })
   if (url.endsWith('/clubs')) return response({ clubs: [current.club], next_cursor: '' })
   if (url.endsWith('/members')) return response({ members: [{ user_id: rider.id, display_name: rider.profile.display_name, state: 'approved', role: 'owner' }, { user_id: other.id, display_name: other.profile.display_name, state: 'approved', role: 'member' }] })
+  if (new URL(url, 'https://bikers.kz').pathname === '/api/v1/rides') return response({ rides: [], next_cursor: '' })
   if (url.endsWith('/rides')) return response({ rides: [] })
   throw new Error(`Unexpected API ${url}`)
 }

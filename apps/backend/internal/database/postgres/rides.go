@@ -26,8 +26,35 @@ func readParticipation(ctx context.Context, q querier, rideID, userID string) (s
 	return state, repositoryError(err)
 }
 
-func (s *Store) ListRides(ctx context.Context, userID string, now time.Time, limit int) ([]models.RideListing, error) {
-	rows, err := s.pool.Query(ctx, `SELECT r.id::text,r.city,to_char(r.starts_at AT TIME ZONE r.timezone,'YYYY-MM-DD'),r.description,r.status,COALESCE(p.state,''),r.organizer_id::text FROM rides r LEFT JOIN participation p ON p.ride_id=r.id AND p.user_id::text=$1 WHERE (NOT EXISTS(SELECT 1 FROM moderation_hidden h WHERE h.target_type='ride' AND h.target_id=r.id) OR p.state='approved') ORDER BY (r.status='published' AND r.starts_at >= $2) DESC,r.starts_at,r.id LIMIT $3`, userID, now, limit)
+func (s *Store) ListRides(ctx context.Context, query database.RideListQuery) ([]models.RideListing, error) {
+	// Only the already-public local date and UUID enter the page cursor. Exact
+	// departure times remain restricted to the full participant/organizer view.
+	direction, comparison := "ASC", ">"
+	if query.Past {
+		direction, comparison = "DESC", "<"
+	}
+	rows, err := s.pool.Query(ctx, `
+		SELECT r.id::text,r.city,to_char(r.starts_at AT TIME ZONE r.timezone,'YYYY-MM-DD'),
+		       r.description,r.status,COALESCE(p.state,''),r.organizer_id::text
+		FROM rides r
+		LEFT JOIN participation p ON p.ride_id=r.id AND p.user_id::text=$1
+		WHERE (NOT EXISTS(SELECT 1 FROM moderation_hidden h WHERE h.target_type='ride' AND h.target_id=r.id)
+		       OR r.organizer_id::text=$1 OR p.state='approved')
+		  AND (COALESCE(cardinality($2::text[]),0)=0 OR EXISTS(SELECT 1 FROM unnest($2::text[]) AS c(city) WHERE lower(trim(r.city))=lower(c.city)))
+		  AND ($3='' OR to_char(r.starts_at AT TIME ZONE r.timezone,'YYYY-MM-DD') >= $3)
+		  AND ($4='' OR to_char(r.starts_at AT TIME ZONE r.timezone,'YYYY-MM-DD') <= $4)
+		  AND (NOT $5::boolean OR r.organizer_id::text=$1)
+		  AND (NOT $6::boolean OR r.organizer_id::text<>$1)
+		  AND ($7='' OR p.state=$7)
+		  AND (NOT $8::boolean OR r.organizer_id::text=$1 OR p.state IN ('approved','requested'))
+		  AND (($9::boolean AND (r.starts_at < $10 OR r.status='cancelled'))
+		       OR (NOT $9::boolean AND r.status='published' AND r.starts_at >= $10))
+		  AND ($11='' OR (to_char(r.starts_at AT TIME ZONE r.timezone,'YYYY-MM-DD'),r.id) `+comparison+` ($11,$12::uuid))
+		  AND ($14='' OR strpos(lower(r.description),lower($14))>0)
+		ORDER BY to_char(r.starts_at AT TIME ZONE r.timezone,'YYYY-MM-DD') `+direction+`,r.id `+direction+`
+		LIMIT $13`, query.UserID, query.CityAliases, query.FromDate, query.ToDate,
+		query.OrganizerOnly, query.ExcludeOrganizer, query.ParticipationState, query.RelatedOnly,
+		query.Past, query.Now, query.AfterDate, listAfterID(query.AfterID), query.Limit, query.Search)
 	if err != nil {
 		return nil, repositoryError(err)
 	}
@@ -45,6 +72,13 @@ func (s *Store) ListRides(ctx context.Context, userID string, now time.Time, lim
 		return nil, repositoryError(err)
 	}
 	return out, nil
+}
+
+func listAfterID(id string) any {
+	if id == "" {
+		return nil
+	}
+	return id
 }
 func (s *Store) Ride(ctx context.Context, id string) (models.Ride, error) {
 	return scanRide(s.pool.QueryRow(ctx, "SELECT "+rideColumns+" FROM rides WHERE id=$1", id))

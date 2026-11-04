@@ -70,6 +70,17 @@ A useful ride-organizing experience can bring a real community into BIKERS.KZ. C
 
 The table fixes the agreed feature slices. Organizer approval and ride-preview/participant access are confirmed in D-036. Required/optional fields, validation, club membership rules, other visibility settings, and remaining behavior still require design. Full club discussions, contextual feeds, and advanced maintenance analytics are outside the MVP.
 
+## Requested ride-discovery follow-up — 4 November 2026
+
+D-043 adds My rides (Organizing, Joined, Pending and Past), server-side city/date
+filters and pagination, plus a shared city selector. The implementation also
+keeps description search on the server. Organizing/Joined/Pending are upcoming
+published rides; Past includes earlier or cancelled organized/approved/requested
+rides and is not an attendance record. The selector suggests localized
+Kazakhstan cities and allows manual entry elsewhere, without location access.
+See the [API contract](development.md#ride-lists-and-cities) for exact defaults.
+This implementation follow-up does not change the separate deferred features.
+
 ## Early follow-on candidates
 
 These are not ordered commitments:

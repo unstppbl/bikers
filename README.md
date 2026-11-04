@@ -6,7 +6,7 @@ The MVP launches as a mobile-first web/PWA using React, TypeScript, Vite, Go, an
 
 ## Current implementation
 
-The application implements Telegram OTP sign-in, profile onboarding, ride previews and organizer-approved joining, participant-only ride details, and persistent Ride Room text chat with foreground updates. The UI supports English, Russian, and Kazakh. A PWA caches application assets; private/API data stays online-only.
+The application implements Telegram OTP sign-in, profile onboarding, paginated ride discovery with city/date/description filters, My rides views for Organizing/Joined/Pending/Past, organizer-approved joining, participant-only ride details, and persistent Ride Room text chat with foreground updates. A shared city selector suggests Kazakhstan cities in English, Russian and Kazakh while allowing other cities. The UI supports English, Russian, and Kazakh. A PWA caches application assets; private/API data stays online-only.
 
 Structured garages support multiple bikes, curated model/alias lookup with freeform entry and verified model-year reference photos, explicit public sharing, private maintenance logs, and processed owner-uploaded bike photos. Catalogue pictures remain the default until an owner explicitly chooses an uploaded cover; deleting that cover restores the catalogue. Photos follow the bike's visibility. Basic clubs support owner-approved membership, ownership transfer, closure, linked public ride previews, and one optional public club image. Club images remain public after closure; closed clubs reject image changes. Club membership never grants private ride access.
 

@@ -155,7 +155,7 @@ func TestCreateValidationAndOwnerApproval(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if created.Name != "Club" || created.City != "Алматы" || created.Version != 1 || created.MemberCount != 1 || created.CanManage == nil || !*created.CanManage || r.members[owner.ID].State != "approved" {
+	if created.Name != "Club" || created.City != "Almaty" || created.Version != 1 || created.MemberCount != 1 || created.CanManage == nil || !*created.CanManage || r.members[owner.ID].State != "approved" {
 		t.Fatalf("bad created club: %+v", created)
 	}
 	_, err = m.Create(context.Background(), models.User{}, models.ClubInput{})

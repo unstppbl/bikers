@@ -67,6 +67,7 @@ BIKERS.KZ’s name, Kazakhstan-first launch, English/Russian/Kazakh support, and
 | D-040 | Automatically show a motorcycle model reference picture only when its model and year/generation are verified to match the selected bike; show no photo when a match is unavailable | Altay’s clarification and explicit year/generation matching choice on 3 November 2026 |
 | D-041 | Add user-uploaded bike photos while keeping the catalogue image as the default cover | Altay’s explicit implementation request on 3 November 2026; owners can deliberately select an uploaded cover and restore the catalogue default |
 | D-042 | Commit all changes and push to the repository, then build/deploy production on Jarvis from that Git checkout; tag images with the exact commit and retain Compose project `bikerskz`. Production images must be built on Jarvis, without local image builds/copies | Altay’s explicit deployment-process instruction on 4 November 2026; repository `unstppbl/bikers`, branch `main`; first checkout-based cutover planned |
+| D-043 | Add My rides with Organizing, Joined, Pending and Past views; improve discovery with city/date filters and pagination; provide a shared city selector | Altay’s explicit implementation request on 4 November 2026; page size, local-date sorting, signed cursor lifetime and suggested-city coverage are implementation choices |
 
 D-008 is approval to preserve and discuss the catalogue. It does not establish that every feature, suggested phase, safeguard implementation, or metric is approved for delivery.
 

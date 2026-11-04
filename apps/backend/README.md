@@ -103,7 +103,23 @@ Public ride responses contain only ID, city, local date, short description, and
 status. Signed-in users can additionally see their own participation state and
 management flag. Exact plans, rosters, history, and event subscriptions require
 approved participation; organizers are inserted as approved participants.
-Public discovery returns up to 100 summaries with upcoming published rides first.
+Ride discovery returns upcoming published summaries in pages of 20. `view` selects
+`discover` (default), `organizing`, `joined`, `pending`, or `past`; personal views
+require a session. `city`, inclusive ride-local `from`/`to` calendar dates and
+literal public-description `q` are applied before paging. `next_cursor` is empty
+at the end. The signed cursor binds the caller, filters and clock snapshot, and
+contains only the public local date/UUID ordering key, never exact departure
+time. Its signing key is process-local; restart invalidates cursors and callers
+can restart their view. Organizing/Joined/Pending contain upcoming published
+rides, with organizers excluded from Joined/Pending. Past contains earlier or
+cancelled rides owned by the caller or with their approved/requested
+participation; it does not establish attendance. Past pages sort date/UUID
+descending; other pages sort ascending.
+
+`GET /api/v1/cities` returns the suggested Kazakhstan city vocabulary with
+English/Russian/Kazakh names and aliases. Profile, ride and club writes normalize
+known aliases to one value; custom cities remain valid. City filters match known
+aliases in existing stored rows without rewriting them. No migration is needed.
 
 The initial capacity rule includes the organizer. Organizer approval is required;
 pending requests do not consume places. Capacity edits, approvals, cancellation,

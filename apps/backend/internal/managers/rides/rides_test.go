@@ -17,8 +17,7 @@ type rideRepository struct {
 	statuses                          map[string]string
 	hidden                            map[string]bool
 	list                              []models.RideListing
-	listUser                          string
-	listLimit                         int
+	listQuery                         database.RideListQuery
 	locked                            bool
 	commitErr                         error
 	setCalls, countCalls, updateCalls int
@@ -28,8 +27,8 @@ type rideRepository struct {
 	includePending                    bool
 }
 
-func (r *rideRepository) ListRides(_ context.Context, user string, _ time.Time, limit int) ([]models.RideListing, error) {
-	r.listUser, r.listLimit = user, limit
+func (r *rideRepository) ListRides(_ context.Context, query database.RideListQuery) ([]models.RideListing, error) {
+	r.listQuery = query
 	return r.list, nil
 }
 func (r *rideRepository) Ride(_ context.Context, id string) (models.Ride, error) {
@@ -208,12 +207,12 @@ func TestPreviewAndDiscoveryNeverReturnParticipantDetails(t *testing.T) {
 		t.Fatal("approved participant did not receive plan")
 	}
 	repo.list = []models.RideListing{{Summary: repo.ride.RideSummary, OrganizerID: owner.ID}}
-	listed, err := manager.List(context.Background(), nil)
-	if err != nil || repo.listLimit != 100 || repo.listUser != "" || listed[0].CanManage != nil || listed[0].ParticipationState != "" {
+	listed, err := manager.List(context.Background(), nil, models.RideListInput{})
+	if err != nil || repo.listQuery.Limit != 21 || repo.listQuery.UserID != "" || listed.Rides[0].CanManage != nil || listed.Rides[0].ParticipationState != "" {
 		t.Fatal("anonymous discovery boundary changed")
 	}
-	listed, err = manager.List(context.Background(), &models.Session{User: owner})
-	if err != nil || listed[0].CanManage == nil || !*listed[0].CanManage {
+	listed, err = manager.List(context.Background(), &models.Session{User: owner}, models.RideListInput{})
+	if err != nil || listed.Rides[0].CanManage == nil || !*listed.Rides[0].CanManage {
 		t.Fatal("owner discovery flag missing")
 	}
 }

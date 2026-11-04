@@ -7,8 +7,10 @@ import { photosEn, photosKk, photosRu } from './photos-i18n'
 import { installEn, installKk, installRu } from './install-i18n'
 import { preferencesEn, preferencesKk, preferencesRu } from './preferences-i18n'
 import { mvpEn, mvpKk, mvpRu } from './mvp-i18n'
+import { ridesEn, ridesKk, ridesRu } from './rides-i18n'
 
 const en = {
+  ...ridesEn,
   ...mvpEn,
   ...preferencesEn,
   ...installEn,
@@ -85,6 +87,7 @@ const en = {
 
 type Key = keyof typeof en
 const ru: Record<Key, string> = {
+  ...ridesRu,
   ...mvpRu,
   ...preferencesRu,
   ...installRu,
@@ -160,6 +163,7 @@ const ru: Record<Key, string> = {
 }
 
 const kk: Record<Key, string> = {
+  ...ridesKk,
   ...mvpKk,
   ...preferencesKk,
   ...installKk,

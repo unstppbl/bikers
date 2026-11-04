@@ -3,6 +3,7 @@ package rides
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"net/url"
 	"strings"
@@ -13,43 +14,24 @@ import (
 	"github.com/google/uuid"
 )
 
-const discoveryLimit = 100
-
 type Events interface{ Publish(string, string) }
 
 type Manager struct {
-	repo   database.RidesRepository
-	events Events
-	now    func() time.Time
+	repo      database.RidesRepository
+	events    Events
+	now       func() time.Time
+	cursorKey [32]byte
 }
 
 func New(repo database.RidesRepository, events interface{ Publish(string, string) }, now func() time.Time) *Manager {
 	if now == nil {
 		now = time.Now
 	}
-	return &Manager{repo: repo, events: events, now: now}
-}
-
-func (m *Manager) List(ctx context.Context, session *models.Session) ([]models.RideSummary, error) {
-	userID := ""
-	if session != nil {
-		userID = session.User.ID
+	manager := &Manager{repo: repo, events: events, now: now}
+	if _, err := rand.Read(manager.cursorKey[:]); err != nil {
+		panic("cannot initialize ride cursor signing key")
 	}
-	rows, err := m.repo.ListRides(ctx, userID, m.now().UTC(), discoveryLimit)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]models.RideSummary, 0, len(rows))
-	for _, row := range rows {
-		summary := publicSummary(row.Summary)
-		if session != nil {
-			canManage := row.OrganizerID == userID
-			summary.CanManage = &canManage
-			summary.ParticipationState = row.Summary.ParticipationState
-		}
-		out = append(out, summary)
-	}
-	return out, nil
+	return manager
 }
 
 func (m *Manager) Preview(ctx context.Context, id string) (models.RideSummary, error) {
@@ -456,7 +438,7 @@ func rideError(err error) error {
 }
 
 func validateInput(input models.RideInput) (models.RideInput, error) {
-	input.City = strings.TrimSpace(input.City)
+	input.City = models.NormalizeCity(input.City)
 	input.Description = strings.TrimSpace(input.Description)
 	input.Title = strings.TrimSpace(input.Title)
 	input.MeetingPoint = strings.TrimSpace(input.MeetingPoint)

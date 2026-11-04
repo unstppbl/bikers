@@ -6037,6 +6037,91 @@ svg {
   gap: 5px;
 }
 
+.ride-filters {
+  margin-bottom: 24px;
+  padding: 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.ride-list-section {
+  min-width: 0;
+}
+
+.ride-list-section>.section-header {
+  flex-wrap: wrap;
+}
+
+.ride-filter-fields {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 16px;
+}
+
+.ride-filter-fields .field {
+  min-width: 0;
+  margin: 0;
+}
+
+.ride-filter-fields input {
+  min-width: 0;
+  width: 100%;
+}
+
+.ride-filter-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.ride-filter-note {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.ride-filter-note svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.ride-view-tabs {
+  flex-wrap: wrap;
+}
+
+@media (min-width: 1200px) {
+  .my-rides-page .ride-filter-fields {
+    grid-template-columns: minmax(0,1.5fr) minmax(0,1.2fr) repeat(2,minmax(0,1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .ride-filters {
+    padding: 16px;
+  }
+
+  .ride-filter-fields {
+    grid-template-columns: minmax(0,1fr);
+  }
+
+  .ride-view-tabs {
+    display: grid;
+    grid-template-columns: repeat(2,minmax(0,1fr));
+  }
+
+  .ride-view-tabs a {
+    min-width: 0;
+    padding-inline: 8px;
+    text-align: center;
+  }
+}
+
 .page-content>.manage-rider-link {
   margin: 0 0 20px;
 }

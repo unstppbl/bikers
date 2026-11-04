@@ -7,7 +7,7 @@ import { App } from './App'
 import { setCsrfToken } from './api'
 import { I18nProvider } from './i18n'
 import { SessionProvider } from './session'
-import type { Bike, Club, ClubSummary, MaintenanceEntry, Session, User } from './types'
+import type { Bike, Club, ClubSummary, MaintenanceEntry, Ride, Session, User } from './types'
 
 vi.mock('virtual:pwa-register/react', () => ({ useRegisterSW: () => ({ needRefresh: [false, vi.fn()], updateServiceWorker: vi.fn() }) }))
 
@@ -57,6 +57,7 @@ describe('cookie-bound public views', () => {
     const fetch = vi.fn(async (url: string) => {
       if (url.endsWith('/session')) return response(signedIn())
       if (url.endsWith(`/clubs/${club.id}`)) return response({ club: { id: club.id, name: club.name, city: club.city, description: club.description, status: 'closed', membership_state: 'left', can_manage: false } })
+      if (new URL(url, 'https://bikers.kz').pathname === '/api/v1/rides') return response({ rides: [], next_cursor: '' })
       if (url.endsWith('/rides')) return response({ rides: [] })
       throw new Error(`Unexpected private request ${url}`)
     })
@@ -209,6 +210,61 @@ describe('garage and private maintenance', () => {
 })
 
 describe('club owner transitions and private access', () => {
+  it('pages organized ride choices without linking until the owner explicitly submits', async () => {
+    const first: Ride = { id: '44444444-4444-4444-8444-444444444444', city: 'Almaty', date: '2026-12-01', description: 'First organized ride', status: 'published', can_manage: true }
+    const second: Ride = { ...first, id: '55555555-5555-4555-8555-555555555555', description: 'Second organized ride' }
+    const commands: { url: string; method: string; csrf: string | null }[] = []
+    const pages: string[] = []
+    let linked: Ride[] = []
+    const fetch = vi.fn(async (url: string, options?: RequestInit) => {
+      if (url.endsWith('/session')) return response(signedIn())
+      if (url.endsWith('/me/trust')) return response({ is_admin: false })
+      if (url.includes('/avatar')) return response({ image: null, version: 1 })
+      if (url.endsWith('/badge')) return response({ badge: null })
+      if (url.endsWith('/me/blocks')) return response({ blocks: [], next_cursor: '' })
+      if (url.endsWith(`/clubs/${club.id}`)) return response({ club })
+      if (url.endsWith(`/clubs/${club.id}/image`)) return response({ image: null, version: 1 })
+      if (url.endsWith('/members')) return response({ members: [{ user_id: rider.id, display_name: rider.profile.display_name, state: 'approved', role: 'owner' }] })
+      if (url.endsWith(`/clubs/${club.id}/rides/${second.id}`) && options?.method === 'PUT') {
+        commands.push({ url, method: options.method, csrf: new Headers(options.headers).get('X-CSRF-Token') })
+        linked = [second]
+        return response({ ok: true })
+      }
+      if (url.endsWith(`/clubs/${club.id}/rides`)) return response({ rides: linked })
+      const parsed = new URL(url, 'https://bikers.kz')
+      if (parsed.pathname === '/api/v1/rides') {
+        expect(parsed.searchParams.get('view')).toBe('organizing')
+        const cursor = parsed.searchParams.get('cursor') ?? ''
+        pages.push(cursor)
+        return response({ rides: [cursor ? second : first], next_cursor: cursor ? '' : 'owned-page-two' })
+      }
+      if (options?.method && options.method !== 'GET') commands.push({ url, method: options.method, csrf: new Headers(options.headers).get('X-CSRF-Token') })
+      throw new Error(`Unexpected API ${url} ${options?.method}`)
+    })
+    vi.stubGlobal('fetch', fetch)
+    mount(`/clubs/${club.id}`)
+    const actor = userEvent.setup()
+    const chooser = await screen.findByRole('combobox', { name: 'Choose your ride' })
+    await actor.selectOptions(chooser, first.id)
+    await actor.click(screen.getByRole('button', { name: 'Next page' }))
+    await screen.findByRole('option', { name: /Second organized ride/ })
+    expect(screen.queryByRole('option', { name: /First organized ride/ })).not.toBeInTheDocument()
+    expect(commands).toEqual([])
+    await actor.selectOptions(screen.getByRole('combobox', { name: 'Choose your ride' }), second.id)
+    await actor.click(screen.getByRole('button', { name: 'Previous page' }))
+    await screen.findByRole('option', { name: /First organized ride/ })
+    expect(commands).toEqual([])
+    await actor.click(screen.getByRole('button', { name: 'Next page' }))
+    await screen.findByRole('option', { name: /Second organized ride/ })
+    await actor.selectOptions(screen.getByRole('combobox', { name: 'Choose your ride' }), second.id)
+    expect(screen.getByRole('textbox', { name: 'Ride link or ID' })).toHaveValue(second.id)
+    expect(commands).toEqual([])
+    await actor.click(screen.getByRole('button', { name: 'Link a ride' }))
+    await screen.findByRole('link', { name: /Second organized ride/ })
+    expect(commands).toEqual([{ url: `/api/v1/clubs/${club.id}/rides/${second.id}`, method: 'PUT', csrf: 'csrf-rider-a' }])
+    expect(pages).toContain('owned-page-two')
+  })
+
   it('transfers ownership without retaining owner-only requests or exposing linked ride details', async () => {
     let current: Club = club
     const fetch = vi.fn(async (url: string, options?: RequestInit) => {
@@ -217,6 +273,7 @@ describe('club owner transitions and private access', () => {
       if (url.endsWith(`/clubs/${club.id}`)) return response({ club: current })
       if (url.endsWith('/members')) return response({ members: [{ user_id: rider.id, display_name: rider.profile.display_name, state: 'approved', role: current.owner_id === rider.id ? 'owner' : 'member' }, { user_id: other.id, display_name: other.profile.display_name, state: 'approved', role: current.owner_id === other.id ? 'owner' : 'member' }, ...(current.can_manage ? [{ user_id: 'pending', display_name: 'Pending Private Name', state: 'requested', role: 'member' }] : [])] })
       if (url.endsWith(`/clubs/${club.id}/rides`)) return response({ rides: [{ id: 'ride', city: 'Almaty', date: '2026-12-01', description: 'Public ride summary', status: 'published', title: 'Secret ride title', meeting_point: 'Secret place' }] })
+      if (new URL(url, 'https://bikers.kz').pathname === '/api/v1/rides') return response({ rides: [], next_cursor: '' })
       if (url.endsWith('/rides')) return response({ rides: [] })
       throw new Error(`Unexpected API ${url} ${options?.method}`)
     })
@@ -250,6 +307,7 @@ describe('club owner transitions and private access', () => {
       if (url.endsWith('/membership') && options?.method === 'DELETE') { current = { id: club.id, name: club.name, city: club.city, description: club.description, status: 'closed', membership_state: 'left', can_manage: false }; return response({ state: 'left' }) }
       if (url.endsWith(`/clubs/${club.id}`)) return response({ club: current })
       if (url.endsWith('/members')) return response({ members: [{ user_id: rider.id, display_name: 'Private Owner Name', state: 'approved', role: 'owner' }] })
+      if (new URL(url, 'https://bikers.kz').pathname === '/api/v1/rides') return response({ rides: [], next_cursor: '' })
       if (url.endsWith('/rides')) return response({ rides: [] })
       throw new Error(`Unexpected API ${url}`)
     })
@@ -274,6 +332,7 @@ describe('session completion boundaries', () => {
     const pending = new Promise<Response>((resolve) => { finish = resolve })
     const fetch = vi.fn(async (url: string, options?: RequestInit) => {
       if (url.endsWith('/session')) return response(signedIn())
+      if (url.endsWith('/cities')) return response({ cities: [] })
       if (url.endsWith('/clubs') && options?.method === 'POST') return pending
       throw new Error(`Unexpected API ${url}`)
     })
@@ -317,6 +376,7 @@ describe('session completion boundaries', () => {
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
       if (url.endsWith('/session')) return response(active ? signedIn() : { user: null })
       if (url.endsWith('/me/bikes')) return response({ bikes: [], next_cursor: '' })
+      if (new URL(url, 'https://bikers.kz').pathname === '/api/v1/rides') return response({ rides: [], next_cursor: '' })
       if (url.endsWith('/rides')) return response({ rides: [] })
       throw new Error(`Unexpected API ${url}`)
     }))

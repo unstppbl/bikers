@@ -42,7 +42,7 @@ func identifier(raw string) (string, error) {
 }
 func validate(input models.ClubInput) (models.ClubInput, error) {
 	input.Name = strings.TrimSpace(input.Name)
-	input.City = strings.TrimSpace(input.City)
+	input.City = models.NormalizeCity(input.City)
 	input.Description = strings.TrimSpace(input.Description)
 	if input.Name == "" || len(input.Name) > 160 || input.City == "" || len(input.City) > 160 || input.Description == "" || len(input.Description) > 2000 {
 		return input, models.Fail("invalid_club", "Name, city, and description are required within their limits")

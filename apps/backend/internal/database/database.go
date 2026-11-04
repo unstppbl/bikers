@@ -30,7 +30,7 @@ type AccountsRepository interface {
 }
 type RidesRepository interface {
 	ContentHidden(context.Context, string, string) (bool, error)
-	ListRides(context.Context, string, time.Time, int) ([]models.RideListing, error)
+	ListRides(context.Context, RideListQuery) ([]models.RideListing, error)
 	Ride(context.Context, string) (models.Ride, error)
 	Participation(context.Context, string, string) (string, error)
 	Participants(context.Context, string, bool) ([]models.Participant, error)

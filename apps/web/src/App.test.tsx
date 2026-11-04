@@ -29,6 +29,7 @@ class TestSocket {
 
 function response(value: unknown, status = 200) { return new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json' } }) }
 function mvpRead(url: string) {
+  if (url.endsWith('/cities')) return response({ cities: [] })
   if (url.endsWith('/me/trust')) return response({ is_admin: false })
   if (url.endsWith('/badge')) return response({ badge: null })
   if (url.includes('/avatar')) return response({ image: null, version: 1 })
@@ -55,7 +56,7 @@ describe('application navigation', () => {
   function navigationReads(url: string) {
     if (url.endsWith('/session')) return response({ user, csrf_token: 'test-csrf' })
     if (url.endsWith('/me/trust')) return response({ is_admin: true })
-    if (url.endsWith('/rides')) return response({ rides: [] })
+    if (new URL(url, 'https://bikers.kz').pathname === '/api/v1/rides') return response({ rides: [], next_cursor: '' })
     if (url.endsWith('/clubs')) return response({ clubs: [], next_cursor: '' })
     const extra = mvpRead(url)
     if (extra) return extra
@@ -279,7 +280,7 @@ describe('ride privacy and localization', () => {
   })
 
   it('switches core screens between English, Russian and Kazakh using locale-only storage', async () => {
-    vi.stubGlobal('fetch', vi.fn(async (url: string) => response(url.endsWith('/session') ? { user: null } : { rides: [] })))
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => response(url.endsWith('/session') ? { user: null } : url.endsWith('/cities') ? { cities: [] } : { rides: [], next_cursor: '' })))
     mount()
     await screen.findByRole('heading', { name: 'The road is open.' })
     fireEvent.change(screen.getByRole('combobox', { name: 'Language' }), { target: { value: 'ru' } })

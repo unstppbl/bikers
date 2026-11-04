@@ -45,7 +45,8 @@ The web client translates error codes into its selected language; the server mes
 | POST | `/auth/challenges/verify` | Consume `{challenge_id, code}` and establish session |
 | DELETE | `/session` | Revoke the current session |
 | GET / PATCH | `/me/profile` | Read or update the current rider profile |
-| GET / POST | `/rides` | Browse public previews or create a ride |
+| GET | `/cities` | Suggested Kazakhstan cities with `value`, localized `names` and `aliases` |
+| GET / POST | `/rides` | Paginated discovery/personal summaries or create a ride |
 | GET / PATCH | `/rides/{id}` | Read the authorized view or edit an owned ride |
 | POST | `/rides/{id}/cancel` | Cancel with the current `plan_version` |
 | PUT / DELETE | `/rides/{id}/participation` | Request to join or leave |
@@ -77,6 +78,35 @@ The web client translates error codes into its selected language; the server mes
 | POST | `/clubs/{clubID}/image?version=N` | Current active owner uploads/replaces with raw image bytes; `201` direct metadata |
 | DELETE | `/clubs/{clubID}/image` | Current active owner removes with JSON `{version}`; direct `{image: null, version}` |
 | GET / HEAD | `/clubs/{clubID}/image/{imageID}/content` | Current public JPEG for active or closed clubs; old/missing images return `404` |
+
+### Ride lists and cities
+
+`GET /rides` returns `{rides: [...], next_cursor: "..."}` with 20 summaries per
+page and an empty terminal cursor. `view` is `discover` (default), `organizing`,
+`joined`, `pending` or `past`; personal views require authentication. Organizing
+means the caller's upcoming published rides; Joined means approved upcoming
+rides organized by someone else; Pending means upcoming requested places.
+Past includes earlier or cancelled rides the caller organized or has an
+approved/requested relationship with. It is not an attendance record.
+
+Optional filters are `city`, `from` and `to` (`YYYY-MM-DD`, inclusive in each
+ride's timezone), and `q` (a literal case-insensitive substring of the public
+description, at most 200 bytes). Known city spellings/aliases match the same
+city, including existing stored localized names. Filters precede pagination.
+Unknown views, invalid ranges and invalid cursors fail with `422` errors.
+
+Pages order by the public ride-local date then UUID, ascending except Past,
+which is descending. A cursor binds its filters, user and clock snapshot and
+is authenticated with a process-local key. It never contains the exact ride
+departure time. A restart invalidates existing cursors; start again without
+`cursor`. Live edits or membership changes can still change which rows are
+visible; pagination is not a database snapshot.
+
+`GET /cities` exposes a suggested, non-exhaustive Kazakhstan vocabulary as
+`{cities: [{value, names: {en, ru, kk}, aliases: [...]}]}`. Known values normalize
+on profile/ride/club writes. Other trimmed city names remain valid, and no
+geolocation or external lookup service is used. The same selector appears in
+all three forms and discovery. Existing data needs no rewrite or migration.
 
 Profile fields are `display_name`, `city`, `languages`, `interests`, and UI `locale` (`en`, `ru`, or `kk`). Display name, city, and at least one spoken language complete onboarding.
 

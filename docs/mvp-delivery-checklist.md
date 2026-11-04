@@ -73,3 +73,17 @@ Owner-authorized activation granted the existing account administrator access, g
 The [design review](design-review.md) records credits, intentional style choices,
 actual-browser checks and the automated motion-sampling limitation. Deployment
 receipts and retained-state checks are in [Operations](operations.md#current-deployment).
+
+
+## My rides and city discovery — 4 November 2026
+
+- [x] Separate Organizing, Joined, Pending and Past views, enforced by the backend.
+- [x] Server-side city aliases, inclusive local-date range and public-description filters before pagination.
+- [x] Twenty-row pages with authenticated date/UUID cursors, query/caller binding and restart recovery.
+- [x] Shared EN/RU/KK Kazakhstan city suggestions and manual-entry fallback in discovery, profiles, rides and clubs.
+- [x] URL filters/pages, Back/Forward restoration, actor-bound query cancellation and page reset.
+- [x] Paginate the club owner's ride-link chooser without submitting the link form.
+- [x] PostgreSQL-backed view/permission/date/cursor regressions and frontend navigation/race tests.
+
+No schema migration is needed. Verification uses disposable local accounts and
+a fake authentication provider; it does not send real OTPs or push notifications.

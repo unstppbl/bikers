@@ -230,7 +230,7 @@ func updateProfile(user models.User, patch models.ProfilePatch) (models.User, er
 		user.Profile.DisplayName = strings.TrimSpace(*patch.DisplayName)
 	}
 	if patch.City != nil {
-		user.Profile.City = strings.TrimSpace(*patch.City)
+		user.Profile.City = models.NormalizeCity(*patch.City)
 	}
 	if patch.Languages != nil {
 		user.Profile.Languages = append([]string{}, (*patch.Languages)...)

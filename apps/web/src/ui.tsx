@@ -84,7 +84,7 @@ export function validNext(value: string | null) {
 export function Pagination({ page, next, previous, hasNext, busy = false }: { page: number; next: () => void; previous: () => void; hasNext: boolean; busy?: boolean }) {
   const { t } = useI18n()
   if (!hasNext && page === 0) return null
-  return <nav className="pagination" aria-label={t('pageNumber', { page: page + 1 })}><button className="button button-outline" onClick={previous} disabled={page === 0 || busy}><ArrowLeft size={16} />{t('previousPage')}</button><span>{t('pageNumber', { page: page + 1 })}</span><button className="button button-outline" onClick={next} disabled={!hasNext || busy}>{t('nextPage')}<ArrowRight size={16} /></button></nav>
+  return <nav className="pagination" aria-label={t('pageNumber', { page: page + 1 })}><button type="button" className="button button-outline" onClick={previous} disabled={page === 0 || busy}><ArrowLeft size={16} />{t('previousPage')}</button><span>{t('pageNumber', { page: page + 1 })}</span><button type="button" className="button button-outline" onClick={next} disabled={!hasNext || busy}>{t('nextPage')}<ArrowRight size={16} /></button></nav>
 }
 
 export function ShareLink({ path }: { path: string }) {

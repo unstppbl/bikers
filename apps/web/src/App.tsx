@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useId, useRef, useState } from 'react'
-import { ArrowUpRight, Bell, LogOut, Menu, Motorbike, Plus, Settings, ShieldCheck, UserRound, Users, Wrench, X, Zap } from 'lucide-react'
+import { ArrowUpRight, Bell, CalendarDays, LogOut, Menu, Motorbike, Plus, Settings, ShieldCheck, UserRound, Users, Wrench, X, Zap } from 'lucide-react'
 import { Link, NavLink, Route, Routes, useLocation, useNavigate, useNavigationType } from 'react-router-dom'
 import { useRegisterSW } from 'virtual:pwa-register/react'
 import { mutation } from './api'
@@ -9,6 +9,7 @@ import { ErrorNotice, Loading, useOnline } from './ui'
 import { LoginPage, ProfilePage } from './pages/Auth'
 import { BrowsePage, RideFormPage } from './pages/Rides'
 import { RideDetailPage } from './pages/RideDetail'
+import { MyRidesPage } from './pages/RideList'
 import { Avatar } from './components/Avatar'
 import { useTrust } from './components/Trust'
 import type { Locale } from './types'
@@ -106,6 +107,7 @@ export function App() {
       <div className="sidebar-label">{t('community')}</div>
       <nav className="side-navigation">
         <NavLink to="/" end onClick={() => setMenuOpen(false)}><Motorbike size={20} />{t('rides')}<ArrowUpRight className="nav-arrow" size={17} /></NavLink>
+        <NavLink to="/my-rides" onClick={() => setMenuOpen(false)}><CalendarDays size={20} />{t('myRides')}</NavLink>
         <NavLink to="/garage" onClick={() => setMenuOpen(false)}><Wrench size={20} />{t('garage')}</NavLink>
         <NavLink to="/clubs" onClick={() => setMenuOpen(false)}><Users size={20} />{t('clubs')}</NavLink>
         <NavLink to="/inbox" onClick={() => setMenuOpen(false)}><Bell size={20} />{t('inbox')}</NavLink>
@@ -132,6 +134,7 @@ export function App() {
       <main id="main-content" ref={mainRef} tabIndex={-1}>
         <Suspense fallback={<Loading />}><Routes>
           <Route path="/" element={<BrowsePage />} />
+          <Route path="/my-rides" element={<RequireUser><MyRidesPage /></RequireUser>} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/profile" element={<RequireUser allowOnboarding><ProfilePage /></RequireUser>} />
           <Route path="/inbox" element={<RequireUser><InboxPage key={user?.id} /></RequireUser>} />

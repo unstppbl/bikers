@@ -8,12 +8,12 @@ All paths below are relative to `apps/backend/internal`.
 
 | Package | Owns |
 | --- | --- |
-| `models` | Shared domain records, serialization tags, error vocabularies, value validation, pure domain-value functions, international phone normalization, and the curated bike-model/alias vocabulary. |
+| `models` | Shared domain records, serialization tags, error vocabularies, value validation, pure domain-value functions, international phone normalization, and the curated bike-model/alias and city vocabularies. |
 | `config` | Loading and validating application settings. |
 | `database` | Repository interfaces and callback types used to coordinate transactions. |
 | `database/postgres` | SQL, schema migrations, stored-record mapping, locks, transaction boundaries, and persistence concurrency guards. |
 | `managers/accounts` | OTP challenges, account and session rules, profiles, authentication limits, the external Gateway interface, and strict provider request/phone/status binding decisions. |
-| `managers/rides` | Ride plans, public and participant visibility, organizer decisions, participation, capacity, and plan versions. |
+| `managers/rides` | Ride plans, public and participant visibility, organizer decisions, participation, capacity, plan versions, discovery/personal-list selection, filter validation and signed pagination cursors. |
 | `managers/rooms` | Room access, message decisions, idempotency, history, and foreground event behavior. |
 | `managers/garage` | Bike ownership/public projections, model lookup, private maintenance, bike-photo visibility, quotas, reservations, cover selection, optimistic versions, and cursor pagination. |
 | `managers/clubs` | Club previews/roster permissions, membership decisions, ownership transfer/closure, public ride-association rules, and club-image access, reservations, and replacement. |

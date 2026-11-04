@@ -45,6 +45,8 @@ export interface Ride {
   organizer_id?: string
 }
 
+export interface RidePage { rides: Ride[]; next_cursor: string }
+
 export interface RideInput {
   title: string
   city: string
