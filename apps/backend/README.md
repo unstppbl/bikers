@@ -1,16 +1,17 @@
 # BIKERS.KZ backend
 
-The current internal milestone includes Telegram OTP, cookie sessions, rider
-profiles, planned rides, organizer-approved participation, persistent Ride Room
-text messages, structured garages/private maintenance logs, bike-photo uploads,
-and basic clubs with optional public club images. Curated model-year reference
-photos remain the default until the bike owner explicitly selects an uploaded
-cover. Avatars, ride albums, push notifications, moderation, and administrator-assigned verification
-badges remain pending. Telegram phone verification does not award a profile
-badge. Photos currently live in bounded PostgreSQL `bytea` storage; the persistent
-media directory is reserved for future media and checked for writability.
-Bike-photo and club-image uploads, migrations through version 4, and the local
-rollout are validated. Homelab/VPS deployment remains unverified.
+The backend implements Telegram OTP and cookie sessions, profiles, planned rides
+and private Ride Rooms, paginated discovery/My rides, garages and private
+maintenance, clubs, processed media, moderation, and durable inbox/opt-in push.
+Club membership requests notify the current owner, and approval/rejection/removal
+notify the affected rider. These transitions and their inbox/push work commit
+atomically. Push payloads remain generic and open `/inbox`.
+
+The club-notification executable requires schema 8; its source implementation is
+separate from the currently deployed release. Migration is explicit and must be
+coordinated with the matching app. See [Operations](../../docs/operations.md).
+Photo bytes remain in bounded PostgreSQL `bytea` storage; the persistent media
+directory is reserved for future media and checked for writability.
 
 The Go process serves the built React application and `/api/v1` through one HTTP
 port. PostgreSQL is private to the Compose network. Run database migrations
@@ -32,15 +33,20 @@ records ownership, dependency direction, transaction callbacks, and test placeme
 | `managers/rides` | Plans, visibility, participation, and organizer decisions |
 | `managers/rooms` | Room access, messages, history, and foreground events |
 | `managers/garage` | Bike ownership/sharing, curated lookup, private maintenance, bike-photo access/reservations/covers, validation, and pagination |
-| `managers/clubs` | Club visibility, approved membership, ownership transfer/closure, safe ride associations, and club-image access/reservations/replacement |
+| `managers/clubs` | Club visibility, membership and atomic notification intent, ownership transfer/closure, safe ride associations, and club images |
+| `managers/notifications` | Preferences, durable inbox/read state, push consent, current eligibility and retry decisions |
+| `managers/media` | Profile avatars and participant-scoped ride albums/video links |
+| `managers/trust` | Reports, blocks, moderation, administrator actions and badges |
 | `managers/photos` | Shared image decoding/orientation/re-encoding, metadata stripping, budget defaults, and the two-slot processing module |
 | `managers/system` | Explicit migration execution/timeouts and schema/media readiness |
 | `clients/telegram` | Telegram Gateway protocol transport, decoding, and defaults |
+| `clients/webpush` | Encrypted provider transport and endpoint/network restrictions |
+| `workers` | Push polling and graceful shutdown |
 | `resources/http` | HTTP/WebSocket decoding, routing, middleware, and response mapping |
 | `app` | Dependency construction, startup/shutdown, and composed integration tests |
 
-There are no workers or queue clients yet. Helpers and tests remain with their
-owner. Run `go run ./cmd/architecture` here, or `make check-architecture` from
+Push polling invokes the notifications manager; network delivery happens after
+database claims commit. Helpers and tests remain with their owner. Run `go run ./cmd/architecture` here, or `make check-architecture` from
 the repository root. Ordinary `go test ./...` also checks the actual package tree,
 including test imports; tests have no general dependency exemption.
 
@@ -86,9 +92,11 @@ uses the loopback listener, independently of the public Host configuration.
 Migrations are an ordered, explicit operation: immutable version 1 establishes
 accounts/rides/chat; version 2 adds bikes, maintenance, clubs, memberships, and
 ride links; version 3 adds bike-photo content, gallery state, and upload attempts;
-version 4 adds club images and the current-image reference.
-Versions 1–3 remain unchanged. Applied receipts are verified before proceeding;
-unknown versions or changed checksums fail. Readiness requires all four receipts.
+version 4 adds club images and the current-image reference; versions 5–7 add
+avatars/ride media, trust/admin state and notifications/preferences/push; version
+8 adds club notification targets. Versions 1–7 remain unchanged. Applied receipts
+are verified before proceeding; unknown versions or changed checksums fail.
+Readiness requires all eight receipts.
 Run `migrate` with the new executable before serving an older installation.
 
 ## API behavior
@@ -182,6 +190,22 @@ their club. Linked results contain public ride summaries only, up to 100 with
 upcoming published rides first. A link, club membership, or club ownership
 never grants private ride details, roster, chat, photos, or participation.
 
+## Club membership inbox and push
+
+Club notices use `club.membership.requested`, `.approved`, `.rejected` and
+`.removed`. They contain `club_id`; ride/participation notices contain `ride_id`.
+The schema permits exactly one target and checks that it matches the kind.
+Creation is part of the same locked transaction as the actual state change, so
+unchanged retries do not duplicate notices and insert failure rolls back the
+membership. Existing requests are not backfilled.
+
+Push claims load current club status, owner and recipient membership.
+The notifications manager requires active-club ownership for request alerts and
+active-club approved membership/ownership for approval alerts. Rejection/removal
+outcomes may reach former members. Account/session eligibility still applies;
+provider calls stay outside database locks. Lock-screen text and `/inbox` remain
+generic. The inbox works without push configuration or browser permission.
+
 ## Verification
 
 The integration tests use real PostgreSQL with a separate random schema per
@@ -203,7 +227,7 @@ idempotency and ordering, plan versions, WebSocket revocation, and public HTML.
 Garage/club regressions cover public bike projections, private log ownership and
 cross-bike IDs, cursor pages, model aliases, club approval/transfer/closure,
 concurrent transfer versus leaving, and public-only ride associations. Migration
-tests cover upgrades through version 4, replay, receipt drift, and unsupported versions.
+tests cover historical upgrades through version 8, replay, receipt drift, and unsupported versions.
 Photo regressions cover visibility/content authorization, cover reset, deletion
 cascades, processing limits/metadata stripping, competing global reservations,
 uploader quotas, lazy expiry, and failed-attempt limits across application restart.
@@ -227,3 +251,8 @@ schema, and accepts OTP `123456` for valid test phone numbers. It is excluded fr
 the production binary. Optional `BROWSER_HARNESS_PORT`,
 `BROWSER_HARNESS_BASE_URL`, `BROWSER_HARNESS_SECONDS`, and `WEB_DIST_DIR` configure
 that test process. Do not expose the test listener publicly.
+
+Use `BROWSER_HARNESS_CLUB_NOTICES=1` with the opt-in harness to seed a disposable
+owner (`+77011239902`), applicant (`+77011239903`) and club membership inbox
+history. The fake code is `123456`; the latest request stays pending for manual
+approval. This fixture is test-only and does not send real OTPs or push.

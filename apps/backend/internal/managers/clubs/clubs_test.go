@@ -28,6 +28,8 @@ type clubRepo struct {
 	rideNow              time.Time
 	includeRequested     bool
 	commitErr            error
+	notifyErr            error
+	notices              []models.NotificationIntent
 	images               *memoryClubImages
 	hidden               map[string]bool
 }
@@ -59,14 +61,14 @@ func (r *clubRepo) WithClub(_ context.Context, id string, decide database.ClubDe
 	for id, ride := range r.links {
 		links[id] = ride
 	}
-	tx := &clubTx{repo: r, club: r.club, members: members, links: links}
+	tx := &clubTx{repo: r, club: r.club, members: members, links: links, notices: append([]models.NotificationIntent(nil), r.notices...)}
 	if err := decide(tx); err != nil {
 		return err
 	}
 	if r.commitErr != nil {
 		return r.commitErr
 	}
-	r.club, r.members, r.links = tx.club, tx.members, tx.links
+	r.club, r.members, r.links, r.notices = tx.club, tx.members, tx.links, tx.notices
 	return nil
 }
 
@@ -75,6 +77,7 @@ type clubTx struct {
 	club    models.Club
 	members map[string]models.ClubMembership
 	links   map[string]models.RideSummary
+	notices []models.NotificationIntent
 }
 
 func (t *clubTx) Club() models.Club                           { return t.club }
@@ -97,6 +100,13 @@ func (t *clubTx) SetMembership(user, state string, _ time.Time) error {
 			t.club.MemberCount++
 		}
 	}
+	return nil
+}
+func (t *clubTx) Notify(intent models.NotificationIntent) error {
+	if t.repo.notifyErr != nil {
+		return t.repo.notifyErr
+	}
+	t.notices = append(t.notices, intent)
 	return nil
 }
 func (t *clubTx) UpdateClub(club models.Club, _ time.Time) error { t.club = club; return nil }

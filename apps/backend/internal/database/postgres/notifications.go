@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-const notificationColumns = "id::text,sequence,kind,ride_id::text,created_at,read_at"
+const notificationColumns = "id::text,sequence,kind,COALESCE(ride_id::text,''),COALESCE(club_id::text,''),created_at,read_at"
 
 type notificationTransaction struct {
 	ctx     context.Context
@@ -46,7 +46,7 @@ func (t *notificationTransaction) SetPreferences(p models.Preferences) error {
 }
 func scanNotification(row pgx.Row) (models.Notification, error) {
 	var n models.Notification
-	err := row.Scan(&n.ID, &n.Sequence, &n.Kind, &n.RideID, &n.CreatedAt, &n.ReadAt)
+	err := row.Scan(&n.ID, &n.Sequence, &n.Kind, &n.RideID, &n.ClubID, &n.CreatedAt, &n.ReadAt)
 	return n, repositoryError(err)
 }
 func (t *notificationTransaction) Notifications(before int64, limit int) ([]models.Notification, error) {
@@ -124,17 +124,28 @@ func (t *notificationTransaction) DeleteSubscription(id string) error {
 	return repositoryError(err)
 }
 func (t *rideTransaction) Notify(intent models.NotificationIntent) error {
+	intent.RideID, intent.ClubID = t.ride.ID, ""
+	return persistNotifications(t.ctx, t.tx, intent)
+}
+func (t *clubTransaction) Notify(intent models.NotificationIntent) error {
+	intent.ClubID, intent.RideID = t.club.ID, ""
+	return persistNotifications(t.ctx, t.tx, intent)
+}
+
+// Both membership state and its durable inbox/push work commit in the owning
+// transaction. The transaction adapter binds the intent to its locked target.
+func persistNotifications(ctx context.Context, tx pgx.Tx, intent models.NotificationIntent) error {
 	for _, recipient := range intent.Recipients {
 		id := uuid.NewString()
 		var stored string
-		err := t.tx.QueryRow(t.ctx, `INSERT INTO notifications(id,user_id,ride_id,kind,event_id,created_at) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(user_id,event_id) DO NOTHING RETURNING id::text`, id, recipient, t.ride.ID, intent.Kind, intent.EventID, intent.CreatedAt).Scan(&stored)
+		err := tx.QueryRow(ctx, `INSERT INTO notifications(id,user_id,ride_id,club_id,kind,event_id,created_at) VALUES($1,$2,NULLIF($3,'')::uuid,NULLIF($4,'')::uuid,$5,$6,$7) ON CONFLICT(user_id,event_id) DO NOTHING RETURNING id::text`, id, recipient, intent.RideID, intent.ClubID, intent.Kind, intent.EventID, intent.CreatedAt).Scan(&stored)
 		if errors.Is(err, pgx.ErrNoRows) {
 			continue
 		}
 		if err != nil {
 			return repositoryError(err)
 		}
-		rows, err := t.tx.Query(t.ctx, "SELECT id::text FROM push_subscriptions WHERE user_id=$1", recipient)
+		rows, err := tx.Query(ctx, "SELECT id::text FROM push_subscriptions WHERE user_id=$1", recipient)
 		if err != nil {
 			return repositoryError(err)
 		}
@@ -153,7 +164,7 @@ func (t *rideTransaction) Notify(intent models.NotificationIntent) error {
 			return repositoryError(err)
 		}
 		for _, sub := range subs {
-			if _, err = t.tx.Exec(t.ctx, "INSERT INTO push_deliveries(id,notification_id,subscription_id,next_attempt) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING", uuid.NewString(), stored, sub, intent.CreatedAt); err != nil {
+			if _, err = tx.Exec(ctx, "INSERT INTO push_deliveries(id,notification_id,subscription_id,next_attempt) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING", uuid.NewString(), stored, sub, intent.CreatedAt); err != nil {
 				return repositoryError(err)
 			}
 		}
@@ -171,9 +182,9 @@ func (s *Store) ClaimPush(ctx context.Context, now, until time.Time, decide data
 	}
 	for i := 0; i < 25; i++ {
 		var d models.PushDelivery
-		err = tx.QueryRow(ctx, `SELECT d.id::text,d.notification_id::text,n.kind,n.ride_id::text,u.locale,d.attempts,p.id::text,p.user_id::text,p.endpoint,p.p256dh,p.auth,p.session_digest,p.created_at,(u.status='active' AND n.user_id=p.user_id AND s.user_id=p.user_id),(s.revoked_at IS NULL AND s.expires_at>$1 AND s.last_seen_at>$1-interval '7 days'),COALESCE(pa.state='approved',false)
- FROM push_deliveries d JOIN notifications n ON n.id=d.notification_id JOIN push_subscriptions p ON p.id=d.subscription_id JOIN users u ON u.id=p.user_id JOIN sessions s ON s.token_digest=p.session_digest LEFT JOIN participation pa ON pa.ride_id=n.ride_id AND pa.user_id=n.user_id
- WHERE ((d.state='pending' AND d.next_attempt<=$1) OR (d.state='sending' AND d.lease_until<=$1)) ORDER BY d.next_attempt,d.id FOR UPDATE OF d SKIP LOCKED LIMIT 1`, now).Scan(&d.ID, &d.NotificationID, &d.Kind, &d.RideID, &d.Locale, &d.Attempts, &d.Subscription.ID, &d.Subscription.UserID, &d.Subscription.Endpoint, &d.Subscription.P256dh, &d.Subscription.Auth, &d.Subscription.SessionDigest, &d.Subscription.CreatedAt, &d.AccountActive, &d.SessionActive, &d.RideAllowed)
+		err = tx.QueryRow(ctx, `SELECT d.id::text,d.notification_id::text,n.kind,COALESCE(n.ride_id::text,''),COALESCE(n.club_id::text,''),COALESCE(c.status,''),COALESCE(c.owner_id::text,''),COALESCE(cm.state,''),u.locale,d.attempts,p.id::text,p.user_id::text,p.endpoint,p.p256dh,p.auth,p.session_digest,p.created_at,(u.status='active' AND n.user_id=p.user_id AND s.user_id=p.user_id),(s.revoked_at IS NULL AND s.expires_at>$1 AND s.last_seen_at>$1-interval '7 days'),COALESCE(pa.state='approved',false)
+ FROM push_deliveries d JOIN notifications n ON n.id=d.notification_id JOIN push_subscriptions p ON p.id=d.subscription_id JOIN users u ON u.id=p.user_id JOIN sessions s ON s.token_digest=p.session_digest LEFT JOIN participation pa ON pa.ride_id=n.ride_id AND pa.user_id=n.user_id LEFT JOIN clubs c ON c.id=n.club_id LEFT JOIN club_memberships cm ON cm.club_id=n.club_id AND cm.user_id=n.user_id
+ WHERE ((d.state='pending' AND d.next_attempt<=$1) OR (d.state='sending' AND d.lease_until<=$1)) ORDER BY d.next_attempt,d.id FOR UPDATE OF d SKIP LOCKED LIMIT 1`, now).Scan(&d.ID, &d.NotificationID, &d.Kind, &d.RideID, &d.ClubID, &d.ClubStatus, &d.ClubOwnerID, &d.ClubMembershipState, &d.Locale, &d.Attempts, &d.Subscription.ID, &d.Subscription.UserID, &d.Subscription.Endpoint, &d.Subscription.P256dh, &d.Subscription.Auth, &d.Subscription.SessionDigest, &d.Subscription.CreatedAt, &d.AccountActive, &d.SessionActive, &d.RideAllowed)
 		if errors.Is(err, pgx.ErrNoRows) {
 			if err = tx.Commit(ctx); err != nil {
 				return nil, repositoryError(err)

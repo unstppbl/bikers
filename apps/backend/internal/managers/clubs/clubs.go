@@ -317,7 +317,11 @@ func (m *Manager) Join(ctx context.Context, actor models.User, id string) (strin
 		}
 		if state != "requested" && state != "approved" {
 			state = "requested"
-			return tx.SetMembership(actor.ID, state, m.now().UTC())
+			at := m.now().UTC()
+			if err := tx.SetMembership(actor.ID, state, at); err != nil {
+				return err
+			}
+			return tx.Notify(models.NotificationIntent{EventID: uuid.NewString(), Kind: "club.membership.requested", ClubID: id, Recipients: []string{tx.Club().OwnerID}, CreatedAt: at})
 		}
 		return nil
 	})
@@ -386,7 +390,11 @@ func (m *Manager) Decide(ctx context.Context, actor models.User, id, target, dec
 		if (decision == "approve" && (member.State != "requested" || member.AccountStatus != "active")) || (decision == "reject" && member.State != "requested") || (decision == "remove" && member.State != "approved") {
 			return models.Fail("membership_changed", "A current matching membership state is required")
 		}
-		return tx.SetMembership(target, want, m.now().UTC())
+		at := m.now().UTC()
+		if err := tx.SetMembership(target, want, at); err != nil {
+			return err
+		}
+		return tx.Notify(models.NotificationIntent{EventID: uuid.NewString(), Kind: "club.membership." + want, ClubID: id, Recipients: []string{target}, CreatedAt: at})
 	})
 	return want, clubError(err)
 }

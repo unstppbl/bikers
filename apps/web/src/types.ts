@@ -108,7 +108,7 @@ export interface RidePhoto extends BikePhoto { uploader_id: string; can_delete: 
 export interface RideVideo { id: string; url: string; title: string; uploader_id: string; created_at: string; can_delete: boolean; hidden?: boolean }
 export interface RideAlbum { photos: RidePhoto[]; videos: RideVideo[]; version: number }
 export interface Announcement { id: string; sequence: number; owner_id: string; owner_name: string; body: string; created_at: string; client_announcement_id: string }
-export interface InboxNotification { id: string; kind: string; ride_id: string; created_at: string; read_at: string | null }
+export interface InboxNotification { id: string; kind: string; ride_id?: string; club_id?: string; created_at: string; read_at: string | null }
 export interface NotificationPage { notifications: InboxNotification[]; next_cursor: string; unread_count: number }
 export interface BlockedRider { user_id: string; display_name: string; created_at: string }
 export type ReportTarget = 'user' | 'ride' | 'club' | 'message' | 'bike' | 'bike_photo' | 'club_image' | 'avatar' | 'ride_photo' | 'ride_video' | 'announcement'

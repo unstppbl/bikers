@@ -28,6 +28,19 @@ func TestBrowserHarness(t *testing.T) {
 		grantTestAdmin(t, f, admin)
 		t.Log("TEST-ONLY precreated administrator: phone=+77011239901; OTP=123456")
 	}
+	if os.Getenv("BROWSER_HARNESS_CLUB_NOTICES") == "1" {
+		owner := f.login("+77011239902", "Test Club Owner")
+		applicant := f.login("+77011239903", "Test Club Applicant")
+		club := testClub(t, f, owner)["id"].(string)
+		path := "/api/v1/clubs/" + club + "/membership"
+		expect(t, f.request("PUT", path, nil, applicant), 200)
+		expect(t, clubDecision(f, club, owner, applicant, "approve"), 200)
+		expect(t, clubDecision(f, club, owner, applicant, "remove"), 200)
+		expect(t, f.request("PUT", path, nil, applicant), 200)
+		expect(t, clubDecision(f, club, owner, applicant, "reject"), 200)
+		expect(t, f.request("PUT", path, nil, applicant), 200)
+		t.Logf("TEST-ONLY club inbox fixture: owner=+77011239902; applicant=+77011239903; OTP=123456; club=%s", club)
+	}
 	f.ts.Close()
 	port := os.Getenv("BROWSER_HARNESS_PORT")
 	if port == "" {

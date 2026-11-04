@@ -1,5 +1,7 @@
 .PHONY: help config build db migrate up down logs deploy-jarvis check-web check-architecture check-backend check-integration
 
+DEPLOY_ARGS ?=
+
 help:
 	@echo "config              Validate Compose configuration without printing secrets"
 	@echo "build               Build the single web/API application image"
@@ -8,7 +10,7 @@ help:
 	@echo "up                  Start the app and db; run migrate first"
 	@echo "down                Stop services; preserve database and media volumes"
 	@echo "logs                Follow application logs"
-	@echo "deploy-jarvis       Build clean origin/main on Jarvis and replace only the app"
+	@echo "deploy-jarvis       Build on Jarvis; DEPLOY_ARGS='--migrate-to 8' opts into schema upgrade"
 	@echo "check-web           Typecheck, lint, test and build the web app"
 	@echo "check-architecture  Check all backend internal package imports"
 	@echo "check-backend       Run Go unit tests and vet"
@@ -36,7 +38,7 @@ logs:
 	docker compose logs --follow app
 
 deploy-jarvis:
-	python3 scripts/deploy-jarvis.py
+	python3 scripts/deploy-jarvis.py $(DEPLOY_ARGS)
 
 check-web:
 	cd apps/web && npm run typecheck && npm run lint && npm test && npm run build
