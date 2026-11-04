@@ -39,8 +39,10 @@
 
 ## Production deployment
 
-- Normal releases deploy automatically after successful `main` CI through the
-  private `unstppbl/bikers-deploy` repository and homelab runner.
+- Code changes deploy automatically after successful `main` CI through the
+  private `unstppbl/bikers-deploy` repository and homelab runner. Documentation
+  and agent-only changes pass CI and the deployment check without rebuilding
+  or restarting the app; the live revision may remain behind `main`.
 - For deployment, verification or recovery, read
   [GitHub Actions deployments](docs/github-actions-deployment.md) and
   [repository deployments](docs/operations.md#repository-deployments-on-jarvis).
