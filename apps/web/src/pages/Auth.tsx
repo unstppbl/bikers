@@ -1,7 +1,7 @@
 import { CitySelector } from '../components/CitySelector'
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import { ArrowLeft, ArrowRight, Check, LockKeyhole, Send, ShieldCheck } from 'lucide-react'
+import { ArrowLeftIcon as ArrowLeft, ArrowRightIcon as ArrowRight, CheckIcon as Check, LockKeyIcon as LockKeyhole, PaperPlaneTiltIcon as Send, ShieldCheckIcon as ShieldCheck } from '@phosphor-icons/react'
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { mutation } from '../api'
 import { AvatarEditor } from '../components/Avatar'

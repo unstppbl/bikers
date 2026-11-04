@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useId, useRef, useState } from 'react'
-import { ArrowUpRight, Bell, CalendarDays, LogOut, Menu, Motorbike, Plus, Settings, ShieldCheck, UserRound, Users, Wrench, X, Zap } from 'lucide-react'
+import { ArrowUpRightIcon as ArrowUpRight, BellIcon as Bell, CalendarDotsIcon as CalendarDays, SignOutIcon as LogOut, ListIcon as Menu, MotorcycleIcon as Motorbike, PlusIcon as Plus, GearSixIcon as Settings, ShieldCheckIcon as ShieldCheck, UserCircleIcon as UserRound, UsersThreeIcon as Users, WrenchIcon as Wrench, XIcon as X, LightningIcon as Zap } from '@phosphor-icons/react'
 import { Link, NavLink, Route, Routes, useLocation, useNavigate, useNavigationType } from 'react-router-dom'
 import { useRegisterSW } from 'virtual:pwa-register/react'
 import { mutation } from './api'
@@ -105,17 +105,21 @@ export function App() {
     finally { setSigningOut(false) }
   }
   return <div className="app-shell">
+    <a className="skip-link" href="#main-content">{t('skipToContent')}</a>
     <aside id={navigationId} ref={sidebarRef} className={`sidebar ${menuOpen ? 'sidebar-open' : ''}`} aria-label={t('menu')} role={menuOpen ? 'dialog' : undefined} aria-modal={menuOpen || undefined}>
       <Link className="wordmark" to="/" onClick={() => setMenuOpen(false)}>BIKERS<span>.KZ</span><span className="wordmark-mark"><Zap size={19} fill="currentColor" /></span></Link>
       <button ref={menuCloseRef} className="icon-button sidebar-close" aria-label={t('close')} onClick={() => setMenuOpen(false)}><X size={23} /></button>
       <div className="sidebar-label">{t('community')}</div>
       <nav className="side-navigation">
+        <span className="nav-group-label">{t('navExplore')}</span>
         <NavLink to="/" end onClick={() => setMenuOpen(false)}><Motorbike size={20} />{t('rides')}<ArrowUpRight className="nav-arrow" size={17} /></NavLink>
+        <NavLink to="/clubs" end onClick={() => setMenuOpen(false)}><Users size={20} />{t('clubs')}</NavLink>
+        <span className="nav-group-label">{t('navYourSpace')}</span>
         <NavLink to="/my-rides" onClick={() => setMenuOpen(false)}><CalendarDays size={20} />{t('myRides')}</NavLink>
         <NavLink to="/garage" onClick={() => setMenuOpen(false)}><Wrench size={20} />{t('garage')}</NavLink>
-        <NavLink to="/clubs" end onClick={() => setMenuOpen(false)}><Users size={20} />{t('clubs')}</NavLink>
         <NavLink to="/my-clubs" onClick={() => setMenuOpen(false)}><Users size={20} />{t('myClubs')}</NavLink>
         <NavLink to="/inbox" onClick={() => setMenuOpen(false)}><Bell size={20} />{t('inbox')}<NotificationBadge count={unreadCount} /></NavLink>
+        <span className="nav-group-label">{t('navAccount')}</span>
         {trust.data?.is_admin && <NavLink to="/admin" onClick={() => setMenuOpen(false)}><ShieldCheck size={20} />{t('admin')}</NavLink>}
         <NavLink to="/profile" onClick={() => setMenuOpen(false)}><UserRound size={20} />{t('profile')}</NavLink>
         <NavLink to="/settings" onClick={() => setMenuOpen(false)}><Settings size={20} />{t('settings')}</NavLink>
@@ -131,7 +135,7 @@ export function App() {
         <div className="topbar-actions"><label className="locale-select"><span className="sr-only">{t('locale')}</span><select aria-label={t('locale')} value={locale} onChange={(event) => setLocale(event.target.value as Locale)}><option value="en">EN</option><option value="ru">RU</option><option value="kk">KZ</option></select></label>
           {user && <Link to="/inbox" className="icon-button topbar-inbox" aria-label={unreadCount ? t('notificationUnreadLabel', { count: unreadCount }) : t('inbox')}><Bell size={20} /><span aria-hidden="true"><NotificationBadge count={unreadCount} /></span></Link>}
           {user ? <Link to="/profile" className="avatar-link" aria-label={t('profile')} title={user.profile.display_name}><Avatar userId={user.id} name={user.profile.display_name} className="avatar-dark" /></Link> : <Link className="topbar-login" to="/login">{t('signIn')}<ArrowUpRight size={16} /></Link>}
-          <Link className="button button-dark topbar-create" to="/rides/new"><Plus size={17} />{t('newRide')}</Link>
+          <Link className="button button-outline topbar-create" to="/rides/new"><Plus size={17} />{t('newRide')}</Link>
         </div>
       </header>
       {!online && <div className="connection-banner" role="status">{t('offline')}</div>}
@@ -161,7 +165,7 @@ export function App() {
           <Route path="/clubs/new" element={<RequireUser><ClubFormPage /></RequireUser>} />
           <Route path="/clubs/:clubId/edit" element={<RequireUser><ClubFormPage edit /></RequireUser>} />
           <Route path="/clubs/:clubId" element={<ClubDetailPage />} />
-          <Route path="*" element={<div className="page-content"><h1>{t('notFound')}</h1><Link to="/">{t('back')}</Link></div>} />
+          <Route path="*" element={<div className="page-content not-found-page"><span className="eyebrow">BIKERS.KZ / 404</span><Motorbike size={64} /><h1>{t('notFound')}</h1><Link className="button button-primary" to="/">{t('back')}<ArrowUpRight size={18} /></Link></div>} />
         </Routes></Suspense>
       </main>
       <footer className="app-footer"><span>BIKERS.KZ</span><span>{t('sidebarNote')}</span></footer>

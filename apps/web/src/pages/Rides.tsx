@@ -1,13 +1,13 @@
 import { lazy, Suspense, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowDown, ArrowLeft, ArrowUpRight, ChevronRight, Compass, LockKeyhole, ShieldCheck } from 'lucide-react'
+import { ArrowDownIcon as ArrowDown, ArrowLeftIcon as ArrowLeft, ArrowUpRightIcon as ArrowUpRight, CaretRightIcon as ChevronRight, CompassIcon as Compass, LockKeyIcon as LockKeyhole, ShieldCheckIcon as ShieldCheck } from '@phosphor-icons/react'
 import { fromZonedTime, formatInTimeZone } from 'date-fns-tz'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { mutation, publicRide, request, safeExternalUrl } from '../api'
 import { useI18n } from '../i18n'
 import { useSession, useSessionGuard } from '../session'
-import { CreateRideLink, ErrorNotice, Field, Loading, PrivacyNote, TextArea, useOnline } from '../ui'
+import { ErrorNotice, Field, Loading, PrivacyNote, TextArea, useOnline } from '../ui'
 import type { Ride, RideInput, RidePage } from '../types'
 import { CitySelector } from '../components/CitySelector'
 import { RideList } from './RideList'
@@ -34,17 +34,16 @@ export function BrowsePage() {
   return <div className="page-content browse-page">
     <section className="browse-hero">
       <div className="hero-copy">
-        <span className="eyebrow">{t('chapter')}</span>
-        <h1>{t('heroFirst')}<br /><span>{t('heroSecond')}</span></h1>
+        <span className="eyebrow hero-eyebrow"><span className="status-dot" />{t('country')} / {t('rides')}</span>
+        <h1 className="heading-1">{t('heroFirst')}<br /><span>{t('heroSecond')}</span></h1>
         <p>{t('heroText')}</p>
-        <div className="hero-actions"><a className="button button-primary" href="#rides-heading">{t('browse')}<ArrowDown size={18} /></a><CreateRideLink className="button button-outline" /></div>
+        <div className="hero-actions"><a className="button button-primary" href="#rides-heading">{t('browse')}<ArrowDown size={18} /></a></div>
+        <div className="hero-proof"><ShieldCheck size={18} />{t('organizerApproval')}</div>
       </div>
-      <span className="hero-bike-mark" aria-hidden="true">KZ</span>
       {heroImageAvailable && <figure className="hero-motorcycle">
         <img src="/bike-models/ktm-390-adventure-2024.png" width={918} height={629} alt={t('modelReferenceAlt', { make: 'KTM', model: '390 Adventure', years: '2024' })} decoding="async" fetchPriority="high" onError={() => setHeroImageAvailable(false)} />
         <figcaption><span>KTM 390 Adventure · 2024</span><a href="https://commons.wikimedia.org/wiki/File:Ktm-390-adventure-2024.png" target="_blank" rel="noopener noreferrer">{t('modelReferenceAuthor', { author: 'KTM AG' })}</a><a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener noreferrer">CC BY-SA 4.0</a></figcaption>
       </figure>}
-      <div className="hero-proof"><ShieldCheck size={15} />{t('organizerApproval')}</div>
     </section>
     <div className="browse-grid"><RideList view="discover" /><aside className="browse-aside"><section className="how-card"><div className="mini-icon"><Compass size={23} strokeWidth={1.5} /></div><h3>{t('howItWorks')}</h3><ol>{(['One', 'Two', 'Three'] as const).map((step, index) => <li key={step}><span className="step-number">0{index + 1}</span><div><strong>{t(`step${step}`)}</strong><p>{t(`step${step}Text`)}</p></div></li>)}</ol><ArrowUpRight className="how-arrow" size={25} /></section><PrivacyNote /></aside></div>
   </div>

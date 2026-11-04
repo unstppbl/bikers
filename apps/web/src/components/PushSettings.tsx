@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Bell, BellOff, Trash2 } from 'lucide-react'
+import { BellIcon as Bell, BellSlashIcon as BellOff, TrashIcon as Trash2 } from '@phosphor-icons/react'
 import { Link } from 'react-router-dom'
 import { ApiError, request } from '../api'
 import { useI18n } from '../i18n'

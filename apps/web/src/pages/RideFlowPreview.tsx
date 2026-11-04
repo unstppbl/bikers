@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeftIcon as ArrowLeft } from '@phosphor-icons/react'
 import { Link } from 'react-router-dom'
 import { BikersRideDemo } from '../components/ride-demo/BikersRideDemo'
 import { rideDemoCopy } from '../components/ride-demo/copy'

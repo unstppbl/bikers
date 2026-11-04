@@ -75,3 +75,47 @@ The production asset search found no walkthrough route, scene styles, example
 meeting copy or preview controls. The font remains locally bundled with its
 licence and the PWA precache contains 19 entries. Current app-only rollout
 evidence is recorded in [Operations](operations.md#current-deployment).
+
+## Design system refresh · 4 November 2026
+
+The next refresh applies [Landing Page Design](https://github.com/elayadesign/ai-design-skills/tree/main/skills/landing-page-design)
+and its [existing-project redesign companion](https://github.com/elayadesign/redesign-skill/tree/main/skills/redesign-existing-projects).
+Both skills are installed in the owner's Codex skills directory. The application
+keeps the Night Ride charcoal and lime identity while replacing condensed,
+italic display typography with one locally bundled Geist family. Its font
+character map includes the complete English, Russian and Kazakh alphabets.
+The motorcycle image and its visible source/licence credits are retained.
+
+The shared system has named text styles, a closed spacing scale, flat neutral
+surfaces, calmer lime actions and consistent corners. Navigation separates
+Explore, Your space and Account; its mobile drawer uses the full screen. The
+header sits inside a floating, bordered surface. Ride discovery has one primary
+hero action, readable ride rows and paired date filters that stack below 361px.
+Forms, collection tabs and empty states share the same visual language. Loading
+and session resolution use skeletons. Phosphor replaces the authored Lucide
+imports; decorative icons are hidden from assistive technology. A localized
+skip link and a branded recovery page complete keyboard navigation and 404s.
+
+`src/shell.css` owns application chrome and `src/discovery.css` owns discovery
+and ride rows. Their rules were extracted from the shared stylesheet, including
+old responsive overrides. The default page width has zero selector specificity
+so narrower profile, settings and form containers retain their own limits.
+The backend, authorization contracts, public ride projections and stored data
+are outside this visual refresh.
+
+Browser verification covered the 1280px desktop layout, 390px Russian
+navigation/profile/clubs/garage, and 320px Kazakh discovery and filters, with no
+horizontal overflow. The 320px check caught native date clipping; the final
+layout gives dates a full row at that width. Menu Escape restores trigger focus,
+route navigation focuses main content, and the desktop ride form retains its
+900px container. The local backend's collection data was empty, so populated
+collection behavior is covered by the existing tests rather than fabricated
+browser content. Native city suggestions remain subject to the local backend's
+available API version.
+
+The final `make check-web` run passed all 129 tests, TypeScript, ESLint and
+the production/PWA build. The output bundles Geist locally and continues to
+exclude development previews.
+
+This source refresh has not been deployed. Production activation and its
+verification must follow the repository deployment procedure in Operations.

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Dispatch, FormEvent, SetStateAction } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, ArrowRight, ArrowUpRight, CalendarDays, Check, ChevronRight, Clock3, DoorOpen, LockKeyhole, MapPin, MessageCircle, Navigation, Pencil, Send, ShieldCheck, Users, X } from 'lucide-react'
+import { ArrowLeftIcon as ArrowLeft, ArrowRightIcon as ArrowRight, ArrowUpRightIcon as ArrowUpRight, CalendarDotsIcon as CalendarDays, CheckIcon as Check, CaretRightIcon as ChevronRight, ClockIcon as Clock3, DoorOpenIcon as DoorOpen, LockKeyIcon as LockKeyhole, MapPinIcon as MapPin, ChatCircleIcon as MessageCircle, NavigationArrowIcon as Navigation, PencilSimpleIcon as Pencil, PaperPlaneTiltIcon as Send, ShieldCheckIcon as ShieldCheck, UsersThreeIcon as Users, XIcon as X } from '@phosphor-icons/react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ApiError, mutation, publicRide, request, safeExternalUrl } from '../api'
 import { useI18n } from '../i18n'

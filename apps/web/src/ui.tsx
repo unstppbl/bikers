@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import type { InputHTMLAttributes, ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { AlertCircle, ArrowLeft, ArrowRight, Check, Copy, LoaderCircle, Route, ShieldCheck } from 'lucide-react'
+import { WarningCircleIcon as AlertCircle, ArrowLeftIcon as ArrowLeft, ArrowRightIcon as ArrowRight, CheckIcon as Check, CopyIcon as Copy, PathIcon as Route, ShieldCheckIcon as ShieldCheck } from '@phosphor-icons/react'
 import { Link } from 'react-router-dom'
 import { formatInTimeZone } from 'date-fns-tz'
 import { enGB, kk, ru } from 'date-fns/locale'
@@ -10,7 +10,7 @@ import type { Locale } from './types'
 
 export function Loading({ label }: { label?: string }) {
   const { t } = useI18n()
-  return <div className="page-loading" role="status"><LoaderCircle className="spin" size={24} /><span>{label ?? t('loading')}</span></div>
+  return <div className="page-loading" role="status"><span className="loading-skeleton" aria-hidden="true"><span /><span /><span /></span><span>{label ?? t('loading')}</span></div>
 }
 
 export function ErrorNotice({ error, text, retry }: { error?: unknown; text?: string; retry?: () => void }) {

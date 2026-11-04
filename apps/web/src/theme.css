@@ -1,58 +1,114 @@
 @font-face {
-  font-family: 'BIKERS Condensed';
-  src: url('./assets/fonts/RobotoCondensed.ttf') format('truetype');
+  font-family: Geist;
+  src: url('./assets/fonts/Geist.ttf') format('truetype');
   font-style: normal;
-  font-weight: 100 900;
+  font-weight: 100 700;
   font-display: swap;
 }
 
 :root {
   color-scheme: dark;
-  --font-body: Inter, 'Helvetica Neue', Arial, sans-serif;
-  --font-display: 'BIKERS Condensed', 'Arial Narrow', sans-serif;
-  --canvas: #18191d;
-  --chrome: #101113;
-  --surface: #202228;
-  --surface-raised: #2a2d34;
-  --surface-hover: #343841;
-  --media-backdrop: #15171b;
-  --text: #f3f4f7;
-  --text-muted: #b8bfcc;
-  --text-subtle: #9ca6b8;
-  --border: #414752;
-  --border-strong: #6c7687;
-  --accent: #d6ff41;
-  --accent-hover: #e2ff7a;
-  --accent-surface: #30381c;
-  --accent-border: #788f35;
-  --on-accent: #171c0c;
-  --focus: #8ab9ff;
-  --success: #a4e4bd;
-  --success-surface: #18372b;
-  --success-border: #4c8769;
-  --warning: #f5d28f;
-  --warning-surface: #3b2f1b;
-  --warning-border: #8d7447;
-  --danger: #ffb2ac;
-  --danger-surface: #42252a;
-  --danger-border: #a06167;
-  --info: #b9d4ff;
-  --info-surface: #23344d;
-  --info-border: #617fa7;
-  --overlay: #080b11cc;
-  --shadow-card: 0 8px 30px #00000026;
-  --shadow-floating: 0 16px 55px #00000080;
-  --shadow-dialog: 0 24px 100px #000000a6;
-  --radius-sm: 3px;
-  --radius-md: 5px;
-  --radius-lg: 8px;
+  --font-body: Geist, sans-serif;
+  --font-display: var(--font-body);
+
+  --canvas: #181818;
+  --chrome: #000000;
+  --surface: #1f1f1f;
+  --surface-raised: #272727;
+  --surface-hover: #313131;
+  --media-backdrop: #181818;
+  --text: #f5f5f2;
+  --text-muted: #bcbcb5;
+  --text-subtle: #a3a39b;
+  --border: #444440;
+  --border-strong: #77776e;
+  --accent: #d2ed75;
+  --accent-hover: #dff399;
+  --accent-surface: #131209;
+  --accent-border: #899752;
+  --on-accent: #131209;
+  --focus: #d2ed75;
+  --success: #b1ddb5;
+  --success-surface: #1f1f1f;
+  --success-border: #638867;
+  --warning: #efd18d;
+  --warning-surface: #1f1f1f;
+  --warning-border: #95804e;
+  --danger: #ffb4a9;
+  --danger-surface: #1f1f1f;
+  --danger-border: #ac756d;
+  --info: #bacbdf;
+  --info-surface: #1f1f1f;
+  --info-border: #778b9f;
+  --overlay: #000000cc;
+  --shadow-card: none;
+  --shadow-floating: 0 16px 48px #00000080;
+  --shadow-dialog: 0 24px 80px #000000a6;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 16px;
+
+  --spacing-0: 0;
+  --spacing-25: 2px;
+  --spacing-50: 4px;
+  --spacing-75: 8px;
+  --spacing-100: 12px;
+  --spacing-200: 16px;
+  --spacing-300: 24px;
+  --spacing-400: 32px;
+  --spacing-500: 40px;
+  --spacing-600: 48px;
+  --spacing-700: 64px;
+  --spacing-800: 80px;
+  --spacing-900: 96px;
+
   --text-xs: 12px;
   --text-sm: 14px;
-  --text-base: 15px;
-  --text-control: 16px;
-  --motion-fast: 160ms;
-  --motion-panel: 200ms;
+  --text-base: 16px;
+  --text-lg: 18px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
+  --text-3xl: 30px;
+  --text-4xl: 36px;
+  --text-5xl: 48px;
+  --text-6xl: 60px;
+  --text-7xl: 72px;
+  --text-8xl: 96px;
+  --text-9xl: 128px;
+  --text-control: var(--text-base);
+
+  --type-heading-1: 600 60px/60px var(--font-body);
+  --type-heading-2: 600 48px/48px var(--font-body);
+  --type-heading-3: 600 36px/40px var(--font-body);
+  --type-heading-4: 600 30px/36px var(--font-body);
+  --type-heading-5: 600 24px/32px var(--font-body);
+  --type-heading-6: 600 20px/28px var(--font-body);
+  --type-title-1: 500 20px/28px var(--font-body);
+  --type-title-2: 500 18px/28px var(--font-body);
+  --type-title-3: 500 16px/24px var(--font-body);
+  --type-title-4: 500 14px/20px var(--font-body);
+  --type-title-5: 500 12px/16px var(--font-body);
+  --type-body-1: 600 16px/24px var(--font-body);
+  --type-body-2: 500 16px/24px var(--font-body);
+  --type-body-3: 400 16px/24px var(--font-body);
+  --type-body-4: 600 14px/20px var(--font-body);
+  --type-body-5: 500 14px/20px var(--font-body);
+  --type-body-6: 400 14px/20px var(--font-body);
+  --type-button-lg: 600 18px/28px var(--font-body);
+  --type-button-md: 600 16px/24px var(--font-body);
+  --type-button-sm: 600 14px/20px var(--font-body);
+  --type-button-xsm: 600 12px/16px var(--font-body);
+  --type-caption-1: 500 14px/20px var(--font-body);
+  --type-caption-2: 400 14px/20px var(--font-body);
+  --type-caption-3: 600 12px/16px var(--font-body);
+  --type-caption-4: 500 12px/16px var(--font-body);
+  --type-caption-5: 400 12px/16px var(--font-body);
+
+  --motion-fast: 300ms;
+  --motion-panel: 500ms;
   --motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
   font-family: var(--font-body);
   font-size: var(--text-base);
   color: var(--text);
@@ -61,6 +117,41 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+.heading-1 { font: var(--type-heading-1); }
+.heading-2 { font: var(--type-heading-2); }
+.heading-3 { font: var(--type-heading-3); }
+.heading-4 { font: var(--type-heading-4); }
+.heading-5 { font: var(--type-heading-5); }
+.heading-6 { font: var(--type-heading-6); }
+.title-1 { font: var(--type-title-1); }
+.title-2 { font: var(--type-title-2); }
+.title-3 { font: var(--type-title-3); }
+.title-4 { font: var(--type-title-4); }
+.title-5 { font: var(--type-title-5); }
+.body-1 { font: var(--type-body-1); }
+.body-2 { font: var(--type-body-2); }
+.body-3 { font: var(--type-body-3); }
+.body-4 { font: var(--type-body-4); }
+.body-5 { font: var(--type-body-5); }
+.body-6 { font: var(--type-body-6); }
+.button-lg { font: var(--type-button-lg); }
+.button-md { font: var(--type-button-md); }
+.button-sm { font: var(--type-button-sm); }
+.button-xsm { font: var(--type-button-xsm); }
+.caption-1 { font: var(--type-caption-1); }
+.caption-2 { font: var(--type-caption-2); }
+.caption-3 { font: var(--type-caption-3); }
+.caption-4 { font: var(--type-caption-4); }
+.caption-5 { font: var(--type-caption-5); }
+
+.heading-1,.heading-2,.heading-3,.heading-4,.heading-5,.heading-6 {
+  text-wrap: balance;
+}
+
+.body-1,.body-2,.body-3,.body-4,.body-5,.body-6 {
+  text-wrap: pretty;
 }
 
 @media (prefers-reduced-motion: reduce) {

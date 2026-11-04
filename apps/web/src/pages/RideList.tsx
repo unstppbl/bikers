@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowUpRight, Check, MapPin, Search, SlidersHorizontal } from 'lucide-react'
+import { ArrowUpRightIcon as ArrowUpRight, CheckIcon as Check, MapPinIcon as MapPin, MagnifyingGlassIcon as Search, SlidersHorizontalIcon as SlidersHorizontal } from '@phosphor-icons/react'
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { publicRide, request } from '../api'
 import { cityLabel } from '../cities'

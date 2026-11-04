@@ -5,6 +5,7 @@ import { Navigate, useLocation } from 'react-router-dom'
 import { getSessionEpoch, request, setCsrfToken } from './api'
 import type { Session, User } from './types'
 import { useI18n } from './i18n'
+import { Loading } from './ui'
 
 interface SessionContextValue {
   user: User | null
@@ -87,7 +88,7 @@ export function RequireUser({ children, allowOnboarding = false }: { children: R
   const { user, loading, error, refresh } = useSession()
   const location = useLocation()
   const { t } = useI18n()
-  if (loading) return <div className="page-loading" role="status"><span className="spinner" />{t('loadingSession')}</div>
+  if (loading) return <Loading label={t('loadingSession')} />
   if (error) return <div className="error-banner" role="alert"><span>{t('serviceUnavailable')}</span><button className="text-button" onClick={() => void refresh()}>{t('retry')}</button></div>
   const next = encodeURIComponent(location.pathname + location.search)
   if (!user) return <Navigate to={`/login?next=${next}`} replace />

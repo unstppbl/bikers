@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Dispatch, FormEvent, SetStateAction } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Megaphone, Send } from 'lucide-react'
+import { MegaphoneIcon as Megaphone, PaperPlaneTiltIcon as Send } from '@phosphor-icons/react'
 import { ApiError, request } from '../api'
 import { useI18n } from '../i18n'
 import { useSession } from '../session'

@@ -7,6 +7,5 @@ with the measured cursor choreography of `examples/share`. BIKERS.KZ adapts the
 composition, content, timing, tokens, and localized story; it does not include
 other products' artwork or the skill's example/teaching libraries.
 
-Icons use the application's existing `lucide-react` dependency and license.
-Roboto Condensed and its OFL notice are supplied by the host application's
-existing local font asset. The demo fetches no fonts, images, or API data.
+Icons use the application's `@phosphor-icons/react` dependency under its MIT license.
+Geist and its OFL notice are supplied by the host application's local font asset. The demo fetches no fonts, images, or API data.
