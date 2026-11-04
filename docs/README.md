@@ -14,6 +14,8 @@ These editable Markdown copies mirror the native BIKERS.KZ Space pages. This sna
 
 [Backend architecture](backend-architecture.md) records the approved package map, transaction ownership, and automated dependency check for the implementation.
 
+[GitHub Actions deployments](github-actions-deployment.md) records the public CI/private runner boundary, automatic release gates, and pause/retry procedures.
+
 [Operations](operations.md) covers administrator bootstrap, Web Push configuration, proxy requirements, backup/restore and rollback. [MVP delivery checklist](mvp-delivery-checklist.md) tracks the full-scope implementation and verification.
 
 [Model reference photographs](model-reference-images.md) records the verified model-year coverage, source credits, and image licenses.

@@ -57,6 +57,10 @@ remain in place. App-only activation failure restores the previous app image. Th
 for initial cloning, verification and rollback. Production images are built on
 Jarvis rather than built locally and copied there.
 
+## GitHub Actions
+
+Pull requests and main pushes run hosted frontend, backend, PostgreSQL integration and deployment-tooling checks. Successful main CI dispatches the private deployment repository, whose isolated homelab runner requests a validated release on Jarvis. See [GitHub Actions deployments](docs/github-actions-deployment.md) for credentials, runner boundaries, pause/retry and recovery.
+
 ## Development checks
 
 Use Node 26 and Go 1.27.3 (the image versions are pinned in the Dockerfile).
