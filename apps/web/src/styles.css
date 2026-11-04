@@ -1301,6 +1301,11 @@ svg {
   color: var(--text);
 }
 
+.field input[type="date"],.field input[type="datetime-local"] {
+  /* iOS native date styling overrides border-box for percentage widths. */
+  appearance: none;
+}
+
 .field textarea {
   resize: vertical;
   min-height: 90px;
