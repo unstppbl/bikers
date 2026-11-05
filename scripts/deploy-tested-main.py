@@ -22,7 +22,7 @@ REVISION_PATTERN = re.compile(r'[0-9a-f]{40}', re.ASCII)
 SSH_COMMAND_PATTERN = re.compile(r'deploy ([0-9a-f]{40})( --retry)?', re.ASCII)
 CHECKOUT = Path('/home/user/apps/bikerskz/repo')
 RUNTIME = Path('/home/user/apps/bikerskz')
-PROTECTED_CONFIGURATION = ('docker-compose.yml',)
+PROTECTED_CONFIGURATION = ('docker-compose.yml', 'deploy/gis/compose.yml', 'deploy/gis/nginx.conf')
 MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 
 SPEC = importlib.util.spec_from_file_location('jarvis_deployment', Path(__file__).with_name('deploy-jarvis.py'))

@@ -9,7 +9,9 @@ import (
 	"os"
 	"time"
 
+	"bikers.kz/backend/internal/clients/photon"
 	"bikers.kz/backend/internal/clients/telegram"
+	"bikers.kz/backend/internal/clients/valhalla"
 	webpushclient "bikers.kz/backend/internal/clients/webpush"
 	"bikers.kz/backend/internal/config"
 	"bikers.kz/backend/internal/database"
@@ -17,6 +19,7 @@ import (
 	"bikers.kz/backend/internal/managers/accounts"
 	"bikers.kz/backend/internal/managers/clubs"
 	"bikers.kz/backend/internal/managers/garage"
+	"bikers.kz/backend/internal/managers/geo"
 	"bikers.kz/backend/internal/managers/media"
 	"bikers.kz/backend/internal/managers/notifications"
 	"bikers.kz/backend/internal/managers/photos"
@@ -34,6 +37,8 @@ import (
 type Options struct {
 	Now         func() time.Time
 	PushGateway notifications.Gateway
+	Geocoder    geo.Geocoder
+	Router      geo.Router
 }
 type Runtime struct {
 	Handler       http.Handler
@@ -47,6 +52,9 @@ type Runtime struct {
 
 // New composes explicitly supplied adapters, including the clock used by tests.
 func New(cfg config.Config, repository database.Repository, gateway accounts.Gateway, options Options) (*Runtime, error) {
+	if err := config.ValidateMaps(cfg.PhotonBaseURL, cfg.ValhallaBaseURL, cfg.MapsArchiveURL); err != nil {
+		return nil, err
+	}
 	if err := config.ValidatePush(cfg.PushPublicKey, cfg.PushPrivateKey, cfg.PushSubject); err != nil {
 		return nil, err
 	}
@@ -63,8 +71,16 @@ func New(cfg config.Config, repository database.Repository, gateway accounts.Gat
 		now = func() time.Time { return time.Now().UTC() }
 	}
 	events := rooms.NewEventBus()
+	geocoder, router := options.Geocoder, options.Router
+	if geocoder == nil && cfg.PhotonBaseURL != "" {
+		geocoder = photon.New(cfg.PhotonBaseURL, photon.Options{})
+	}
+	if router == nil && cfg.ValhallaBaseURL != "" {
+		router = valhalla.New(cfg.ValhallaBaseURL, valhalla.Options{})
+	}
+	mapManager := geo.New(geocoder, router, cfg.MapsArchiveURL, now)
 	a := accounts.New(repository, gateway, events, accounts.Options{Now: now, DailyBudget: cfg.OTPDailyBudget})
-	r := rides.New(repository, events, now)
+	r := rides.New(repository, events, now, mapManager)
 	rm := rooms.New(repository, events, now)
 	sy := system.New(repository, cfg.MediaDir)
 	photoProcessing := photos.New(nil)
@@ -78,7 +94,7 @@ func New(cfg config.Config, repository database.Repository, gateway accounts.Gat
 	}
 	nf := notifications.New(repository, push, cfg.PushPublicKey, now)
 	reminderManager := reminders.New(repository, now)
-	transport := httpapi.New(httpapi.Settings{Origin: origin, TrustedProxies: proxies, WebDistDir: cfg.WebDistDir}, httpapi.Managers{Accounts: a, Rides: r, Rooms: rm, System: sy, Events: events, Garage: g, Clubs: c, Media: md, Trust: tr, Notifications: nf, Reminders: reminderManager})
+	transport := httpapi.New(httpapi.Settings{Origin: origin, TrustedProxies: proxies, WebDistDir: cfg.WebDistDir}, httpapi.Managers{Accounts: a, Rides: r, Rooms: rm, System: sy, Events: events, Garage: g, Geo: mapManager, Clubs: c, Media: md, Trust: tr, Notifications: nf, Reminders: reminderManager})
 	return &Runtime{Handler: transport.Handler(), System: sy, Trust: tr, Notifications: nf, Reminders: reminderManager, settings: cfg}, nil
 }
 

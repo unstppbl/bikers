@@ -31,7 +31,9 @@ def save(path, value):
 
 
 def containers():
-    ids = command(['docker', 'ps', '-q']).stdout.split()
+    listing = command(['docker', 'ps', '-q'])
+    listing.check_returncode()
+    ids = listing.stdout.split()
     if not ids:
         return {}
     result = command(['docker', 'inspect', *ids])
@@ -187,7 +189,9 @@ def watch(root, duration):
     def telemetry():
         observed = containers()
         charged = cgroups(root)
-        size = command(['du', '-sb', str(root)]).stdout.split()
+        size_result = command(['du', '-sb', str(root)])
+        size_result.check_returncode()
+        size = size_result.stdout.split()
         return {'time': time.time(), 'containers': observed, 'cgroups': charged,
                 'bytes': int(size[0]) if size else 0}
 
@@ -321,9 +325,11 @@ def finish(root):
     baseline = json.loads((root / 'baseline.json').read_text())
     sample, readiness, current = host(root), probe(), containers()
     reasons = guard_reasons(sample, readiness, baseline, current)
+    running = command(['docker', 'ps', '-q', '--filter', f'label={LABEL}={root.name}'])
+    running.check_returncode()
     save(root / 'finished.json', {'time': time.time(), 'host': sample, 'readiness': readiness,
                                 'existing_container_changes': reasons, 'benchmark_running':
-                                command(['docker', 'ps', '-q', '--filter', f'label={LABEL}={root.name}']).stdout.split()})
+                                running.stdout.split()})
     print((root / 'finished.json').read_text())
     if reasons:
         raise RuntimeError('Post-benchmark verification requires review')

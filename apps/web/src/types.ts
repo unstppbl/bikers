@@ -25,6 +25,12 @@ export interface Challenge {
   resend_after: string
 }
 
+export interface MapPoint { label: string; lat: number; lon: number }
+export interface MapGeometry { type: 'LineString'; coordinates: [number, number][] }
+export interface MapPlan { points: MapPoint[]; geometry?: MapGeometry; distance_meters: number; duration_seconds: number }
+export interface MapPlace extends MapPoint { id: string; kind: string }
+export interface MapConfig { enabled: boolean; archive_url: string }
+
 export interface Ride {
   id: string
   city: string
@@ -43,6 +49,7 @@ export interface Ride {
   capacity?: number
   plan_version?: number
   organizer_id?: string
+  map_plan?: MapPlan
 }
 
 export interface RidePage { rides: Ride[]; next_cursor: string }
@@ -59,6 +66,7 @@ export interface RideInput {
   expectations: string
   capacity: number
   plan_version?: number
+  map_points?: MapPoint[]
 }
 
 export interface Participant {

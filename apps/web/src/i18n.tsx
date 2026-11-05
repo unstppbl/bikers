@@ -1,3 +1,4 @@
+import { mapsEn, mapsRu, mapsKk } from './maps-i18n'
 import { createContext, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { ApiError } from './api'
@@ -14,6 +15,7 @@ import { notificationFeaturesEn, notificationFeaturesKk, notificationFeaturesRu 
 import { bikeCatalogueEn, bikeCatalogueKk, bikeCatalogueRu } from './bike-catalogue-i18n'
 
 const en = {
+  ...mapsEn,
   ...bikeCatalogueEn,
   ...clubDiscoveryEn,
   ...notificationFeaturesEn,
@@ -96,6 +98,7 @@ const en = {
 
 type Key = keyof typeof en
 const ru: Record<Key, string> = {
+  ...mapsRu,
   ...bikeCatalogueRu,
   ...clubDiscoveryRu,
   ...notificationFeaturesRu,
@@ -177,6 +180,7 @@ const ru: Record<Key, string> = {
 }
 
 const kk: Record<Key, string> = {
+  ...mapsKk,
   ...bikeCatalogueKk,
   ...clubDiscoveryKk,
   ...notificationFeaturesKk,
@@ -294,7 +298,7 @@ export function errorText(error: unknown, t: Translate) {
   if (!(error instanceof ApiError)) return t('errorGeneric')
   const code = error.code.toLowerCase()
   if (error.status === 0) return t('errorNetwork')
-  const specific: Record<string, Key> = { avatar_upload_busy: 'avatarBusy', album_photo_limit: 'albumPhotoLimit', album_video_limit: 'albumVideoLimit', invalid_video_link: 'httpsVideoRequired', announcement_id_conflict: 'announcementConflict', action_id_conflict: 'actionConflict', block_limit: 'blockLimit', push_subscription_limit: 'pushLimit', push_unavailable: 'pushUnavailable', push_not_ready: 'pushNotReady', push_subscription_in_use: 'pushInUse', user_blocked: 'blockedJoining', admin_required: 'errorForbidden', club_image_busy: 'clubImageBusy', photo_too_large: 'photoTooLarge', unsupported_photo: 'photoInvalidType', invalid_photo: 'photoInvalid', invalid_photo_choice: 'photoChoiceInvalid', photo_limit: 'photoLimit', photo_storage_limit: 'photoStorageLimit', photo_upload_expired: 'photoUploadExpired', photo_upload_busy: 'photoUploadBusy', photo_rate_limited: 'photoRateLimited', profile_required: 'errorProfileRequired', capacity_too_small: 'errorCapacityTooSmall', participation_changed: 'errorParticipationChanged', message_id_conflict: 'errorMessageConflict', organizer_cannot_leave: 'errorOrganizerCannotLeave', account_unavailable: 'errorAccountUnavailable', stale_version: 'errorChanges', club_closed: 'errorClubClosed', owner_transfer_required: 'errorClubOwnerLeave', membership_changed: 'errorClubMembership', invalid_owner: 'errorTransferTarget' }
+  const specific: Record<string, Key> = { maps_unavailable: 'mapServiceUnavailable', maps_busy: 'errorRateLimit', route_not_found: 'mapRouteUnavailable', avatar_upload_busy: 'avatarBusy', album_photo_limit: 'albumPhotoLimit', album_video_limit: 'albumVideoLimit', invalid_video_link: 'httpsVideoRequired', announcement_id_conflict: 'announcementConflict', action_id_conflict: 'actionConflict', block_limit: 'blockLimit', push_subscription_limit: 'pushLimit', push_unavailable: 'pushUnavailable', push_not_ready: 'pushNotReady', push_subscription_in_use: 'pushInUse', user_blocked: 'blockedJoining', admin_required: 'errorForbidden', club_image_busy: 'clubImageBusy', photo_too_large: 'photoTooLarge', unsupported_photo: 'photoInvalidType', invalid_photo: 'photoInvalid', invalid_photo_choice: 'photoChoiceInvalid', photo_limit: 'photoLimit', photo_storage_limit: 'photoStorageLimit', photo_upload_expired: 'photoUploadExpired', photo_upload_busy: 'photoUploadBusy', photo_rate_limited: 'photoRateLimited', profile_required: 'errorProfileRequired', capacity_too_small: 'errorCapacityTooSmall', participation_changed: 'errorParticipationChanged', message_id_conflict: 'errorMessageConflict', organizer_cannot_leave: 'errorOrganizerCannotLeave', account_unavailable: 'errorAccountUnavailable', stale_version: 'errorChanges', club_closed: 'errorClubClosed', owner_transfer_required: 'errorClubOwnerLeave', membership_changed: 'errorClubMembership', invalid_owner: 'errorTransferTarget' }
   if (specific[code]) return t(specific[code])
   if (code.includes('full')) return t('errorRideFull')
   if (code.includes('cancelled')) return t('errorCancelled')

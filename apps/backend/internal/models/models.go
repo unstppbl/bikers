@@ -93,31 +93,34 @@ type Ride struct {
 	Capacity     int       `json:"capacity"`
 	PlanVersion  int64     `json:"plan_version"`
 	OrganizerID  string    `json:"organizer_id"`
+	MapPlan      *MapPlan  `json:"map_plan,omitempty"`
 }
 type RideInput struct {
-	City         string    `json:"city"`
-	Description  string    `json:"description"`
-	Title        string    `json:"title"`
-	StartsAt     time.Time `json:"starts_at"`
-	Timezone     string    `json:"timezone"`
-	MeetingPoint string    `json:"meeting_point"`
-	Destination  string    `json:"destination"`
-	RouteURL     string    `json:"route_url"`
-	Expectations string    `json:"expectations"`
-	Capacity     int       `json:"capacity"`
+	City         string     `json:"city"`
+	Description  string     `json:"description"`
+	Title        string     `json:"title"`
+	StartsAt     time.Time  `json:"starts_at"`
+	Timezone     string     `json:"timezone"`
+	MeetingPoint string     `json:"meeting_point"`
+	Destination  string     `json:"destination"`
+	RouteURL     string     `json:"route_url"`
+	Expectations string     `json:"expectations"`
+	Capacity     int        `json:"capacity"`
+	MapPoints    []MapPoint `json:"map_points,omitempty"`
 }
 type RidePatch struct {
-	City         *string    `json:"city"`
-	Description  *string    `json:"description"`
-	Title        *string    `json:"title"`
-	StartsAt     *time.Time `json:"starts_at"`
-	Timezone     *string    `json:"timezone"`
-	MeetingPoint *string    `json:"meeting_point"`
-	Destination  *string    `json:"destination"`
-	RouteURL     *string    `json:"route_url"`
-	Expectations *string    `json:"expectations"`
-	Capacity     *int       `json:"capacity"`
-	PlanVersion  int64      `json:"plan_version"`
+	City         *string     `json:"city"`
+	Description  *string     `json:"description"`
+	Title        *string     `json:"title"`
+	StartsAt     *time.Time  `json:"starts_at"`
+	Timezone     *string     `json:"timezone"`
+	MeetingPoint *string     `json:"meeting_point"`
+	Destination  *string     `json:"destination"`
+	RouteURL     *string     `json:"route_url"`
+	Expectations *string     `json:"expectations"`
+	Capacity     *int        `json:"capacity"`
+	PlanVersion  int64       `json:"plan_version"`
+	MapPoints    *[]MapPoint `json:"map_points"`
 }
 type RideListing struct {
 	Summary     RideSummary

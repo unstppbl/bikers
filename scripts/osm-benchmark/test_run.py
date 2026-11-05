@@ -257,6 +257,21 @@ class StopOwnedTests(unittest.TestCase):
                 supervisor.stop_owned(self.root)
 
 
+class ContainerSnapshotTests(unittest.TestCase):
+    def test_failed_listing_does_not_become_an_empty_existing_app_baseline(self):
+        docker = Mock(return_value=subprocess.CompletedProcess([], 1, '', 'daemon unavailable'))
+        with patch.object(supervisor, 'command', docker):
+            with self.assertRaises(subprocess.CalledProcessError):
+                supervisor.containers()
+        self.assertEqual(docker.call_count, 1)
+
+    def test_successful_empty_listing_is_distinct_from_a_failed_listing(self):
+        docker = Mock(return_value=subprocess.CompletedProcess([], 0, '', ''))
+        with patch.object(supervisor, 'command', docker):
+            self.assertEqual(supervisor.containers(), {})
+        self.assertEqual(docker.call_count, 1)
+
+
 class Clock:
     def __init__(self):
         self.elapsed = 0

@@ -35,7 +35,7 @@ class DockerFixture:
     def __init__(self, checkout, runtime):
         self.checkout, self.runtime = checkout, runtime
         self.target = DEPLOY.migration_checksums(checkout)
-        self.schema = {version: checksum for version, checksum in self.target.items() if version <= 8}
+        self.schema = {version: checksum for version, checksum in self.target.items() if version <= 9}
         self.old = container(OLD_IMAGE, 'old-image-id', 'old-app-id')
         self.current = copy.deepcopy(self.old)
         self.database = container('postgres:18.6-alpine3.24', 'database-image-id', 'db-id')
@@ -56,9 +56,12 @@ class DockerFixture:
         self.migrator_cleanup_fails = False
         self.migrator_lookup_fails = False
         self.migration_commits_when_stopped = False
-        self.new_state = {'ride_reminders': 0, 'ride_reminder_events': 0,
-                          'users_with_disabled_push_categories': 0}
+        self.new_state = {'rides_with_map_plan': 0}
         self.new_state_unreadable = False
+        self.resolved = {'services': {'app': {'image': OLD_IMAGE,
+                         'environment': {'PORT': '8080', 'KEY': 'private-test-value'}}}}
+        self.activation_environment = None
+        self.activation_networks = None
 
     def run(self, args, *, cwd, stdin=None, visible=False):
         self.commands.append(list(args))
@@ -125,8 +128,7 @@ class DockerFixture:
                 return 'db-id' if args[-1] == 'db' else 'app-id'
             if 'config' in args:
                 if '--format' in args:
-                    return json.dumps({'services': {'app': {'image': OLD_IMAGE,
-                                                           'environment': {'PORT': '8080', 'KEY': 'private-test-value'}}}})
+                    return json.dumps(self.resolved)
                 return ''
             if 'stop' in args:
                 self.events.append('stop')
@@ -159,6 +161,10 @@ class DockerFixture:
                 if self.activation_fails:
                     raise RuntimeError('isolated activation failure')
                 self.current = container(NEW_IMAGE, 'new-image-id', 'new-app-id')
+                if self.activation_environment is not None:
+                    self.current['Config']['Env'] = [key + '=' + value for key, value in self.activation_environment.items()]
+                if self.activation_networks is not None:
+                    self.current['NetworkSettings'] = {'Networks': {key: {} for key in self.activation_networks}}
                 if self.activated_environment_changes:
                     self.current['Config']['Env'] = ['PORT=8080']
                 return ''
@@ -175,9 +181,11 @@ class DeploymentTests(unittest.TestCase):
         directory = self.checkout / 'apps/backend/internal/database/postgres'
         directory.mkdir(parents=True)
         self.runtime.mkdir()
+        (self.runtime / '.deploy').mkdir()
+        (self.runtime / '.deploy/automatic-paused').touch()
         for version, filename in enumerate(DEPLOY.MIGRATION_FILES, 1):
             (directory / filename).write_text(f'-- migration {version}\n')
-        manifest = ','.join(f'{{{version}, schema{version}}}' for version in range(1, 10))
+        manifest = ','.join(f'{{{version}, schema{version}}}' for version in range(1, 11))
         (directory / 'migrations.go').write_text('func migrations() []migration { return []migration{' + manifest + '} }\n')
         self.original = ('APP_IMAGE=' + OLD_IMAGE + '\nPRIVATE_SETTING=private-test-value\n').encode()
         (self.runtime / '.env').write_bytes(self.original)
@@ -186,10 +194,10 @@ class DeploymentTests(unittest.TestCase):
         self.addCleanup(patch.stopall)
         patch.object(DEPLOY, 'run', self.docker.run).start()
 
-    def deploy(self, migrate_to=9):
+    def deploy(self, migrate_to=10, configure_gis=False):
         previous_umask = os.umask(0o077)
         try:
-            DEPLOY.deploy(self.checkout, self.runtime, migrate_to)
+            DEPLOY.deploy(self.checkout, self.runtime, migrate_to, configure_gis)
         finally:
             os.umask(previous_umask)
 
@@ -203,8 +211,8 @@ class DeploymentTests(unittest.TestCase):
         self.assertLess(max(i for i, value in enumerate(events) if value == 'snapshot'), events.index('activate'))
         self.assertNotIn('restore', events)
         receipt = json.loads((self.runtime / '.deploy/current-git-release.json').read_text())
-        self.assertEqual((receipt['migration_from'], receipt['migration_to']), (8, 9))
-        self.assertEqual(receipt['migration_checksum'], self.docker.target[9])
+        self.assertEqual((receipt['migration_from'], receipt['migration_to']), (9, 10))
+        self.assertEqual(receipt['migration_checksum'], self.docker.target[10])
         self.assertTrue(receipt['retained_state_unchanged'])
         self.assertEqual(receipt['quiesced_retained_state']['tables'][0]['rows'], 3)
         self.assertEqual(receipt['image'], NEW_IMAGE)
@@ -220,13 +228,36 @@ class DeploymentTests(unittest.TestCase):
         self.assertNotIn('restore', self.docker.events)
         self.assertEqual((self.runtime / '.env').read_bytes(), self.original)
 
+    def test_reviewed_gis_rollout_accepts_only_expected_changes_after_migration(self):
+        self.docker.current['NetworkSettings'] = {'Networks': {'bikerskz_default': {}}}
+        app = self.docker.resolved['services']['app']
+        app['environment'].update(DEPLOY.GIS_ENVIRONMENT)
+        app['environment']['MAPS_ARCHIVE_URL'] = '/map-data/2583113c45ca/kazakhstan.pmtiles'
+        app['networks'] = {'default': None, 'gis': None}
+        self.docker.resolved['networks'] = {'default': {'name': 'bikerskz_default'},
+            'gis': {'name': 'bikerskz_gis', 'external': True}}
+        self.docker.activation_environment = app['environment']
+        self.docker.activation_networks = ['bikerskz_default', 'bikerskz_gis']
+        self.deploy(configure_gis=True)
+        receipt = json.loads((self.runtime / '.deploy/current-git-release.json').read_text())
+        self.assertTrue(receipt['reviewed_gis_configuration'])
+        self.assertFalse(receipt['runtime_configuration_unchanged'])
+        self.assertTrue(receipt['database_container_unchanged'])
+        self.assertTrue(receipt['retained_state_unchanged'])
+
+    def test_schema_or_configuration_rollout_requires_host_pause_marker(self):
+        (self.runtime / '.deploy/automatic-paused').unlink()
+        with self.assertRaisesRegex(RuntimeError, 'Pause automatic'):
+            self.deploy()
+        self.assertEqual(self.docker.events, [])
+
     def test_schema_drift_or_future_source_is_rejected_before_build(self):
         self.docker.schema[3] = 'changed'
-        with self.assertRaisesRegex(RuntimeError, 'schema-8 receipts'):
+        with self.assertRaisesRegex(RuntimeError, 'schema-9 receipts'):
             self.deploy()
         self.assertNotIn('build', self.docker.events)
         source = self.checkout / 'apps/backend/internal/database/postgres/migrations.go'
-        source.write_text(source.read_text().replace('{9, schema9}', '{9, schema9},{10, schema10}'))
+        source.write_text(source.read_text().replace('{10, schema10}', '{10, schema10},{11, schema11}'))
         with self.assertRaisesRegex(RuntimeError, 'exactly source migrations'):
             self.deploy()
         self.assertNotIn('stop', self.docker.events)
@@ -240,7 +271,7 @@ class DeploymentTests(unittest.TestCase):
     def test_uncommitted_migration_failure_restores_only_old_image(self):
         self.docker.migration_fails = True
         self.docker.migration_commits = False
-        with self.assertRaisesRegex(RuntimeError, 'schema 8 remains intact'):
+        with self.assertRaisesRegex(RuntimeError, 'schema 9 remains intact'):
             self.deploy()
         self.assertIn('restore', self.docker.events)
         self.assertNotIn('activate', self.docker.events)
@@ -257,7 +288,7 @@ class DeploymentTests(unittest.TestCase):
         self.docker.migration_fails = True
         self.docker.migration_commits = False
         self.docker.migrator_lingers = True
-        with self.assertRaisesRegex(RuntimeError, 'schema 8 remains intact'):
+        with self.assertRaisesRegex(RuntimeError, 'schema 9 remains intact'):
             self.deploy()
         events = self.docker.events
         self.assertLess(events.index('migrator-stop'), events.index('migrator-remove'))
@@ -329,18 +360,18 @@ class DeploymentTests(unittest.TestCase):
         self.assertNotIn('restore', self.docker.events)
 
     def test_old_migration_target_is_rejected_without_touching_runtime(self):
-        with self.assertRaisesRegex(RuntimeError, 'migration target 9'):
+        with self.assertRaisesRegex(RuntimeError, 'migration target 10'):
             self.deploy(migrate_to=8)
         self.assertEqual(self.docker.events, [])
         self.assertEqual((self.runtime / '.env').read_bytes(), self.original)
 
     def test_nonempty_new_work_or_changed_default_consent_stops_after_commit(self):
-        for field in ('ride_reminders', 'ride_reminder_events', 'users_with_disabled_push_categories'):
+        for field in ('rides_with_map_plan',):
             with self.subTest(field=field):
                 self.docker = DockerFixture(self.checkout, self.runtime)
                 DEPLOY.run = self.docker.run
                 self.docker.new_state[field] = 1
-                with self.assertRaisesRegex(RuntimeError, 'Migration-9 additions'):
+                with self.assertRaisesRegex(RuntimeError, 'Migration-10 additions'):
                     self.deploy()
                 self.assertEqual(self.docker.schema, self.docker.target)
                 self.assertNotIn('activate', self.docker.events)
@@ -365,6 +396,60 @@ class DeploymentTests(unittest.TestCase):
         self.assertNotIn('migrate', self.docker.events)
         self.assertNotIn('stop', self.docker.events)
         self.assertEqual((self.runtime / '.env').read_bytes(), self.original)
+
+
+class ConfigurationTests(unittest.TestCase):
+    def setUp(self):
+        self.old = container(OLD_IMAGE, 'old', 'old-app')
+        self.old['NetworkSettings'] = {'Networks': {'bikerskz_default': {}}}
+        self.resolved = {'services': {'app': {'image': OLD_IMAGE,
+            'environment': {'PORT': '8080', 'KEY': 'private-test-value',
+                **DEPLOY.GIS_ENVIRONMENT, 'MAPS_ARCHIVE_URL': '/map-data/2583113c45ca/kazakhstan.pmtiles'},
+            'networks': {'default': None, 'gis': None}}},
+            'networks': {'default': {'name': 'bikerskz_default'},
+                         'gis': {'name': 'bikerskz_gis', 'external': True}}}
+
+    def test_explicit_gis_plan_changes_only_allowlisted_environment_and_network(self):
+        expected, networks, rollback, changes = DEPLOY.configuration_plan(self.old, self.resolved, True)
+        self.assertEqual(networks, {'bikerskz_default', 'bikerskz_gis'})
+        self.assertEqual(expected['KEY'], 'private-test-value')
+        self.assertEqual(expected['PHOTON_BASE_URL'], 'http://photon:2322')
+        self.assertEqual(set(changes), {*DEPLOY.GIS_ENVIRONMENT, 'MAPS_ARCHIVE_URL'})
+        self.assertEqual(rollback['services']['app']['environment'], {'PORT': '8080', 'KEY': 'private-test-value'})
+        self.assertEqual(rollback['services']['app']['networks'], {'default': None})
+        self.assertIn('gis', self.resolved['services']['app']['networks'])
+
+    def test_default_deployment_cannot_silently_enable_gis(self):
+        with self.assertRaisesRegex(RuntimeError, 'review configuration'):
+            DEPLOY.configuration_plan(self.old, self.resolved)
+
+    def test_gis_flag_cannot_change_other_settings(self):
+        self.resolved['services']['app']['environment']['KEY'] = 'changed'
+        with self.assertRaisesRegex(RuntimeError, 'review configuration'):
+            DEPLOY.configuration_plan(self.old, self.resolved, True)
+
+    def test_gis_flag_rejects_external_services_and_unversioned_archives(self):
+        for key, value in [('PHOTON_BASE_URL', 'https://external.example'),
+                           ('MAPS_ARCHIVE_URL', 'https://external.example/maps.pmtiles'),
+                           ('MAPS_ARCHIVE_URL', '/map-data/current.pmtiles')]:
+            with self.subTest(key=key, value=value):
+                resolved = copy.deepcopy(self.resolved)
+                resolved['services']['app']['environment'][key] = value
+                with self.assertRaises(RuntimeError):
+                    DEPLOY.configuration_plan(self.old, resolved, True)
+
+    def test_gis_flag_requires_exact_external_network_contract(self):
+        self.resolved['networks']['gis']['external'] = False
+        with self.assertRaisesRegex(RuntimeError, 'explicit external'):
+            DEPLOY.configuration_plan(self.old, self.resolved, True)
+
+    def test_gis_flag_cannot_drop_default_network_or_add_an_unrelated_network(self):
+        for networks in ({'gis': None}, {'default': None, 'gis': None, 'other': None}):
+            with self.subTest(networks=networks):
+                resolved = copy.deepcopy(self.resolved)
+                resolved['services']['app']['networks'] = networks
+                with self.assertRaisesRegex(RuntimeError, 'Runtime networks'):
+                    DEPLOY.configuration_plan(self.old, resolved, True)
 
 
 if __name__ == '__main__':
