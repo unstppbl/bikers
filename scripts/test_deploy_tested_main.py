@@ -156,13 +156,33 @@ class GateTests(unittest.TestCase):
         receipt = json.loads((self.fixture.runtime / '.deploy/current-automatic-deployment.json').read_text())
         self.assertEqual(receipt['revision'], REVISION)
 
-    def test_running_revision_controls_noop_even_when_checkout_is_behind(self):
+    def test_manual_release_recheck_advances_clean_source_without_rebuilding(self):
         self.fixture.live = REVISION
         self.fixture.receipt()
         result = self.deploy()
         self.assertEqual(result['status'], 'already-deployed')
-        self.assertEqual(self.fixture.head, OLD)
+        self.assertEqual(self.fixture.head, REVISION)
+        self.assertEqual(self.fixture.events, ['fetch', 'fast-forward'])
+        self.assertEqual(json.loads((self.fixture.runtime / '.deploy/last-automatic-check.json').read_text()), result)
+        self.assertEqual(result['ci_run_id'], 123)
+
+    def test_manual_release_recheck_refuses_dirty_source_without_recording_success(self):
+        self.fixture.live = REVISION
+        self.fixture.receipt()
+        self.fixture.dirty = True
+        with self.assertRaisesRegex(RuntimeError, 'dirty'):
+            self.deploy()
+        self.assertFalse((self.fixture.runtime / '.deploy/last-automatic-check.json').exists())
         self.assertEqual(self.fixture.events, [])
+
+    def test_manual_release_recheck_refuses_mismatched_schema_without_a_success_receipt(self):
+        self.fixture.live = REVISION
+        self.fixture.receipt()
+        self.fixture.schema.pop(10)
+        with self.assertRaisesRegex(RuntimeError, 'explicit reviewed migration'):
+            self.deploy()
+        self.assertFalse((self.fixture.runtime / '.deploy/last-automatic-check.json').exists())
+        self.assertEqual(self.fixture.events, ['fetch', 'fast-forward'])
 
     def test_documentation_only_check_preserves_live_release_and_records_the_skip(self):
         self.fixture.runtime_changed = False

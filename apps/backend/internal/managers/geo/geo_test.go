@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math"
+	"strings"
 	"testing"
 	"time"
 
@@ -141,4 +142,14 @@ func TestDisabledServicesKeepMapConfigAndTextPlansAvailable(t *testing.T) {
 	}
 	_, err := m.Search(context.Background(), user(), models.MapSearch{Query: "Almaty"})
 	fault(t, err, "maps_unavailable")
+}
+
+func TestProviderErrorsNeverEchoPrivateRequestData(t *testing.T) {
+	const private = "PRIVATE ADDRESS QUERY 43.241234 76.891234"
+	for _, upstream := range []error{errors.New(private), models.Fail("route_not_found", private)} {
+		err := serviceError(upstream)
+		if err == nil || strings.Contains(err.Error(), private) || strings.Contains(err.Error(), "76.891234") {
+			t.Fatalf("provider error leaked private input: %v", err)
+		}
+	}
 }

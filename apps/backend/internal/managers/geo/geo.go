@@ -252,7 +252,7 @@ func busy() error        { return models.Fail("maps_busy", "Map request limit re
 func serviceError(err error) error {
 	if err != nil {
 		if fault, ok := err.(*models.Fault); ok && fault.Code == "route_not_found" {
-			return err
+			return models.Fail("route_not_found", "No motorcycle route found between these points")
 		}
 		return unavailable()
 	}

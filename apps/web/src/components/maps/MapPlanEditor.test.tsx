@@ -45,7 +45,7 @@ describe('private map planner', () => {
   })
 
   it('debounces address search and requires choosing a candidate', async () => {
-    const fetch = vi.fn(async (url: string) => url.includes('/geo/config') ? response({ enabled: true, archive_url: '/map-data/version/kazakhstan.pmtiles' }) : response({ places: [{ ...first, id: 'osm-1', kind: 'house' }] }))
+    const fetch = vi.fn(async (url: string, options?: RequestInit) => url.includes('/geo/config') ? response({ enabled: true, archive_url: '/map-data/version/kazakhstan.pmtiles' }) : options?.method === 'POST' ? response({ places: [{ ...first, id: 'osm-1', kind: 'house' }] }) : response({}, 405))
     vi.stubGlobal('fetch', fetch)
     mount()
     const meeting = await screen.findByRole('combobox', { name: /Meeting point/ })
@@ -57,14 +57,16 @@ describe('private map planner', () => {
     await userEvent.click(candidate)
     await waitFor(() => expect(draft()).toEqual({ points: [first], valid: true }))
     expect(fetch.mock.calls.filter(([url]) => url.includes('/geo/search'))).toHaveLength(1)
-    expect(fetch.mock.calls.some(([url]) => url.includes('lang=en'))).toBe(true)
+    const call = fetch.mock.calls.find(([url]) => url.includes('/geo/search'))!
+    expect(call[0]).toBe('/api/v1/geo/search')
+    expect(JSON.parse(call[1]!.body as string)).toEqual({ query: 'Meeting', lang: 'en' })
   })
 
   it('ignores a stale search response after the query changes', async () => {
     let resolveOld: ((value: Response) => void) | undefined
-    const fetch = vi.fn(async (url: string) => {
+    const fetch = vi.fn(async (url: string, options?: RequestInit) => {
       if (url.includes('/geo/config')) return response({ enabled: true, archive_url: '/map-data/version/kazakhstan.pmtiles' })
-      if (url.includes('q=Old')) return new Promise<Response>((resolve) => { resolveOld = resolve })
+      if (JSON.parse(options?.body as string).query === 'Old') return new Promise<Response>((resolve) => { resolveOld = resolve })
       return response({ places: [{ ...first, label: 'New candidate', id: 'new', kind: 'house' }] })
     })
     vi.stubGlobal('fetch', fetch)

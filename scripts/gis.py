@@ -5,6 +5,7 @@ No timer, image pull, or implicit rebuild is installed. Private job receipts reu
 the benchmark's tested host guard, with tmpfs controls and an independent lease.
 """
 import argparse
+import base64
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 import fcntl
@@ -18,6 +19,7 @@ import re
 import random
 import shutil
 import signal
+import stat
 import subprocess
 import sys
 import tarfile
@@ -374,52 +376,321 @@ def extract_assets(fonts, sprites, target):
     return copied
 
 
-def seed_copy(source, output, inputs):
+ADOPT_SOURCES = (
+    ('data/valhalla3', 'valhalla'), ('data/photon-stream4', 'photon'),
+    ('data/maps/kazakhstan.pmtiles', 'public/map-data/' + MAP_SHA256[:12] + '/kazakhstan.pmtiles'),
+    ('tools/jre', 'runtime/jre'), ('inputs/photon.jar', 'runtime/photon.jar'), ('inputs/pmtiles', 'runtime/pmtiles'),
+)
+ADOPTION_UID = 1000
+
+
+def sync_directory(path):
+    descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def durable_json(path, value):
+    descriptor, temporary = tempfile.mkstemp(prefix='.' + path.name, dir=path.parent)
+    try:
+        with os.fdopen(descriptor, 'w') as output:
+            json.dump(value, output, indent=2)
+            output.write('\n'); output.flush(); os.fsync(output.fileno())
+        os.replace(temporary, path)
+        sync_directory(path.parent)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
+
+def sync_tree(root):
+    for directory, _children, files in os.walk(root, topdown=False):
+        for name in files:
+            with (Path(directory) / name).open('rb') as source:
+                os.fsync(source.fileno())
+        sync_directory(Path(directory))
+    sync_directory(root.parent)
+
+
+def object_identity(path):
+    value = path.lstat()
+    result = {'device': value.st_dev, 'inode': value.st_ino, 'uid': value.st_uid,
+              'kind': stat.S_IFMT(value.st_mode)}
+    if stat.S_ISREG(value.st_mode):
+        result.update(bytes=value.st_size, mtime_ns=value.st_mtime_ns)
+    return result
+
+
+def identity_matches(path, expected):
+    try:
+        return object_identity(path) == expected
+    except FileNotFoundError:
+        return False
+
+
+def checked_rename(source, target):
+    if target.exists() or target.is_symlink():
+        raise RuntimeError(f'Refusing to replace an existing adoption path: {target}')
+    if source.lstat().st_dev != target.parent.stat().st_dev:
+        raise RuntimeError('Atomic adoption requires the same filesystem')
+    source.rename(target)
+    sync_directory(source.parent)
+    if target.parent != source.parent:
+        sync_directory(target.parent)
+
+
+def journal_move(journal_path, journal, source, target):
+    expected = object_identity(source)
+    if expected['uid'] != ADOPTION_UID or expected['kind'] not in (stat.S_IFDIR, stat.S_IFREG):
+        raise ValueError('Adoption renames require regular files/directories owned by UID 1000')
+    sync_directory(source.parent)
+    step = {'source': str(source), 'target': str(target), 'identity': expected, 'state': 'planned'}
+    journal['steps'].append(step)
+    durable_json(journal_path, journal)
+    if not identity_matches(source, expected):
+        raise RuntimeError('Adoption source changed after journaling')
+    checked_rename(source, target)
+    step['state'] = 'moved'
+    durable_json(journal_path, journal)
+
+
+def require_stopped_adoption(benchmark):
+    for label in (f'{guard.LABEL}={benchmark.name}', 'com.docker.compose.project=bkgis'):
+        if execute(['docker', 'ps', '-q', '--filter', 'label=' + label], timeout=10):
+            raise RuntimeError('Adoption/recovery refuses running source benchmark or GIS containers')
+
+
+def adoption_receipts(benchmark):
+    final = json.loads((benchmark / 'finished.json').read_text())
+    published = json.loads((benchmark / 'results/published-results.json').read_text())
+    if (final.get('existing_container_changes') != [] or final.get('benchmark_running') != [] or
+            not final.get('readiness', {}).get('okay')):
+        raise ValueError('Benchmark final cleanup/readiness receipt is not successful')
+    for component, key in (('valhalla', 'import'), ('photon', 'import'), ('maps', 'conversion')):
+        result = published[component][key]
+        if result['exit_code'] != 0 or result['oom_killed']:
+            raise ValueError('Adoption requires successfully completed component receipts')
+    if not published['photon']['stream_completion']['ok'] or published['photon']['status']['status'] != 'Ok':
+        raise ValueError('Photon lacks verified stream EOF and completed index status')
+    counters = {}
+    for relative in ('data/valhalla3/import-cgroup-final.txt', 'data/photon-stream4/import-cgroup-final.txt',
+                     'data/maps/convert-cgroup-final.txt'):
+        path = benchmark / relative
+        metadata = path.lstat()
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_uid != ADOPTION_UID or metadata.st_dev != benchmark.stat().st_dev or metadata.st_size > 65536:
+            raise ValueError('Original counter must be a bounded owned regular file on the benchmark filesystem')
+        value = path.read_bytes()
+        statuses = re.findall(rb'(?m)^(?:workload|java)_exit_status=(\d+)\s*$', value)
+        if len(value) > 65536 or not statuses or any(status != b'0' for status in statuses):
+            raise ValueError('Adoption requires successful bounded original cgroup counters')
+        counters[relative] = {'base64': base64.b64encode(value).decode(), 'sha256': hashlib.sha256(value).hexdigest(),
+                              'mode': stat.S_IMODE(metadata.st_mode)}
+    return counters
+
+
+def validate_adoption_tree(benchmark, device):
+    result = {}
+    for relative, _ in ADOPT_SOURCES:
+        root = benchmark / relative
+        if root.is_symlink() or not root.exists():
+            raise ValueError('Adoption source is missing or is a symlink')
+        count = 0
+        paths = [root]
+        while paths:
+            path = paths.pop(); info = path.lstat(); count += 1
+            if info.st_uid != ADOPTION_UID or info.st_dev != device:
+                raise ValueError('Every adopted source must have UID 1000 and the destination filesystem')
+            if stat.S_ISLNK(info.st_mode):
+                if relative != 'tools/jre' or not path.resolve(strict=True).is_relative_to(root):
+                    raise ValueError('Only contained immutable JRE symlinks are allowed')
+            elif stat.S_ISDIR(info.st_mode):
+                paths.extend(path.iterdir())
+            elif not stat.S_ISREG(info.st_mode) or (relative == 'data/photon-stream4' and info.st_nlink != 1):
+                raise ValueError('Expected regular adoption files and an independently owned Photon index')
+        result[relative] = {'identity': object_identity(root), 'entries': count}
+    return result
+
+
+def prepare_adoption(benchmark, output, inputs):
+    adoption_receipts(benchmark)
+    source_inventory = validate_adoption_tree(benchmark, output.parent.stat().st_dev)
+    if digest(benchmark / 'data/maps/kazakhstan.pmtiles') != MAP_SHA256 or digest(benchmark / 'inputs/photon.jar') != photon.JAR_SHA256:
+        raise ValueError('Original immutable map archive/JAR checksum mismatch')
+    for name, expected in ASSETS.items():
+        path = inputs / name
+        if path.is_symlink() or not path.is_file() or path.stat().st_uid != ADOPTION_UID or path.stat().st_size != expected['bytes'] or digest(path) != expected['sha256']:
+            raise ValueError('Reused asset inputs must be complete, owned regular files with the pinned hashes')
     output.mkdir()
-    for original, name in [('data/valhalla3', 'valhalla'), ('data/photon-stream4', 'photon'), ('tools/jre', 'runtime/jre')]:
-        shutil.copytree(source / original, output / name, symlinks=True)
-    shutil.copyfile(source / 'inputs/photon.jar', output / 'runtime/photon.jar')
-    shutil.copyfile(source / 'inputs/pmtiles', output / 'runtime/pmtiles')
-    (output / 'runtime/pmtiles').chmod(0o755)
-    if digest(output / 'runtime/photon.jar') != photon.JAR_SHA256:
-        raise ValueError('Copied Photon JAR checksum mismatch')
     maps = output / 'public/map-data'
-    archive = maps / MAP_SHA256[:12] / 'kazakhstan.pmtiles'
-    archive.parent.mkdir(parents=True)
-    shutil.copyfile(source / 'data/maps/kazakhstan.pmtiles', archive)
-    if digest(archive) != MAP_SHA256:
-        raise ValueError('Copied map archive checksum mismatch')
-    assets = extract_assets(inputs / 'fonts.tar.gz', inputs / 'sprites.tar.gz', maps)
+    (maps / MAP_SHA256[:12]).mkdir(parents=True)
+    (output / 'runtime').mkdir()
+    files = extract_assets(inputs / 'fonts.tar.gz', inputs / 'sprites.tar.gz', maps)
     (maps / 'licenses').mkdir(exist_ok=True)
     for name in ASSETS:
         if name.endswith('.txt'):
             shutil.copyfile(inputs / name, maps / 'licenses' / name)
-    guard.save(output / 'assets.json', {'archives': ASSETS, 'files': assets})
+    guard.save(output / 'assets.json', {'archives': ASSETS, 'files': files})
+    # Flush only the small new asset tree, inside this I/O-capped container.
+    sync_tree(output)
+    print(json.dumps({'source_inventory': source_inventory, 'map_sha256': MAP_SHA256, 'jar_sha256': photon.JAR_SHA256}))
 
 
-def seed(runtime, benchmark, dataset_id):
-    release = runtime / 'releases' / validate_id(dataset_id)
-    if release.exists() or (runtime / '.env').exists():
-        raise RuntimeError('Seed requires a new release and an uninitialized GIS runtime')
-    if not (benchmark / 'finished.json').is_file() or execute(
-            ['docker', 'ps', '-q', '--filter', f'label={guard.LABEL}={benchmark.name}']):
-        raise RuntimeError('Seed requires the completed, stopped source benchmark')
-    with guarded_job(runtime) as job:
-        for name, item in ASSETS.items():
-            guard.fetch(job, argparse.Namespace(name=name, url=item['url'], max_bytes=item['bytes'],
-                        sha256=item['sha256'], md5=None, timeout=600))
-        stage(job, 'seed-copy', ['python3', '/tools/gis.py', '_seed-copy', '/source', '/job/data/release', '/job/inputs'],
-              [(TOOLS, '/tools', True), (benchmark, '/source', True), (job, '/job', False)], memory='512m', seconds=3600)
-        guard.ensure_watch(job)
-    # Only metadata renames/writes follow the final successful host check.
+def rollback_adoption(journal_path, journal):
+    journal['state'] = 'rolling-back'; durable_json(journal_path, journal)
+    try:
+        for step in reversed(journal['steps']):
+            source, target, expected = Path(step['source']), Path(step['target']), step['identity']
+            if identity_matches(source, expected) and not target.exists() and not target.is_symlink():
+                step['state'] = 'restored'
+                durable_json(journal_path, journal)
+                continue
+            if not identity_matches(target, expected) or source.exists() or source.is_symlink():
+                raise RuntimeError('Ambiguous adoption recovery path; preserve journal and inspect both locations')
+            step['state'] = 'restore-planned'; durable_json(journal_path, journal)
+            checked_rename(target, source)
+            step['state'] = 'restored'; durable_json(journal_path, journal)
+        journal['state'] = 'rolled-back'; durable_json(journal_path, journal)
+    except BaseException as error:
+        journal.update(state='recovery-required', recovery_error=str(error)); durable_json(journal_path, journal)
+        raise
+
+
+def validate_adoption_journal(runtime, journal):
+    if journal.get('version') != 1 or journal.get('release') != str(runtime / 'releases' / validate_id(journal['id'])):
+        raise ValueError('Adoption journal release/version does not match this runtime')
+    benchmark, release = Path(journal['benchmark']), Path(journal['release'])
+    if not benchmark.is_absolute() or not benchmark.name.startswith('bikers-osm-kz-'):
+        raise ValueError('Adoption journal source/job namespace is invalid')
+    roots = (benchmark, release)
+    if 'job' in journal:
+        job = Path(journal['job'])
+        if job.parent != runtime / 'jobs' or not job.name.startswith('bikers-osm-kz-'):
+            raise ValueError('Adoption journal job namespace is invalid')
+        roots += (job / 'data',)
+    elif journal['steps'] or journal['state'] not in ('preparing', 'rolling-back', 'rolled-back', 'recovery-required'):
+        raise ValueError('Only a zero-step pre-operation/recovery journal may omit its private job')
+    metadata = (runtime / '.env', runtime / 'adoption.json')
+    for step in journal['steps']:
+        for key in ('source', 'target'):
+            path = Path(step[key])
+            if not path.is_absolute() or '..' in path.parts or not (path in metadata or any(path.is_relative_to(root) for root in roots)):
+                raise ValueError('Adoption journal contains a path outside its source/release/job')
+        if step['identity']['uid'] != ADOPTION_UID:
+            raise ValueError('Adoption journal source UID is invalid')
+
+
+def adopt(runtime, benchmark, dataset_id, assets_from=None):
+    dataset_id = validate_id(dataset_id)
+    release = runtime / 'releases' / dataset_id
+    journal_path = runtime / 'adoptions' / (dataset_id + '.json')
+    if not benchmark.name.startswith('bikers-osm-kz-') or benchmark.is_symlink():
+        raise ValueError('Adoption requires the dedicated completed benchmark directory')
+    if release.exists() or journal_path.exists() or (runtime / '.env').exists() or (runtime / 'adoption.json').exists():
+        raise RuntimeError('Adoption requires a new ID and an uninitialized runtime; recover any existing journal first')
+    require_stopped_adoption(benchmark)
+    counters = adoption_receipts(benchmark)
     release.parent.mkdir(exist_ok=True)
-    (job / 'data/release').rename(release)
-    values = {'VALHALLA_DATA_DIR': str(release / 'valhalla'), 'PHOTON_DATA_DIR': str(release / 'photon'),
-              'GIS_RUNTIME_DIR': str(release / 'runtime'), 'GIS_PUBLIC_DIR': str(release / 'public')}
-    atomic_env(runtime / '.env', values)
-    guard.save(runtime / 'seed.json', {'time': time.time(), 'release': str(release),
-               'source_benchmark': str(benchmark), 'map_sha256': MAP_SHA256, 'job': str(job)})
-    print(json.dumps({'seeded': str(release), 'archive_url': f'/map-data/{MAP_SHA256[:12]}/kazakhstan.pmtiles'}))
+    journal_path.parent.mkdir(exist_ok=True)
+    if (benchmark.stat().st_dev != release.parent.stat().st_dev or benchmark.stat().st_uid != ADOPTION_UID or
+            runtime.stat().st_uid != ADOPTION_UID or release.parent.stat().st_uid != ADOPTION_UID):
+        raise ValueError('Benchmark and durable runtime must be owned by UID 1000 on the same filesystem')
+    sync_directory(runtime.parent)
+    sync_directory(runtime)
+    journal = {'version': 1, 'id': dataset_id, 'state': 'preparing', 'benchmark': str(benchmark),
+               'release': str(release), 'steps': [], 'original_counters': counters}
+    durable_json(journal_path, journal)
+    try:
+        with guarded_job(runtime) as job:
+            for directory in (runtime, runtime / 'jobs', job, job / 'data'):
+                sync_directory(directory)
+            journal['job'] = str(job); durable_json(journal_path, journal)
+            inputs = assets_from or job / 'inputs'
+            if assets_from is None:
+                for name, item in ASSETS.items():
+                    guard.fetch(job, argparse.Namespace(name=name, url=item['url'], max_bytes=item['bytes'],
+                                sha256=item['sha256'], md5=None, timeout=600))
+            stage(job, 'adopt-prepare', ['python3', '/tools/gis.py', '_adopt-prepare', '/source', '/job/data/adopting', '/assets'],
+                  [(TOOLS, '/tools', True), (benchmark, '/source', True), (job, '/job', False), (inputs, '/assets', True)],
+                  memory='512m', seconds=1800)
+            inventory = json.loads((job / 'logs/adopt-prepare.log').read_text())['source_inventory']
+            require_stopped_adoption(benchmark)
+            for relative in ('data/valhalla3', 'data/photon-stream4', 'tools/jre', 'data/maps', 'inputs', '.'):
+                if (benchmark / relative / 'PROMOTED.json').exists():
+                    raise RuntimeError('Source already contains a promotion reference; inspect the previous journal')
+            staging = job / 'data/adopting'
+            journal.update(state='moving', source_inventory=inventory); durable_json(journal_path, journal)
+            for relative, destination in ADOPT_SOURCES:
+                guard.ensure_watch(job)
+                source = benchmark / relative
+                if not identity_matches(source, inventory[relative]['identity']):
+                    raise RuntimeError('Verified adoption source changed before its rename')
+                journal_move(journal_path, journal, source, staging / destination)
+            journal_move(journal_path, journal, staging, release)
+            refs = job / 'data/references'; refs.mkdir(); sync_directory(refs.parent)
+            marker = {'adoption_id': dataset_id, 'journal': str(journal_path), 'release': str(release),
+                      'note': 'Data promoted by atomic rename; no symlink to mutable live data',
+                      'sources': [{'original': str(benchmark / source), 'adopted': str(release / target)} for source, target in ADOPT_SOURCES]}
+            for index, relative in enumerate(('data/valhalla3', 'data/photon-stream4', 'tools/jre')):
+                placeholder = refs / ('directory-' + str(index)); placeholder.mkdir()
+                durable_json(placeholder / 'PROMOTED.json', marker)
+                counter = relative + '/import-cgroup-final.txt'
+                if counter in counters:
+                    with (placeholder / 'import-cgroup-final.txt').open('xb') as output:
+                        output.write(base64.b64decode(counters[counter]['base64'])); output.flush()
+                        os.fchmod(output.fileno(), counters[counter]['mode'])
+                        os.fsync(output.fileno())
+                sync_directory(placeholder)
+                journal_move(journal_path, journal, placeholder, benchmark / relative)
+            for index, relative in enumerate(('data/maps', 'inputs', '.')):
+                temporary = refs / ('marker-' + str(index) + '.json')
+                durable_json(temporary, marker)
+                journal_move(journal_path, journal, temporary, benchmark / relative / 'PROMOTED.json')
+            require_stopped_adoption(benchmark)
+            guard.ensure_watch(job)
+            journal['state'] = 'validating'; durable_json(journal_path, journal)
+        # No source data movement follows the successful final host/guard check.
+        values = {'VALHALLA_DATA_DIR': str(release / 'valhalla'), 'PHOTON_DATA_DIR': str(release / 'photon'),
+                  'GIS_RUNTIME_DIR': str(release / 'runtime'), 'GIS_PUBLIC_DIR': str(release / 'public')}
+        receipt = refs / 'adoption.json'
+        durable_json(receipt, {'adoption_id': dataset_id, 'journal': str(journal_path), 'time': time.time(),
+                     'release': str(release), 'source_benchmark': str(benchmark), 'map_sha256': MAP_SHA256, 'job': str(job)})
+        env = refs / 'environment'; atomic_env(env, values)
+        require_stopped_adoption(benchmark)
+        journal['state'] = 'publishing'; durable_json(journal_path, journal)
+        journal_move(journal_path, journal, receipt, runtime / 'adoption.json')
+        journal_move(journal_path, journal, env, runtime / '.env')
+        journal.update(state='committed', committed=time.time()); durable_json(journal_path, journal)
+    except BaseException:
+        rollback_adoption(journal_path, journal)
+        raise
+    print(json.dumps({'adopted': str(release), 'journal': str(journal_path), 'archive_url': f'/map-data/{MAP_SHA256[:12]}/kazakhstan.pmtiles'}))
+
+
+def recover_adoption(runtime, dataset_id):
+    journal_path = runtime / 'adoptions' / (validate_id(dataset_id) + '.json')
+    journal = json.loads(journal_path.read_text())
+    if journal['id'] != dataset_id or journal['state'] == 'committed':
+        raise RuntimeError('Recovery refuses a committed or mismatched adoption journal')
+    validate_adoption_journal(runtime, journal)
+    if journal['state'] == 'rolled-back':
+        print(json.dumps({'recovered': True, 'journal': str(journal_path)})); return
+    require_stopped_adoption(Path(journal['benchmark']))
+    with guarded_job(runtime):
+        rollback_adoption(journal_path, journal)
+    print(json.dumps({'recovered': True, 'journal': str(journal_path)}))
+
+
+def require_committed_adoption(runtime):
+    receipt = json.loads((runtime / 'adoption.json').read_text())
+    path = runtime / 'adoptions' / (validate_id(receipt['adoption_id']) + '.json')
+    if receipt.get('journal') != str(path):
+        raise ValueError('GIS adoption receipt does not identify its runtime journal')
+    journal = json.loads(path.read_text())
+    validate_adoption_journal(runtime, journal)
+    if journal['state'] != 'committed' or receipt.get('release') != journal['release']:
+        raise RuntimeError('GIS adoption is not committed; recover-adoption before starting or changing services')
 
 
 def activate(runtime):
@@ -486,9 +757,9 @@ def verification_archive(runtime, values, archive_url=None):
     if archive_url is None:
         archive_url = values.get('MAPS_ARCHIVE_URL')
     if archive_url is None:
-        sha = json.loads((runtime / 'seed.json').read_text())['map_sha256']
+        sha = json.loads((runtime / 'adoption.json').read_text())['map_sha256']
         if not re.fullmatch('[a-f0-9]{64}', sha):
-            raise ValueError('Seed receipt lacks a map archive digest')
+            raise ValueError('Adoption receipt lacks a map archive digest')
         archive_url = f'/map-data/{sha[:12]}/kazakhstan.pmtiles'
     if not re.fullmatch(r'/map-data/[a-f0-9]{12,64}/kazakhstan\.pmtiles', archive_url):
         raise ValueError('Verification requires an explicit versioned same-origin map archive')
@@ -833,10 +1104,10 @@ def refresh(runtime, component, source, expected_sha256, dataset_id):
 
 
 def main():
-    if len(sys.argv) > 1 and sys.argv[1] in ('_watch', '_lease', '_seed-copy', '_copy-input', '_verify'):
+    if len(sys.argv) > 1 and sys.argv[1] in ('_watch', '_lease', '_adopt-prepare', '_copy-input', '_verify'):
         action, *args = sys.argv[1:]
-        if action == '_seed-copy':
-            seed_copy(*map(Path, args)); return
+        if action == '_adopt-prepare':
+            prepare_adoption(*map(Path, args)); return
         if action == '_copy-input':
             copy_verified(Path(args[0]), Path(args[1]), args[2]); return
         if action == '_verify':
@@ -853,13 +1124,16 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--runtime', type=Path, default=DEFAULT_RUNTIME)
     commands = parser.add_subparsers(dest='action', required=True)
-    seed_parser = commands.add_parser('seed')
-    seed_parser.add_argument('--benchmark', type=Path, required=True)
-    seed_parser.add_argument('--id', required=True)
+    adoption = commands.add_parser('adopt')
+    adoption.add_argument('--benchmark', type=Path, required=True)
+    adoption.add_argument('--id', required=True)
+    adoption.add_argument('--assets-from', type=Path, help='Reuse pinned assets from a retained failed job inputs directory')
+    recovery = commands.add_parser('recover-adoption')
+    recovery.add_argument('--id', required=True)
     commands.add_parser('activate')
     commands.add_parser('status')
     check = commands.add_parser('verify')
-    check.add_argument('--archive-url', help='Versioned map-data URL; defaults to GIS selection or seed receipt')
+    check.add_argument('--archive-url', help='Versioned map-data URL; defaults to GIS selection or adoption receipt')
     retry = commands.add_parser('restart')
     retry.add_argument('--component', choices=('valhalla', 'photon', 'maps'), required=True)
     build = commands.add_parser('refresh')
@@ -877,7 +1151,11 @@ def main():
     if args.action != 'status':
         require_clean_source()
     with serial(runtime):
-        if args.action == 'seed': seed(runtime, args.benchmark.resolve(strict=True), args.id)
+        if args.action not in ('adopt', 'recover-adoption', 'status'):
+            require_committed_adoption(runtime)
+        if args.action == 'adopt': adopt(runtime, args.benchmark.resolve(strict=True), args.id,
+            args.assets_from.resolve(strict=True) if args.assets_from else None)
+        elif args.action == 'recover-adoption': recover_adoption(runtime, args.id)
         elif args.action == 'activate': activate(runtime)
         elif args.action == 'refresh': refresh(runtime, args.component, args.source.resolve(strict=True), args.sha256, args.id)
         elif args.action == 'switch': switch(runtime, args.component, args.candidate)

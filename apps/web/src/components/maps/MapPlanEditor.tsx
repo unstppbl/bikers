@@ -51,9 +51,10 @@ function LocationField({ label, value, selected, bias, required = false, disable
   const query = useQuery({
     queryKey: ['geo', 'search', user?.id, locale, search, bias?.lat, bias?.lon],
     queryFn: ({ signal }) => {
-      const params = new URLSearchParams({ q: search, lang: locale })
-      if (bias) { params.set('lat', String(bias.lat)); params.set('lon', String(bias.lon)) }
-      return request<{ places: MapPlace[] }>(`/geo/search?${params}`, { signal })
+      return request<{ places: MapPlace[] }>('/geo/search', {
+        method: 'POST', signal,
+        body: JSON.stringify({ query: search, lang: locale, ...(bias ? { near: { lat: bias.lat, lon: bias.lon } } : {}) }),
+      })
     },
     enabled: focused && !selected && search.length >= 2 && search === value.trim() && !disabled,
     gcTime: 0, retry: false, meta: { private: true },
@@ -128,8 +129,7 @@ export function MapPlanEditor({ initialPlan, meeting, destination, onMeeting, on
     const controller = new AbortController(); reverseRequest.current = controller
     setReverseBusy(true)
     try {
-      const params = new URLSearchParams({ lat: String(point.lat), lon: String(point.lon), lang: locale })
-      const result = await request<{ places: MapPlace[] }>(`/geo/reverse?${params}`, { signal: controller.signal })
+      const result = await request<{ places: MapPlace[] }>('/geo/reverse', { method: 'POST', body: JSON.stringify({ point, lang: locale }), signal: controller.signal })
       if (isCurrent() && !controller.signal.aborted) select(target, { ...point, label: result.places[0]?.label ?? t('mapPin') })
     } catch { if (isCurrent() && !controller.signal.aborted) select(target, { ...point, label: t('mapPin') }) }
     finally { if (!controller.signal.aborted) setReverseBusy(false) }

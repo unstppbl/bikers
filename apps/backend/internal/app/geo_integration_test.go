@@ -18,6 +18,7 @@ func TestPrivateRideMapsAndAuthenticatedGeoAPIs(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		if unavailable.Load() {
 			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte(`{"error":"PRIVATE PROVIDER FAILURE 43.241234 76.891234"}`))
 			return
 		}
 		switch r.URL.Path {
@@ -40,8 +41,9 @@ func TestPrivateRideMapsAndAuthenticatedGeoAPIs(t *testing.T) {
 	f.cfg.PhotonBaseURL, f.cfg.ValhallaBaseURL = provider.URL, provider.URL
 	f.cfg.MapsArchiveURL = "/map-data/2583113c45ca/kazakhstan.pmtiles"
 	f.startServer(f.gateway)
-	for _, path := range []string{"/api/v1/geo/config", "/api/v1/geo/search?q=Almaty", "/api/v1/geo/reverse?lat=43.24&lon=76.89"} {
-		expect(t, f.request("GET", path, nil, nil), 401)
+	expect(t, f.request("GET", "/api/v1/geo/config", nil, nil), 401)
+	for _, path := range []string{"/api/v1/geo/search", "/api/v1/geo/reverse"} {
+		expect(t, f.request("POST", path, map[string]any{}, nil), 401)
 	}
 	owner := f.login("+77011234201", "Map owner")
 	guest := f.login("+77011234202", "Map member")
@@ -50,15 +52,51 @@ func TestPrivateRideMapsAndAuthenticatedGeoAPIs(t *testing.T) {
 	if cfg.body["enabled"] != true || cfg.body["archive_url"] != f.cfg.MapsArchiveURL {
 		t.Fatal("map configuration unavailable", cfg.raw)
 	}
-	for _, path := range []string{"/api/v1/geo/search?q=Almaty&lang=kk", "/api/v1/geo/reverse?lat=43.24&lon=76.89&lang=ru"} {
-		result := f.request("GET", path, nil, owner)
+	for _, test := range []struct {
+		path string
+		body map[string]any
+	}{
+		{"/api/v1/geo/search", map[string]any{"query": "Almaty", "lang": "kk", "near": map[string]any{"lat": 43.24, "lon": 76.89}}},
+		{"/api/v1/geo/reverse", map[string]any{"point": map[string]any{"lat": 43.24, "lon": 76.89}, "lang": "ru"}},
+	} {
+		result := f.request("POST", test.path, test.body, owner)
 		expect(t, result, 200)
 		if len(result.body["places"].([]any)) != 1 {
 			t.Fatal("place normalization failed", result.raw)
 		}
 	}
-	for _, path := range []string{"/api/v1/geo/search?q=Almaty&lat=43.24", "/api/v1/geo/search?q=Almaty&lang=de", "/api/v1/geo/reverse?lat=NaN&lon=76.89", "/api/v1/geo/reverse?lat=1&lon=1"} {
-		expect(t, f.request("GET", path, nil, owner), 422)
+	for _, test := range []struct {
+		path string
+		body map[string]any
+	}{
+		{"/api/v1/geo/search", map[string]any{"query": "Almaty", "near": map[string]any{"lat": 43.24}}},
+		{"/api/v1/geo/search", map[string]any{"query": "Almaty", "lang": "de"}},
+		{"/api/v1/geo/reverse", map[string]any{"point": map[string]any{"lat": 1, "lon": 1}}},
+		{"/api/v1/geo/reverse", map[string]any{"point": map[string]any{"lat": 43.24}}},
+	} {
+		expect(t, f.request("POST", test.path, test.body, owner), 422)
+	}
+	badGeoCSRF := *owner
+	badGeoCSRF.csrf = "incorrect"
+	for _, test := range []struct {
+		path string
+		body map[string]any
+	}{
+		{"/api/v1/geo/search", map[string]any{"query": "Almaty"}},
+		{"/api/v1/geo/reverse", map[string]any{"point": map[string]any{"lat": 43.24, "lon": 76.89}}},
+	} {
+		expect(t, f.request("POST", test.path, test.body, &badGeoCSRF), 403)
+		expect(t, f.request("GET", test.path, nil, owner), 404)
+		unknown := map[string]any{}
+		for key, value := range test.body {
+			unknown[key] = value
+		}
+		unknown["unexpected_private_value"] = "PRIVATE QUERY 76.891234"
+		result := f.request("POST", test.path, unknown, owner)
+		expect(t, result, 400)
+		if strings.Contains(result.raw, "PRIVATE QUERY") || strings.Contains(result.raw, "76.891234") {
+			t.Fatal("JSON error echoed private input", result.raw)
+		}
 	}
 	points := []map[string]any{{"label": "PRIVATE MAP START", "lat": 43.24, "lon": 76.89}, {"label": "PRIVATE MAP FINISH", "lat": 43.25, "lon": 76.91}}
 	badCSRF := *owner
@@ -112,6 +150,19 @@ func TestPrivateRideMapsAndAuthenticatedGeoAPIs(t *testing.T) {
 	}
 	expect(t, f.request("POST", "/api/v1/geo/route", map[string]any{"points": points, "geometry": map[string]any{}}, owner), 400)
 	unavailable.Store(true)
+	for _, test := range []struct {
+		path string
+		body map[string]any
+	}{
+		{"/api/v1/geo/search", map[string]any{"query": "PRIVATE ADDRESS QUERY 76.891234"}},
+		{"/api/v1/geo/reverse", map[string]any{"point": map[string]any{"lat": 43.241234, "lon": 76.891234}}},
+	} {
+		result := f.request("POST", test.path, test.body, owner)
+		expect(t, result, 503)
+		if strings.Contains(result.raw, "PRIVATE") || strings.Contains(result.raw, "43.241234") || strings.Contains(result.raw, "76.891234") {
+			t.Fatal("upstream failure echoed private request or provider data", result.raw)
+		}
+	}
 	expect(t, f.request("PATCH", "/api/v1/rides/"+id, map[string]any{"plan_version": 2, "map_points": points}, owner), 503)
 	expect(t, f.request("GET", "/health/ready", nil, nil), 200)
 	var preserved string
@@ -140,7 +191,11 @@ func TestDisabledGeoConfigPreservesTextOnlyRides(t *testing.T) {
 	if result.body["enabled"] != false || result.body["archive_url"] != "" {
 		t.Fatal("unconfigured maps were enabled")
 	}
-	expect(t, f.request("GET", "/api/v1/geo/search?q=Almaty", nil, owner), 503)
+	failed := f.request("POST", "/api/v1/geo/search", map[string]any{"query": "PRIVATE ADDRESS QUERY 76.891234"}, owner)
+	expect(t, failed, 503)
+	if strings.Contains(failed.raw, "PRIVATE ADDRESS") || strings.Contains(failed.raw, "76.891234") {
+		t.Fatal("disabled-service error echoed private query", failed.raw)
+	}
 	f.ride(owner, 5)
 	expect(t, f.request("GET", "/health/ready", nil, nil), 200)
 }

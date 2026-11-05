@@ -167,7 +167,12 @@ used a 3 GiB cap. Validate it under the guarded combined pilot; any increase
 requires a reviewed Compose change and new headroom check. The 4.125 GiB sum
 of hard caps does not establish a measured combined working set.
 
-### Seed and start without another import
+### Adopt completed data and start without another import
+
+The first bulk-copy setup attempt failed the strict application-readiness guard
+and was stopped. The app recovered, original benchmark data stayed intact,
+and that job's partial copy/receipts remain for review. The bulk-copy command
+has been removed. Initial setup now uses same-filesystem atomic adoption.
 
 Pause automatic deployment using **both controls** in
 [GitHub Actions deployments](github-actions-deployment.md#pause-retry-and-recovery)
@@ -177,7 +182,7 @@ GIS stages and activation forbid implicit pulls.
 
 ```sh
 cd /home/user/apps/bikerskz/repo
-python3 scripts/gis.py seed \
+python3 scripts/gis.py adopt \
   --benchmark /home/user/benchmarks/bikers-osm-kz-20261105-16 \
   --id kz-20261105
 python3 scripts/gis.py activate
@@ -206,16 +211,48 @@ and earlier activity; no caches are evicted. After publishing a future map
 candidate, explicitly select its version for this check with
 `python3 scripts/gis.py verify --archive-url /map-data/CONTENT_HASH/kazakhstan.pmtiles`;
 file sizes and range checks come from that archive, rather than initial benchmark
-metadata. The default uses the GIS selected URL or its seed receipt.
+metadata. The default uses the GIS selected URL or its adoption receipt.
 
-Seeding copies the completed `data/valhalla3`, `data/photon-stream4`, PMTiles and
-verified runtime files into a new `releases/kz-20261105` directory. It retains
-the benchmark and copies the writable Photon index independently. No PBF map
-generation, graph build or search import is repeated. Glyph/sprite archives and
-their licenses are acquired **serially** with pinned URLs/SHA256 values,
-explicit size/time limits and curl's 3 MiB/s rate cap. Extraction rejects
-traversal and symlinks; validated archive hardlinks are copied into regular
-files. Latin/Cyrillic glyph blocks and both sprite resolutions must exist.
+Adoption validates completed benchmark receipts, original cgroup exit counters,
+source ownership/device and every source tree entry. It refuses running
+benchmark-labelled or GIS containers and rechecks quiescence before and after
+the moves. A read-only, I/O-capped preparation job verifies the immutable
+archive/JAR hashes and prepares only the small font/sprite/license tree. To
+reuse verified downloads from the retained failed job, add
+`--assets-from /absolute/retained-job/inputs`; size/SHA256 checks still run.
+Without that option, acquisition is serial with pinned URLs/hashes, size/time
+limits and curl's 3 MiB/s cap. Extraction rejects traversal/symlinks and resolves
+validated tar hardlinks into regular glyph files. New assets are flushed inside
+the capped job before publication.
+
+Completed `data/valhalla3`, `data/photon-stream4`, the PMTiles file, JRE, Photon
+JAR and PMTiles CLI are then **renamed**, not bulk-copied, into the new release
+on the same filesystem. No hardlink aliases into the writable Photon index are
+created. Original cgroup-counter bytes stay available at the old paths, with
+small `PROMOTED.json` references in the old data/runtime locations and parents
+of moved files. Those references contain paths, not symlinks to mutable live
+data. The benchmark's logs, receipts and retained failure evidence remain.
+
+Each rename has an fsynced intent/identity record under
+`/home/user/apps/bikerskz-gis/adoptions/<id>.json`. Source/target directory
+entries are flushed around the rename. This includes the final release,
+promotion references and the last publication of `adoption.json` and `.env`.
+The environment appears only after the full strict guard succeeds. Caught
+failures reverse completed or interrupted renames without overwriting existing
+data. A launcher/power interruption leaves a recoverable journal; with source
+and GIS containers stopped, restore the original paths using:
+
+```sh
+python3 scripts/gis.py recover-adoption --id kz-20261105
+```
+
+Recovery reconciles source/target identities when a rename completed before its
+journal update and is idempotent after rollback. It refuses conflicting data
+and committed journals. After rollback, use a new adoption ID for a retry.
+Activation and later GIS mutations require a committed adoption journal, so a
+partly published environment cannot start Photon before recovery. No PBF map
+generation, graph build, search import or deletion of original data is part of
+adoption. Retained partial-copy jobs are never removed automatically.
 
 The private GIS `.env` contains only explicit selected release paths.
 `releases/<id>/public/map-data/2583113c45ca/kazakhstan.pmtiles` is the initial
@@ -225,7 +262,7 @@ Changing a host symlink alone does not retarget an existing Docker bind mount.
 
 ### Guard and cleanup semantics
 
-Every seed/build/start/switch/restart runs under the GIS `.refresh.lock` and
+Every adoption/recovery/build/start/switch/restart runs under the GIS `.refresh.lock` and
 the existing application's `.deploy.lock`, so imports cannot overlap each
 other or an app build/release. A fresh job requires twelve app readiness
 responses within 250 ms, at least **8 GiB available RAM** and **25 GiB free

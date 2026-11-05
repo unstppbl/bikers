@@ -65,6 +65,8 @@ A useful ride-organizing experience can bring a real community into BIKERS.KZ. C
 
 **Agreed Explore deferrals — 2 November 2026:** Community route library, discovery, route photos/stops, recorded tracks (EXPLORE-01), useful-places map/directory (EXPLORE-03), and condition reports (EXPLORE-04) are outside the MVP. Saved route collections, native navigation, offline maps, and advanced routing are also deferred.
 
+**Ride-plan maps added — 5 November 2026 ([#18](https://github.com/unstppbl/bikers/issues/18)):** Self-hosted Kazakhstan maps, address search and road-motorcycle routing with intermediate stops are now in scope for private ride plans. Exact points and routes follow the existing organizer/approved-participant access rules. Community route collections, recorded tracks, native navigation and offline maps remain deferred. Live rollout completion is tracked in the issue.
+
 **Agreed commerce deferrals — 2 November 2026:** All COMMERCE-01–03 capabilities are outside the MVP: service-provider directory/inquiries, booking, quotes, deposits, payments, marketplace listings and model-based listing discovery, and selective maintenance-history sharing for bike sales. A simple directory may be revisited separately from inquiries; no post-MVP sequence is committed.
 
 **Agreed media deferrals — 2 November 2026:** Standalone events beyond rides (MEDIA-01), written ride recaps, general media posts, native video uploads, creator profiles, subscriptions, monetization, livestreams/live chat/replays (MEDIA-03), and on-bike streaming implementation are outside the MVP. MEDIA-04 safeguards remain requirements for future on-bike streaming. Only the photo-album portion of RIDE-04 and photos/external-video links in MEDIA-02 are agreed for MVP.
