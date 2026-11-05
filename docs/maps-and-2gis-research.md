@@ -171,3 +171,46 @@ PMTiles can be served by object storage or Nginx/Caddy using HTTP Range requests
 Future self-hosted routing could evaluate Valhalla's **beta** motorcycle costing or GraphHopper's example motorcycle/curvature models; these require profile validation and Kazakhstan route tests, and are not interchangeable with a scooter profile. [Valhalla routing reference](https://valhalla.github.io/valhalla/api/route/api-reference/), [GraphHopper example configuration](https://github.com/graphhopper/graphhopper/blob/master/config-example.yml)
 
 For the first release, I would trial **MapLibre plus Geoapify Free**, measure daily tile/search credits and compare actual Kazakhstan roads, addresses and English/Russian/Kazakh labels against 2GIS. Use manual pin selection and external navigation first. Move to paid hosting when the quota or features require it; choose a Kazakhstan PMTiles archive if owning updates/hosting becomes worthwhile. Add geocoding or routing when that feature is approved; neither is included merely by adopting OSM. A combination with 2GIS remains subject to its own cross-provider display/storage terms.
+
+## Can the Kazakhstan stack run on Jarvis?
+
+**Conditional yes for a low-traffic pilot:** serve regional PMTiles, use Photon for address autocomplete and reverse search, and evaluate Valhalla's motorcycle mode. This is a feasibility proposal; no map data has been imported and no runtime capacity or search/route quality has been benchmarked.
+
+### Observed capacity — 5 November 2026
+
+A read-only audit at 08:24:50 UTC found a Macmini6,2 with an Intel i7-3615QM, four physical cores/eight threads, and about **15.5 GiB RAM**. Approximately 5.8 GiB was used and 9.7 GiB available at that moment, with low CPU load. These are a snapshot, not a guarantee about existing workload peaks.
+
+The current root SSD filesystem has about **37 GiB available**. The SSD volume group also has about **344 GiB unallocated**, so additional SSD capacity could be provisioned separately. That unallocated space is not presently free space inside the filesystem. A separate HDD has ample space for cold archives, but the active search/routing indexes should use SSD. The CPU lacks AVX2; verify the selected Java/native binaries and container-image CPU baselines before choosing versions. This research changes no partitions, volumes or services.
+
+### Proposed services and planning budget
+
+All figures below are **initial test allocations**, not upstream Kazakhstan requirements, measured dataset sizes or throughput promises:
+
+| Component | Low-traffic serving allocation | Build/refresh approach |
+| --- | --- | --- |
+| PMTiles + style/fonts/icons over static HTTP | About **0.25 GiB RAM**, shared CPU; no live tile-rendering database | Generate/extract and validate a new archive separately, then publish a versioned file. |
+| Photon, Kazakhstan-filtered snapshot | About **4 GiB total RAM**, initially around 2 GiB Java heap; shared CPU | Import JSON into a separate index, validate, swap and retain rollback. |
+| Valhalla, country road graph | About **2–3 GiB total RAM**, shared CPU | Build a separate graph; validate motorcycle routes before switching. |
+| Combined map services | Roughly **6–8 GiB RAM including overhead**, initially **2–4 shared CPU threads** | Reserve **100 GiB SSD** operational capacity for current/next data, inputs, temporary files and rollback; this is not an estimate that the actual indexes occupy 100 GiB. |
+
+OpenSearch recommends reserving roughly half of available service memory for the Java heap and leaving room for native memory/file caching. Do not equate Photon heap size with total RAM, or allocate half of all host RAM to each Java service. [OpenSearch memory guidance](https://docs.opensearch.org/latest/install-and-configure/configuring-opensearch/configuration-system/)
+
+Jarvis has plausible runtime headroom for that pilot budget, but its current filesystem does not contain the proposed SSD reserve. A staged import may need an exploratory **6–8 GiB** allocation for one job; it is unmeasured. Building a replacement Photon index or routing graph while both old services and existing workloads run can exceed this 16 GiB host. Staggering jobs alone does not prove they fit. Build data elsewhere, or use a planned, isolated maintenance window with explicit resource caps and abort criteria; measure before committing to routine refreshes.
+
+### Address search: Photon first, Nominatim when needed
+
+Photon directly supports search-as-you-type, typo tolerance, location bias, multilingual names and reverse lookup. Its current stack is Java 21+ with embedded OpenSearch; an external cluster is optional. For the pilot, import a JSON snapshot filtered to Kazakhstan and explicitly request `kk`, `ru` and `en` names. The provider lists a Central Asia JSON dump that includes Kazakhstan; verify its data timestamp. Importing a snapshot avoids permanently operating Nominatim. [Photon capabilities/requirements](https://github.com/komoot/photon), [country/language filtering and import](https://github.com/komoot/photon/blob/master/docs/usage.md), [regional dump](https://download1.graphhopper.com/public/asia/central-asia/index.html)
+
+Prebuilt Photon database dumps have a limited language set; using JSON permits our chosen languages, but cannot create missing translations or missing addresses. Photon can serve the imported index independently. Its incremental-update path currently depends on a Nominatim database and coordinated update runs; otherwise we replace snapshots, keeping at least current and next indexes. [Photon update/deployment workflow](https://github.com/komoot/photon/blob/master/docs/usage.md), [snapshot replacement](https://github.com/komoot/photon/blob/master/README.md)
+
+Nominatim is an alternative for explicit submitted address searches and reverse geocoding, using PostgreSQL/PostGIS. It is not the search-as-you-type choice. Self-hosting removes the public server's one-request/second policy, but does not turn its search API into a dedicated autocomplete engine. Country extracts and daily replication are supported. Initial import runs osm2pgsql and PostgreSQL together; osm2pgsql alone needs at least 2 GiB plus its node cache, with PostgreSQL using additional memory. Do not interpret the documented 2 GB installation floor as sufficient for the full import stack. No official Kazakhstan sizing benchmark was found. [Nominatim search](https://nominatim.org/release-docs/latest/api/Search/), [import/memory requirements](https://nominatim.org/release-docs/latest/admin/Import/), [regional updates](https://nominatim.org/release-docs/latest/admin/Update/), [public-service policy scope](https://operations.osmfoundation.org/policies/nominatim/)
+
+### Motorcycle routing scope and worker limits
+
+Evaluate Valhalla's dedicated **beta `motorcycle`** costing with basic point-to-point routes, initially allowing one or two simultaneous calculations. Explicitly cap `server_threads` at one or two: the scripted image defaults to all detected CPUs and uses this setting for both graph construction and serving. A country-only graph cannot route over roads missing outside its extract; define neighboring coverage deliberately for cross-border rides. [Motorcycle costing](https://valhalla.github.io/valhalla/api/route/api-reference/), [Docker worker/build settings](https://github.com/valhalla/valhalla/blob/master/docker/README.md)
+
+Start without elevation files or live traffic. Elevation adds its own storage/build work; current traffic requires an external data feed and is not supplied by an OSM extract. Keep graph refreshes staged and versioned rather than letting an unplanned rebuild compete with the running application. [Elevation/build options](https://github.com/valhalla/valhalla/blob/master/docker/README.md), [speed and traffic inputs](https://valhalla.github.io/valhalla/concepts/speeds/)
+
+### Validation before deployment
+
+Start with a separate country-scoped data build. Record peak process/container memory including file cache, CPU, temporary disk and final archive/index/graph sizes. Test cold and warm queries, concurrent autocomplete, and actual Kazakh/Russian/English addresses, house numbers, renamed streets and rural meeting points. Measure latency and missing/wrong results; language configuration is not a coverage guarantee. Then rehearse one complete refresh with current data retained, monitoring existing application latency and available memory/disk. Only those measurements can confirm the final allocation and safe refresh procedure. No downloads, imports, benchmarks, capacity changes or deployment were performed in this review.
