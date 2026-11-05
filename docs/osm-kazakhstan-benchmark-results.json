@@ -1,0 +1,2768 @@
+{
+  "harness_sha256": {
+    "run.py": "7dd8ca94495743d098791851bc1d9c3fb5c6208680239cbdb36e6848b64d3eb8",
+    "photon.py": "0bf47b2ba8a1925fd3ef21e5bb4e7d692b4b621cd9356e8b8124b191923e3480",
+    "valhalla.py": "3893c3104388a49108427d7a3453608dc38023db758a4e6b526aa780e88af57a",
+    "maps.py": "377fe888d3f70e8f8549d8750fed31b629d46939134ae5d1b957b385306d3a3c"
+  },
+  "runtime_images": {
+    "valhalla": "ghcr.io/valhalla/valhalla-scripted:3.9.1-amd64@sha256:31d96eb75f73e5f5b3dc40702edfda16c4e1793a384a8235bcf00dd3eed1b9bc",
+    "java": "eclipse-temurin@sha256:1eac8b8fee11ca7d6725a48bc5d41992ed1561504ebae25490d2d062847e8269",
+    "nginx": "nginx@sha256:dede8895648b461178c3bc604f7eed4423efe5220b2c4d839f5eb3d34ac3f8f7"
+  },
+  "map_source": {
+    "url": "https://download.geofabrik.de/asia/kazakhstan-shortbread-1.0.mbtiles",
+    "last_modified": "2026-11-05T03:51:53Z",
+    "converter_version": "1.31.2",
+    "converter_url": "https://github.com/protomaps/go-pmtiles/releases/download/v1.31.2/go-pmtiles_1.31.2_Linux_x86_64.tar.gz",
+    "converter_archive_sha256": "3ed7dbf4ec2e6dfe5e25b6f70d1ffc932729f93c86db353bf514dd71010a312f"
+  },
+  "monitor_failures": [
+    {
+      "phase": "early import attempt 1",
+      "kind": "stale disk-backed heartbeat",
+      "source": "results/attempt1-monitor-abort.json"
+    },
+    {
+      "phase": "early import attempt 2",
+      "kind": "stale disk-backed heartbeat",
+      "source": "results/attempt2-abort.json"
+    },
+    {
+      "phase": "after completed map conversion",
+      "kind": "docker inspect timeout",
+      "timeout_seconds": 30,
+      "source": "results/phase4-abort.json",
+      "fresh_readiness_probes_before_resuming": 12
+    }
+  ],
+  "date": "2026-11-05",
+  "host": {
+    "cpu": "Intel i7-3615QM",
+    "physical_cores": 4,
+    "logical_cpus": 8,
+    "memory_bytes": 16670785536,
+    "baseline_available_bytes": 10431815680,
+    "baseline_free_disk_bytes": 39287091200,
+    "baseline_readiness_median_ms": 4.105860003619455
+  },
+  "valhalla": {
+    "version": "3.9.1",
+    "import": {
+      "exit_code": 0,
+      "oom_killed": false,
+      "started": "2026-11-05T09:10:57.450535009Z",
+      "finished": "2026-11-05T09:19:37.601980064Z",
+      "elapsed_seconds": 520.151445,
+      "limits": {
+        "memory_bytes": 5368709120,
+        "cpus": 1.5,
+        "read_bytes_per_second": [
+          {
+            "Path": "/dev/sda",
+            "Rate": 20971520
+          }
+        ],
+        "write_bytes_per_second": [
+          {
+            "Path": "/dev/sda",
+            "Rate": 10485760
+          }
+        ]
+      },
+      "metrics": {
+        "memory_peak_bytes": 1761128448,
+        "memory_kind": "cgroup charged including cache; not process RSS",
+        "cpu_seconds": 257.148064,
+        "memory_events": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0
+        },
+        "physical_ssd_io": {
+          "rbytes": 1402122240,
+          "wbytes": 4519817216,
+          "rios": 5866,
+          "wios": 71241,
+          "dbytes": 0,
+          "dios": 0
+        },
+        "source": "data/valhalla3/import-cgroup-final.txt"
+      }
+    },
+    "retained_directory_bytes": 756252790,
+    "allocated_directory_bytes": 768552960,
+    "packed_graph_bytes": 265021440,
+    "queries": {
+      "summary": [
+        {
+          "phase": "first_request",
+          "concurrency": 1,
+          "requested": 3,
+          "successful": 3,
+          "errors": 0,
+          "p50_ms": 137.156,
+          "p95_ms": 198.233,
+          "max_ms": 198.233
+        },
+        {
+          "phase": "repeated",
+          "concurrency": 1,
+          "requested": 15,
+          "successful": 15,
+          "errors": 0,
+          "p50_ms": 28.338,
+          "p95_ms": 104.2,
+          "max_ms": 104.2
+        },
+        {
+          "phase": "repeated",
+          "concurrency": 2,
+          "requested": 15,
+          "successful": 15,
+          "errors": 0,
+          "p50_ms": 75.339,
+          "p95_ms": 101.764,
+          "max_ms": 101.764
+        }
+      ],
+      "per_fixture": [
+        {
+          "fixture": "almaty_city",
+          "phase": "first_request",
+          "concurrency": 1,
+          "count": 1,
+          "p50_ms": 198.233,
+          "p95_ms": 198.233
+        },
+        {
+          "fixture": "talgar_esik_rural",
+          "phase": "first_request",
+          "concurrency": 1,
+          "count": 1,
+          "p50_ms": 28.843,
+          "p95_ms": 28.843
+        },
+        {
+          "fixture": "almaty_astana_long",
+          "phase": "first_request",
+          "concurrency": 1,
+          "count": 1,
+          "p50_ms": 137.156,
+          "p95_ms": 137.156
+        },
+        {
+          "fixture": "almaty_city",
+          "phase": "repeated",
+          "concurrency": 1,
+          "count": 5,
+          "p50_ms": 28.338,
+          "p95_ms": 29.485
+        },
+        {
+          "fixture": "talgar_esik_rural",
+          "phase": "repeated",
+          "concurrency": 1,
+          "count": 5,
+          "p50_ms": 20.775,
+          "p95_ms": 21.431
+        },
+        {
+          "fixture": "almaty_astana_long",
+          "phase": "repeated",
+          "concurrency": 1,
+          "count": 5,
+          "p50_ms": 99.838,
+          "p95_ms": 104.2
+        },
+        {
+          "fixture": "almaty_city",
+          "phase": "repeated",
+          "concurrency": 2,
+          "count": 5,
+          "p50_ms": 76.331,
+          "p95_ms": 93.0
+        },
+        {
+          "fixture": "talgar_esik_rural",
+          "phase": "repeated",
+          "concurrency": 2,
+          "count": 5,
+          "p50_ms": 15.373,
+          "p95_ms": 28.077
+        },
+        {
+          "fixture": "almaty_astana_long",
+          "phase": "repeated",
+          "concurrency": 2,
+          "count": 5,
+          "p50_ms": 80.99,
+          "p95_ms": 101.764
+        }
+      ]
+    },
+    "input": {
+      "filename": "kazakhstan-261103.osm.pbf",
+      "url": "https://download.geofabrik.de/asia/kazakhstan-261103.osm.pbf",
+      "checksum_url": "https://download.geofabrik.de/asia/kazakhstan-261103.osm.pbf.md5",
+      "md5": "53403ba99b12bcdf5183316539ef2440",
+      "listed_bytes": 225713312,
+      "data_timestamp": "2026-11-03T21:24:23Z",
+      "maximum_download_bytes": 300000000
+    }
+  },
+  "photon": {
+    "version": "1.3.0",
+    "import": {
+      "exit_code": 0,
+      "oom_killed": false,
+      "started": "2026-11-05T10:18:53.52268851Z",
+      "finished": "2026-11-05T10:44:07.332033907Z",
+      "elapsed_seconds": 1513.809345,
+      "limits": {
+        "memory_bytes": 5368709120,
+        "cpus": 2.0,
+        "read_bytes_per_second": [
+          {
+            "Path": "/dev/sda",
+            "Rate": 5242880
+          }
+        ],
+        "write_bytes_per_second": [
+          {
+            "Path": "/dev/sda",
+            "Rate": 5242880
+          }
+        ]
+      },
+      "metrics": {
+        "memory_peak_bytes": 2504134656,
+        "memory_kind": "cgroup charged including cache; not process RSS",
+        "cpu_seconds": 1531.506068,
+        "memory_events": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0
+        },
+        "physical_ssd_io": {
+          "rbytes": 413528064,
+          "wbytes": 3545706496,
+          "rios": 6871,
+          "wios": 12170,
+          "dbytes": 0,
+          "dios": 0
+        },
+        "source": "data/photon-stream4/import-cgroup-final.txt"
+      }
+    },
+    "input_manifest": {
+      "version": "1.3.0",
+      "sources": [
+        {
+          "url": "https://github.com/komoot/photon/releases/download/1.3.0/photon-1.3.0.jar",
+          "path": "inputs/photon.jar",
+          "sha256": "a89707c0045e4807b2a1180e132e68e108d998709f48b6c94b98a6e281f571a5",
+          "bytes": 98219380
+        },
+        {
+          "url": "https://download1.graphhopper.com/public/asia/central-asia/photon-dump-central-asia-1.0-latest.jsonl.zst",
+          "path": "inputs/photon.jsonl.zst",
+          "md5": "7d0ddcbee9f54d5f5b36d9912058968e",
+          "bytes": 191650136
+        }
+      ],
+      "source_timestamp": "2026-10-31T23:59:58.000+00:00",
+      "countries": [
+        "kz"
+      ],
+      "languages": [
+        "kk",
+        "ru",
+        "en"
+      ],
+      "docs": "https://github.com/komoot/photon/blob/1.3.0/docs/usage.md"
+    },
+    "stream_completion": {
+      "stage": "photon-stream",
+      "ok": true,
+      "bytes": 7149041740,
+      "elapsed_seconds": 1466.317484950996,
+      "header": {
+        "type": "NominatimDumpFile",
+        "content": {
+          "version": "0.1.0",
+          "generator": "photon",
+          "database_version": "1.0.0-4",
+          "data_timestamp": "2026-10-31T23:59:58.000+00:00",
+          "features": {
+            "sorted_by_country": true,
+            "has_addresslines": false
+          }
+        }
+      }
+    },
+    "retained_directory_bytes": 576087384,
+    "allocated_directory_bytes": 576729088,
+    "status": {
+      "status": "Ok",
+      "import_date": "2026-10-31T23:59:58Z",
+      "version": "1.3.0",
+      "git_commit": "523a59b4"
+    },
+    "index_metadata": {
+      "/photon/_count": {
+        "count": 1497308,
+        "_shards": {
+          "total": 5,
+          "successful": 5,
+          "skipped": 0,
+          "failed": 0
+        }
+      },
+      "/photon/_mapping": {
+        "photon": {
+          "mappings": {
+            "dynamic": "false",
+            "_meta": {
+              "PhotonProperties": {
+                "synonymsInstalled": false,
+                "languages": [
+                  "kk",
+                  "ru",
+                  "en"
+                ],
+                "reverseOnly": false,
+                "importDate": 1793491198000,
+                "supportGeometries": false,
+                "databaseVersion": "1.0.0-4",
+                "extraTags": []
+              }
+            },
+            "_source": {
+              "excludes": [
+                "collector",
+                "categories"
+              ]
+            },
+            "properties": {
+              "categories": {
+                "type": "text",
+                "index_options": "docs",
+                "norms": false,
+                "analyzer": "index_categories",
+                "search_analyzer": "keyword"
+              },
+              "collector": {
+                "properties": {
+                  "all": {
+                    "type": "text",
+                    "fields": {
+                      "ngram": {
+                        "type": "text",
+                        "index_options": "freqs",
+                        "norms": false,
+                        "analyzer": "index_ngram",
+                        "search_analyzer": "search"
+                      }
+                    },
+                    "index_options": "freqs",
+                    "norms": false,
+                    "analyzer": "index_fullword",
+                    "search_analyzer": "search"
+                  },
+                  "field": {
+                    "properties": {
+                      "city": {
+                        "type": "text",
+                        "fields": {
+                          "full": {
+                            "type": "text",
+                            "index_options": "docs",
+                            "norms": false,
+                            "analyzer": "index_name_full",
+                            "search_analyzer": "search_prefix"
+                          }
+                        },
+                        "norms": false,
+                        "analyzer": "index_raw",
+                        "search_analyzer": "search"
+                      },
+                      "country": {
+                        "type": "text",
+                        "fields": {
+                          "full": {
+                            "type": "text",
+                            "index_options": "docs",
+                            "norms": false,
+                            "analyzer": "index_name_full",
+                            "search_analyzer": "search_prefix"
+                          }
+                        },
+                        "norms": false,
+                        "analyzer": "index_raw",
+                        "search_analyzer": "search"
+                      },
+                      "county": {
+                        "type": "text",
+                        "fields": {
+                          "full": {
+                            "type": "text",
+                            "index_options": "docs",
+                            "norms": false,
+                            "analyzer": "index_name_full",
+                            "search_analyzer": "search_prefix"
+                          }
+                        },
+                        "norms": false,
+                        "analyzer": "index_raw",
+                        "search_analyzer": "search"
+                      },
+                      "district": {
+                        "type": "text",
+                        "fields": {
+                          "full": {
+                            "type": "text",
+                            "index_options": "docs",
+                            "norms": false,
+                            "analyzer": "index_name_full",
+                            "search_analyzer": "search_prefix"
+                          }
+                        },
+                        "norms": false,
+                        "analyzer": "index_raw",
+                        "search_analyzer": "search"
+                      },
+                      "name": {
+                        "type": "text",
+                        "fields": {
+                          "full": {
+                            "type": "text",
+                            "index_options": "docs",
+                            "norms": false,
+                            "analyzer": "index_name_full",
+                            "search_analyzer": "search_prefix"
+                          }
+                        },
+                        "norms": false,
+                        "analyzer": "index_raw",
+                        "search_analyzer": "search"
+                      },
+                      "state": {
+                        "type": "text",
+                        "fields": {
+                          "full": {
+                            "type": "text",
+                            "index_options": "docs",
+                            "norms": false,
+                            "analyzer": "index_name_full",
+                            "search_analyzer": "search_prefix"
+                          }
+                        },
+                        "norms": false,
+                        "analyzer": "index_raw",
+                        "search_analyzer": "search"
+                      },
+                      "street": {
+                        "type": "text",
+                        "fields": {
+                          "full": {
+                            "type": "text",
+                            "index_options": "docs",
+                            "norms": false,
+                            "analyzer": "index_name_full",
+                            "search_analyzer": "search_prefix"
+                          }
+                        },
+                        "norms": false,
+                        "analyzer": "index_raw",
+                        "search_analyzer": "search"
+                      }
+                    }
+                  },
+                  "name": {
+                    "type": "text",
+                    "fields": {
+                      "prefix": {
+                        "type": "text",
+                        "index_options": "freqs",
+                        "norms": false,
+                        "analyzer": "index_name_prefix",
+                        "search_analyzer": "search_prefix"
+                      }
+                    },
+                    "index_options": "freqs",
+                    "norms": false,
+                    "analyzer": "index_name_ngram",
+                    "search_analyzer": "search"
+                  },
+                  "parent": {
+                    "type": "text",
+                    "index_options": "docs",
+                    "norms": false,
+                    "analyzer": "index_name_ngram",
+                    "search_analyzer": "search"
+                  }
+                }
+              },
+              "coordinate": {
+                "type": "geo_point"
+              },
+              "countrycode": {
+                "type": "keyword",
+                "doc_values": false
+              },
+              "housenumber": {
+                "type": "text",
+                "fields": {
+                  "full": {
+                    "type": "text",
+                    "index_options": "docs",
+                    "norms": false,
+                    "analyzer": "lowercase_keyword"
+                  }
+                },
+                "index_options": "docs",
+                "analyzer": "index_housenumber",
+                "search_analyzer": "standard"
+              },
+              "importance": {
+                "type": "float",
+                "index": false
+              },
+              "osm_key": {
+                "type": "keyword",
+                "doc_values": false
+              },
+              "osm_value": {
+                "type": "keyword",
+                "doc_values": false
+              },
+              "postcode": {
+                "type": "text",
+                "norms": false,
+                "analyzer": "index_raw"
+              },
+              "type": {
+                "type": "keyword",
+                "doc_values": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "queries": {
+      "1": {
+        "first_pass_aggregate": {
+          "count": 12,
+          "success_count": 12,
+          "error_count": 0,
+          "p50_ms": 758.8744180102367,
+          "p95_ms": 2609.839692013338,
+          "max_ms": 2609.839692013338,
+          "latency_scope": "all_attempts_including_failures"
+        },
+        "warm_aggregate": {
+          "count": 96,
+          "success_count": 96,
+          "error_count": 0,
+          "p50_ms": 35.625563497887924,
+          "p95_ms": 87.53195899771526,
+          "max_ms": 138.7943800073117,
+          "latency_scope": "all_attempts_including_failures"
+        },
+        "total_request_count": 108,
+        "total_error_count": 0,
+        "warm_requests_per_second": 20.452666781192,
+        "warm_summary": {
+          "almaty_en": {
+            "count": 8,
+            "p50_ms": 60.47620048047975,
+            "p95_ms": 81.1626719951164
+          },
+          "almaty_ru": {
+            "count": 8,
+            "p50_ms": 54.36207399179693,
+            "p95_ms": 106.9918840075843
+          },
+          "almaty_kk": {
+            "count": 8,
+            "p50_ms": 76.70516749203671,
+            "p95_ms": 89.08745998633094
+          },
+          "astana_en": {
+            "count": 8,
+            "p50_ms": 22.91589748347178,
+            "p95_ms": 78.628426999785
+          },
+          "astana_ru": {
+            "count": 8,
+            "p50_ms": 68.03947502339724,
+            "p95_ms": 79.56529600778595
+          },
+          "dostyk_kk": {
+            "count": 8,
+            "p50_ms": 46.57493949343916,
+            "p95_ms": 87.53195899771526
+          },
+          "dostyk_ru": {
+            "count": 8,
+            "p50_ms": 49.53496549569536,
+            "p95_ms": 80.37368900841102
+          },
+          "abai_house": {
+            "count": 8,
+            "p50_ms": 57.05990400747396,
+            "p95_ms": 138.7943800073117
+          },
+          "baiterek": {
+            "count": 8,
+            "p50_ms": 48.66356999264099,
+            "p95_ms": 75.63822000520304
+          },
+          "prefix": {
+            "count": 8,
+            "p50_ms": 26.366848003817722,
+            "p95_ms": 68.40419198852032
+          },
+          "reverse_almaty": {
+            "count": 8,
+            "p50_ms": 22.144812988699414,
+            "p95_ms": 69.46993598830886
+          },
+          "reverse_astana": {
+            "count": 8,
+            "p50_ms": 27.24596200278029,
+            "p95_ms": 68.01853200886399
+          }
+        },
+        "fixtures": [
+          {
+            "id": "almaty_en",
+            "ok": true,
+            "status": 200,
+            "elapsed_ms": 2184.1256220068317,
+            "feature_count": 5,
+            "results": [
+              {
+                "properties": {
+                  "osm_type": "R",
+                  "osm_id": 2465058,
+                  "osm_key": "place",
+                  "osm_value": "city",
+                  "type": "city",
+                  "name": "Almaty",
+                  "city": "Алматы",
+                  "country": "Kazakhstan",
+                  "countrycode": "KZ",
+                  "extent": [
+                    76.7420485,
+                    43.4037657,
+                    77.166726,
+                    43.0328438
+                  ]
+                },
+                "geometry": {
+                  "type": "Point",
+                  "coordinates": [
+                    76.9457275,
+                    43.2363924
+                  ]
+                }
+              },
+              {
+                "properties": {
+                  "osm_type": "W",
+                  "osm_id": 142743485,
+                  "osm_key": "building",
+                  "osm_value": "train_station",
+                  "type": "house",
+                  "housenumber": "1",
+                  "name": "Almaty-2",
+                  "street": "Abylay Khan Avenue",
+                  "district": "Jetisu district",
+                  "city": "Almaty",
+                  "country": "Kazakhstan",
+                  "postcode": "050004",
+                  "countrycode": "KZ",
+                  "extent": [
+                    76.9382536,
+                    43.2739436,
+                    76.94025,
+                    43.2735681
+                  ]
+                },
+                "geometry": {
+                  "type": "Point",
+                  "coordinates": [
+                    76.9390884,
+                    43.2737601
+                  ]
+                }
+              },
+              {
+                "properties": {
+                  "osm_type": "R",
+                  "osm_id": 215718,
+                  "osm_key": "place",
+                  "osm_value": "state",
+                  "type": "state",
+                  "name": "Almaty Region",
+                  "country": "Kazakhstan",
+                  "countrycode": "KZ",
+                  "extent": [
+                    73.7220153,
+                    46.7381439,
+                    80.8072807,
+                    42.2108108
+                  ]
+                },
+                "geometry": {
+                  "type": "Point",
+                  "coordinates": [
+                    77.1358136,
+                    43.6136955
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "id": "almaty_ru",
+            "ok": true,
+            "status": 200,
+            "elapsed_ms": 521.2936849857215,
+            "feature_count": 5,
+            "results": [
+              {
+                "properties": {
+                  "osm_type": "R",
+                  "osm_id": 2465058,
+                  "osm_key": "place",
+                  "osm_value": "city",
+                  "type": "city",
+                  "name": "Алматы",
+                  "city": "Алматы",
+                  "country": "Казахстан",
+                  "countrycode": "KZ",
+                  "extent": [
+                    76.7420485,
+                    43.4037657,
+                    77.166726,
+                    43.0328438
+                  ]
+                },
+                "geometry": {
+                  "type": "Point",
+                  "coordinates": [
+                    76.9457275,
+                    43.2363924
+                  ]
+                }
+              },
+              {
+                "properties": {
+                  "osm_type": "N",
+                  "osm_id": 4020137342,
+                  "osm_key": "railway",
+                  "osm_value": "station",
+                  "type": "house",
+                  "name": "Алматы-2",
+                  "street": "улица Тузова",
+                  "district": "Жетысуский район",
+                  "city": "Алматы",
+                  "country": "Казахстан",
+                  "postcode": "050004",
+                  "countrycode": "KZ"
+                },
+                "geometry": {
+                  "type": "Point",
+                  "coordinates": [
+                    76.939025,
+                    43.2739999
+                  ]
+                }
+              },
+              {
+                "properties": {
+                  "osm_type": "W",
+                  "osm_id": 52889950,
+                  "osm_key": "building",
+                  "osm_value": "train_station",
+                  "type": "house",
+                  "housenumber": "1",
+                  "name": "Алматы-1",
+                  "street": "улица Станционная",
+                  "district": "Турксибский район",
+                  "city": "Алматы",
+                  "country": "Казахстан",
+                  "postcode": "050011",
+                  "countrycode": "KZ",
+                  "extent": [
+                    76.9480392,
+                    43.3414289,
+                    76.9498693,
+                    43.3406193
+                  ]
+                },
+                "geometry": {
+                  "type": "Point",
+                  "coordinates": [
+                    76.9488805,
+                    43.3410364
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "id": "almaty_kk",
+            "ok": true,
+            "status": 200,
+            "elapsed_ms": 114.31898397859186,
+            "feature_count": 5,
+            "results": [
+              {
+                "properties": {
+                  "osm_type": "R",
+                  "osm_id": 2465058,
+                  "osm_key": "place",
+                  "osm_value": "city",
+                  "type": "city",
+                  "name": "Алматы",
+                  "city": "Алматы",
+                  "country": "Қазақстан",
+                  "countrycode": "KZ",
+                  "extent": [
+                    76.7420485,
+                    43.4037657,
+                    77.166726,
+                    43.0328438
+                  ]
+                },
+                "geometry": {
+                  "type": "Point",
+                  "coordinates": [
+                    76.9457275,
+                    43.2363924
+                  ]
+                }
+              },
+              {
+                "properties": {
+                  "osm_type": "N",
+                  "osm_id": 3160605482,
+                  "osm_key": "place",
+                  "osm_value": "village",
+                  "type": "city",
+                  "name": "Алматы",
+                  "county": "Есіл ауданы",
+                  "state": "Ақмола облысы",
+                  "country": "Қазақстан",
+                  "countrycode": "KZ"
+                },
+                "geometry": {
+                  "type": "Point",
+                  "coordinates": [
+                    65.7914396,
+                    51.5315838
+                  ]
+                }
+              },
+              {
+                "properties": {
+                  "osm_type": "N",
+                  "osm_id": 4020137342,
+                  "osm_key": "railway",
+                  "osm_value": "station",
+                  "type": "house",
+                  "name": "Алматы-2",
+                  "street": "Тузов көшесі",
+                  "district": "Жетісу ауданы",
+                  "city": "Алматы",
+                  "country": "Қазақстан",
+                  "postcode": "050004",
+                  "countrycode": "KZ"
+                },
+                "geometry": {
+                  "type": "Point",
+                  "coordinates": [
+                    76.939025,
+                    43.2739999
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "id": "astana_en",
+            "ok": true,
+            "status": 200,
+            "elapsed_ms": 815.9337720135227,
+            "feature_count": 5,
+            "results": [
+              {
+                "properties": {
+                  "osm_type": "R",
+                  "osm_id": 3087155,
+                  "osm_key": "boundary",
+                  "osm_value": "administrative",
+                  "type": "state",
+                  "name": "Astana",
+                  "country": "Kazakhstan",
+                  "countrycode": "KZ",
+                  "extent": [
+                    71.2179735,
+                    51.3511101,
+                    71.7851913,
+                    50.8576076
+                  ]
+                },
+                "geometry": {
+                  "type": "Point",
+                  "coordinates": [
+                    71.4677059,
+                    51.1159933
+                  ]
+                }
+              },
+              {
+                "properties": {
+                  "osm_type": "R",
+                  "osm_id": 3087156,
+                  "osm_key": "place",
+                  "osm_value": "city",
+                  "type": "city",
+                  "name": "Astana",
+                  "city": "Астана",
+                  "state": "Astana",
+                  "country": "Kazakhstan",
+                  "postcode": "010000",
+                  "countrycode": "KZ",
+                  "extent": [
+                    71.2179735,
+                    51.3511101,
+                    71.7851913,
+                    50.8576076
+                  ]
+                },
+                "geometry": {
+                  "type": "Point",
+                  "coordinates": [
+                    71.4304708,
+                    51.1282804
+                  ]
+                }
+              },
+              {
+                "properties": {
+                  "osm_type": "N",
+                  "osm_id": 4020137343,
+                  "osm_key": "railway",
+                  "osm_value": "station",
+                  "type": "house",
+                  "name": "Astana-1",
+                  "street": "Гёте көшесі",
+                  "district": "Агроқалашық",
+                  "city": "Astana",
+                  "state": "Astana",
+                  "country": "Kazakhstan",
+                  "postcode": "010006",
+                  "countrycode": "KZ"
+                },
+                "geometry": {
+                  "type": "Point",
+                  "coordinates": [
+                    71.4099867,
+                    51.1958965
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "id": "astana_ru",
+            "ok": true,
+            "status": 200,
+            "elapsed_ms": 887.5459050177597,
+            "feature_count": 5,
+            "results": [
+              {
+                "properties": {
+                  "osm_type": "R",
+                  "osm_id": 3087155,
+                  "osm_key": "boundary",
+                  "osm_value": "administrative",
+                  "type": "state",
+                  "name": "Астана",
+                  "country": "Казахстан",
+                  "countrycode": "KZ",
+                  "extent": [
+                    71.2179735,
+                    51.3511101,
+                    71.7851913,
+                    50.8576076
+                  ]
+                },
+                "geometry": {
+                  "type": "Point",
+                  "coordinates": [
+                    71.4677059,
+                    51.1159933
+                  ]
+                }
+              },
+              {
+                "properties": {
+                  "osm_type": "R",
+                  "osm_id": 3087156,
+                  "osm_key": "place",
+                  "osm_value": "city",
+                  "type": "city",
+                  "name": "Астана",
+                  "city": "Астана",
+                  "state": "Астана",
+                  "country": "Казахстан",
+                  "postcode": "010000",
+                  "countrycode": "KZ",
+                  "extent": [
+                    71.2179735,
+                    51.3511101,
+                    71.7851913,
+                    50.8576076
+                  ]
+                },
+                "geometry": {
+                  "type": "Point",
+                  "coordinates": [
+                    71.4304708,
+                    51.1282804
+                  ]
+                }
+              },
+              {
+                "properties": {
+                  "osm_type": "N",
+                  "osm_id": 4020137343,
+                  "osm_key": "railway",
+                  "osm_value": "station",
+                  "type": "house",
+                  "name": "Астана-1",
+                  "street": "улица Гете",
+                  "district": "Агрогородок",
+                  "city": "Астана",
+                  "state": "Астана",
+                  "country": "Казахстан",
+                  "postcode": "010006",
+                  "countrycode": "KZ"
+                },
+                "geometry": {
+                  "type": "Point",
+                  "coordinates": [
+                    71.4099867,
+                    51.1958965
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "id": "dostyk_kk",
+            "ok": true,
+            "status": 200,
+            "elapsed_ms": 2609.839692013338,
+            "feature_count": 3,
+            "results": [
+              {
+                "properties": {
+                  "osm_type": "W",
+                  "osm_id": 51155764,
+                  "osm_key": "tourism",
+                  "osm_value": "hotel",
+                  "type": "house",
+                  "housenumber": "36",
+                  "name": "Достық қонақ үйі",
+                  "street": "Құрманғазы көшесі",
+                  "district": "Медеу ауданы",
+                  "city": "Алматы",
+                  "country": "Қазақстан",
+                  "postcode": "050050",
+                  "countrycode": "KZ",
+                  "extent": [
+                    76.9508675,
+                    43.2447393,
+                    76.9514119,
+                    43.2438474
+                  ]
+                },
+                "geometry": {
+                  "type": "Point",
+                  "coordinates": [
+                    76.951139,
+                    43.2443438
+                  ]
+                }
+              },
+              {
+                "properties": {
+                  "osm_type": "W",
+                  "osm_id": 911226159,
+                  "osm_key": "highway",
+                  "osm_value": "secondary",
+                  "type": "street",
+                  "name": "Достық даңғылы",
+                  "district": "Медеу ауданы",
+                  "city": "Алматы",
+                  "country": "Қазақстан",
+                  "postcode": "050010",
+                  "countrycode": "KZ",
+                  "extent": [
+                    76.9565735,
+                    43.245841,
+                    76.956636,
+                    43.2453216
+                  ]
+                },
+                "geometry": {
+                  "type": "Point",
+                  "coordinates": [
+                    76.9566047,
+                    43.2455813
+                  ]
+                }
+              },
+              {
+                "properties": {
+                  "osm_type": "W",
+                  "osm_id": 553657158,
+                  "osm_key": "highway",
+                  "osm_value": "secondary",
+                  "type": "street",
+                  "name": "Достық даңғылы",
+                  "district": "Медеу ауданы",
+                  "city": "Алматы",
+                  "country": "Қазақстан",
+                  "postcode": "050002",
+                  "countrycode": "KZ",
+                  "extent": [
+                    76.9552612,
+                    43.2560535,
+                    76.9553257,
+                    43.2555516
+                  ]
+                },
+                "geometry": {
+                  "type": "Point",
+                  "coordinates": [
+                    76.9552934,
+                    43.2558025
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "id": "dostyk_ru",
+            "ok": true,
+            "status": 200,
+            "elapsed_ms": 294.6736490121111,
+            "feature_count": 4,
+            "results": [
+              {
+                "properties": {
+                  "osm_type": "W",
+                  "osm_id": 51155764,
+                  "osm_key": "tourism",
+                  "osm_value": "hotel",
+                  "type": "house",
+                  "housenumber": "36",
+                  "name": "Отель Достык",
+                  "street": "улица Курмангазы",
+                  "district": "Медеуский район",
+                  "city": "Алматы",
+                  "country": "Казахстан",
+                  "postcode": "050050",
+                  "countrycode": "KZ",
+                  "extent": [
+                    76.9508675,
+                    43.2447393,
+                    76.9514119,
+                    43.2438474
+                  ]
+                },
+                "geometry": {
+                  "type": "Point",
+                  "coordinates": [
+                    76.951139,
+                    43.2443438
+                  ]
+                }
+              },
+              {
+                "properties": {
+                  "osm_type": "W",
+                  "osm_id": 911226159,
+                  "osm_key": "highway",
+                  "osm_value": "secondary",
+                  "type": "street",
+                  "name": "проспект Достык",
+                  "district": "Медеуский район",
+                  "city": "Алматы",
+                  "country": "Казахстан",
+                  "postcode": "050010",
+                  "countrycode": "KZ",
+                  "extent": [
+                    76.9565735,
+                    43.245841,
+                    76.956636,
+                    43.2453216
+                  ]
+                },
+                "geometry": {
+                  "type": "Point",
+                  "coordinates": [
+                    76.9566047,
+                    43.2455813
+                  ]
+                }
+              },
+              {
+                "properties": {
+                  "osm_type": "W",
+                  "osm_id": 911222968,
+                  "osm_key": "highway",
+                  "osm_value": "secondary",
+                  "type": "street",
+                  "name": "проспект Достык",
+                  "district": "Медеуский район",
+                  "city": "Алматы",
+                  "country": "Казахстан",
+                  "postcode": "050050",
+                  "countrycode": "KZ",
+                  "extent": [
+                    76.9570175,
+                    43.2424414,
+                    76.9572783,
+                    43.2402158
+                  ]
+                },
+                "geometry": {
+                  "type": "Point",
+                  "coordinates": [
+                    76.9571457,
+                    43.2413283
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "id": "abai_house",
+            "ok": true,
+            "status": 200,
+            "elapsed_ms": 1982.6564070244785,
+            "feature_count": 4,
+            "results": [
+              {
+                "properties": {
+                  "osm_type": "W",
+                  "osm_id": 159141697,
+                  "osm_key": "building",
+                  "osm_value": "commercial",
+                  "type": "house",
+                  "housenumber": "150",
+                  "street": "проспект Абая",
+                  "district": "Бостандыкский район",
+                  "city": "Алматы",
+                  "country": "Казахстан",
+                  "postcode": "050046",
+                  "countrycode": "KZ",
+                  "extent": [
+                    76.8834729,
+                    43.2376366,
+                    76.8845387,
+                    43.2373793
+                  ]
+                },
+                "geometry": {
+                  "type": "Point",
+                  "coordinates": [
+                    76.8839976,
+                    43.2375124
+                  ]
+                }
+              },
+              {
+                "properties": {
+                  "osm_type": "N",
+                  "osm_id": 6805026185,
+                  "osm_key": "shop",
+                  "osm_value": "beauty",
+                  "type": "house",
+                  "housenumber": "150/230",
+                  "street": "проспект Абая",
+                  "district": "Бостандыкский район",
+                  "city": "Алматы",
+                  "country": "Казахстан",
+                  "postcode": "050046",
+                  "countrycode": "KZ"
+                },
+                "geometry": {
+                  "type": "Point",
+                  "coordinates": [
+                    76.8832202,
+                    43.2371419
+                  ]
+                }
+              },
+              {
+                "properties": {
+                  "osm_type": "W",
+                  "osm_id": 156279028,
+                  "osm_key": "building",
+                  "osm_value": "apartments",
+                  "type": "house",
+                  "housenumber": "150/230Блок 6",
+                  "street": "проспект Абая",
+                  "district": "Бостандыкский район",
+                  "city": "Алматы",
+                  "country": "Казахстан",
+                  "postcode": "050046",
+                  "countrycode": "KZ",
+                  "extent": [
+                    76.883927,
+                    43.2366523,
+                    76.8843,
+                    43.2363329
+                  ]
+                },
+                "geometry": {
+                  "type": "Point",
+                  "coordinates": [
+                    76.8841135,
+                    43.2364926
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "id": "baiterek",
+            "ok": true,
+            "status": 200,
+            "elapsed_ms": 1008.5146380006336,
+            "feature_count": 5,
+            "results": [
+              {
+                "properties": {
+                  "osm_type": "W",
+                  "osm_id": 230401645,
+                  "osm_key": "historic",
+                  "osm_value": "monument",
+                  "type": "house",
+                  "housenumber": "14",
+                  "name": "Бәйтерек",
+                  "street": "Ақмешіт көшесі",
+                  "district": "Президент сарайы",
+                  "city": "Астана",
+                  "state": "Астана",
+                  "country": "Қазақстан",
+                  "postcode": "010000",
+                  "countrycode": "KZ",
+                  "extent": [
+                    71.4303349,
+                    51.1283632,
+                    71.4305743,
+                    51.1282133
+                  ]
+                },
+                "geometry": {
+                  "type": "Point",
+                  "coordinates": [
+                    71.4304556,
+                    51.1282863
+                  ]
+                }
+              },
+              {
+                "properties": {
+                  "osm_type": "W",
+                  "osm_id": 1547354202,
+                  "osm_key": "railway",
+                  "osm_value": "station",
+                  "type": "house",
+                  "name": "Бәйтерек",
+                  "street": "Сығанақ көшесі",
+                  "district": "Президент сарайы",
+                  "city": "Астана",
+                  "state": "Астана",
+                  "country": "Қазақстан",
+                  "postcode": "010000",
+                  "countrycode": "KZ",
+                  "extent": [
+                    71.4279726,
+                    51.1234454,
+                    71.4296051,
+                    51.1229763
+                  ]
+                },
+                "geometry": {
+                  "type": "Point",
+                  "coordinates": [
+                    71.4287888,
+                    51.123211
+                  ]
+                }
+              },
+              {
+                "properties": {
+                  "osm_type": "N",
+                  "osm_id": 13612447987,
+                  "osm_key": "railway",
+                  "osm_value": "station",
+                  "type": "house",
+                  "name": "Бәйтерек",
+                  "street": "Сығанақ көшесі",
+                  "district": "Президент сарайы",
+                  "city": "Астана",
+                  "state": "Астана",
+                  "country": "Қазақстан",
+                  "postcode": "010000",
+                  "countrycode": "KZ"
+                },
+                "geometry": {
+                  "type": "Point",
+                  "coordinates": [
+                    71.4287898,
+                    51.1232099
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "id": "prefix",
+            "ok": true,
+            "status": 200,
+            "elapsed_ms": 701.8150640069507,
+            "feature_count": 5,
+            "results": [
+              {
+                "properties": {
+                  "osm_type": "R",
+                  "osm_id": 2465058,
+                  "osm_key": "place",
+                  "osm_value": "city",
+                  "type": "city",
+                  "name": "Алматы",
+                  "city": "Алматы",
+                  "country": "Казахстан",
+                  "countrycode": "KZ",
+                  "extent": [
+                    76.7420485,
+                    43.4037657,
+                    77.166726,
+                    43.0328438
+                  ]
+                },
+                "geometry": {
+                  "type": "Point",
+                  "coordinates": [
+                    76.9457275,
+                    43.2363924
+                  ]
+                }
+              },
+              {
+                "properties": {
+                  "osm_type": "W",
+                  "osm_id": 801525144,
+                  "osm_key": "shop",
+                  "osm_value": "mall",
+                  "type": "house",
+                  "housenumber": "55",
+                  "name": "Алма",
+                  "street": "проспект Жибек Жолы",
+                  "district": "Медеуский район",
+                  "city": "Алматы",
+                  "country": "Казахстан",
+                  "postcode": "050002",
+                  "countrycode": "KZ",
+                  "extent": [
+                    76.9533177,
+                    43.2632759,
+                    76.9540059,
+                    43.2627736
+                  ]
+                },
+                "geometry": {
+                  "type": "Point",
+                  "coordinates": [
+                    76.9538511,
+                    43.2631209
+                  ]
+                }
+              },
+              {
+                "properties": {
+                  "osm_type": "W",
+                  "osm_id": 427639086,
+                  "osm_key": "amenity",
+                  "osm_value": "car_wash",
+                  "type": "house",
+                  "housenumber": "220/1",
+                  "name": "Алма",
+                  "street": "проспект Абая",
+                  "locality": "Микрорайоны",
+                  "district": "Ауэзовский район",
+                  "city": "Алматы",
+                  "country": "Казахстан",
+                  "postcode": "050035",
+                  "countrycode": "KZ",
+                  "extent": [
+                    76.869438,
+                    43.2312939,
+                    76.8696,
+                    43.2311159
+                  ]
+                },
+                "geometry": {
+                  "type": "Point",
+                  "coordinates": [
+                    76.8695278,
+                    43.2312198
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "id": "reverse_almaty",
+            "ok": true,
+            "status": 200,
+            "elapsed_ms": 394.6018460264895,
+            "feature_count": 4,
+            "results": [
+              {
+                "properties": {
+                  "osm_type": "W",
+                  "osm_id": 380361830,
+                  "osm_key": "highway",
+                  "osm_value": "secondary",
+                  "type": "street",
+                  "name": "улица Розыбакиева",
+                  "district": "Тастак",
+                  "city": "Алматы",
+                  "country": "Казахстан",
+                  "postcode": "050046",
+                  "countrycode": "KZ",
+                  "extent": [
+                    76.8896996,
+                    43.2389767,
+                    76.8897275,
+                    43.2387243
+                  ]
+                },
+                "geometry": {
+                  "type": "Point",
+                  "coordinates": [
+                    76.8897154,
+                    43.2388507
+                  ]
+                }
+              },
+              {
+                "properties": {
+                  "osm_type": "N",
+                  "osm_id": 4895545989,
+                  "osm_key": "place",
+                  "osm_value": "house",
+                  "type": "house",
+                  "housenumber": "112",
+                  "street": "улица Розыбакиева",
+                  "district": "Тастак",
+                  "city": "Алматы",
+                  "country": "Казахстан",
+                  "postcode": "050046",
+                  "countrycode": "KZ"
+                },
+                "geometry": {
+                  "type": "Point",
+                  "coordinates": [
+                    76.8900852,
+                    43.2390001
+                  ]
+                }
+              },
+              {
+                "properties": {
+                  "osm_type": "N",
+                  "osm_id": 1007972115,
+                  "osm_key": "highway",
+                  "osm_value": "bus_stop",
+                  "type": "house",
+                  "name": "Абая",
+                  "street": "улица Розыбакиева",
+                  "district": "Тастак",
+                  "city": "Алматы",
+                  "country": "Казахстан",
+                  "postcode": "050046",
+                  "countrycode": "KZ"
+                },
+                "geometry": {
+                  "type": "Point",
+                  "coordinates": [
+                    76.8898009,
+                    43.239264
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "id": "reverse_astana",
+            "ok": true,
+            "status": 200,
+            "elapsed_ms": 199.90160199813545,
+            "feature_count": 4,
+            "results": [
+              {
+                "properties": {
+                  "osm_type": "R",
+                  "osm_id": 3087156,
+                  "osm_key": "place",
+                  "osm_value": "city",
+                  "type": "city",
+                  "name": "Астана",
+                  "city": "Астана",
+                  "state": "Астана",
+                  "country": "Қазақстан",
+                  "postcode": "010000",
+                  "countrycode": "KZ",
+                  "extent": [
+                    71.2179735,
+                    51.3511101,
+                    71.7851913,
+                    50.8576076
+                  ]
+                },
+                "geometry": {
+                  "type": "Point",
+                  "coordinates": [
+                    71.4304708,
+                    51.1282804
+                  ]
+                }
+              },
+              {
+                "properties": {
+                  "osm_type": "W",
+                  "osm_id": 230401645,
+                  "osm_key": "historic",
+                  "osm_value": "monument",
+                  "type": "house",
+                  "housenumber": "14",
+                  "name": "Бәйтерек",
+                  "street": "Ақмешіт көшесі",
+                  "district": "Президент сарайы",
+                  "city": "Астана",
+                  "state": "Астана",
+                  "country": "Қазақстан",
+                  "postcode": "010000",
+                  "countrycode": "KZ",
+                  "extent": [
+                    71.4303349,
+                    51.1283632,
+                    71.4305743,
+                    51.1282133
+                  ]
+                },
+                "geometry": {
+                  "type": "Point",
+                  "coordinates": [
+                    71.4304556,
+                    51.1282863
+                  ]
+                }
+              },
+              {
+                "properties": {
+                  "osm_type": "W",
+                  "osm_id": 1527868466,
+                  "osm_key": "highway",
+                  "osm_value": "tertiary",
+                  "type": "street",
+                  "name": "Түркістан көшесі",
+                  "district": "Президент сарайы",
+                  "city": "Астана",
+                  "state": "Астана",
+                  "country": "Қазақстан",
+                  "postcode": "010000",
+                  "countrycode": "KZ",
+                  "extent": [
+                    71.4320742,
+                    51.1292152,
+                    71.4327922,
+                    51.1274432
+                  ]
+                },
+                "geometry": {
+                  "type": "Point",
+                  "coordinates": [
+                    71.4324332,
+                    51.1283292
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "2": {
+        "first_pass_aggregate": {
+          "count": 12,
+          "success_count": 12,
+          "error_count": 0,
+          "p50_ms": 29.433478994178586,
+          "p95_ms": 83.94389200839214,
+          "max_ms": 83.94389200839214,
+          "latency_scope": "all_attempts_including_failures"
+        },
+        "warm_aggregate": {
+          "count": 96,
+          "success_count": 96,
+          "error_count": 0,
+          "p50_ms": 75.08744900405873,
+          "p95_ms": 91.58164900145493,
+          "max_ms": 95.9781680139713,
+          "latency_scope": "all_attempts_including_failures"
+        },
+        "total_request_count": 108,
+        "total_error_count": 0,
+        "warm_requests_per_second": 33.866835631366534,
+        "warm_summary": {
+          "almaty_en": {
+            "count": 8,
+            "p50_ms": 66.11723950481974,
+            "p95_ms": 95.01863498007879
+          },
+          "almaty_ru": {
+            "count": 8,
+            "p50_ms": 85.22498951060697,
+            "p95_ms": 91.58164900145493
+          },
+          "almaty_kk": {
+            "count": 8,
+            "p50_ms": 83.53326100041158,
+            "p95_ms": 95.9781680139713
+          },
+          "astana_en": {
+            "count": 8,
+            "p50_ms": 81.73977800470311,
+            "p95_ms": 89.33379297377542
+          },
+          "astana_ru": {
+            "count": 8,
+            "p50_ms": 54.95364799571689,
+            "p95_ms": 93.39745799661614
+          },
+          "dostyk_kk": {
+            "count": 8,
+            "p50_ms": 52.47212850372307,
+            "p95_ms": 88.00485500250943
+          },
+          "dostyk_ru": {
+            "count": 8,
+            "p50_ms": 81.05057149077766,
+            "p95_ms": 90.31276698806323
+          },
+          "abai_house": {
+            "count": 8,
+            "p50_ms": 80.03169900621288,
+            "p95_ms": 87.05078699858859
+          },
+          "baiterek": {
+            "count": 8,
+            "p50_ms": 50.176952994661406,
+            "p95_ms": 82.73661998100579
+          },
+          "prefix": {
+            "count": 8,
+            "p50_ms": 47.16045050008688,
+            "p95_ms": 82.59668099344708
+          },
+          "reverse_almaty": {
+            "count": 8,
+            "p50_ms": 45.97922248649411,
+            "p95_ms": 76.28332899184898
+          },
+          "reverse_astana": {
+            "count": 8,
+            "p50_ms": 44.253648491576314,
+            "p95_ms": 78.38594398344867
+          }
+        }
+      }
+    },
+    "serving": {
+      "memory_peak_bytes": 767369216,
+      "memory_current_bytes": 750694400,
+      "anonymous_bytes": 626712576,
+      "file_bytes": 119046144,
+      "note": "Snapshot after query batch, before stopping service"
+    },
+    "failed_imports": [
+      {
+        "exit_code": 1,
+        "oom_killed": false,
+        "started": "2026-11-05T09:40:06.523619622Z",
+        "finished": "2026-11-05T09:42:41.046656209Z",
+        "elapsed_seconds": 154.523037,
+        "limits": {
+          "memory_bytes": 5368709120,
+          "cpus": 0.75,
+          "read_bytes_per_second": [
+            {
+              "Path": "/dev/sda",
+              "Rate": 5242880
+            }
+          ],
+          "write_bytes_per_second": [
+            {
+              "Path": "/dev/sda",
+              "Rate": 2097152
+            }
+          ]
+        },
+        "metrics": {
+          "memory_peak_bytes": 1348493312,
+          "memory_kind": "cgroup charged including cache; not process RSS",
+          "cpu_seconds": 113.793167,
+          "memory_events": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          },
+          "physical_ssd_io": {
+            "rbytes": 91082752,
+            "wbytes": 8474624,
+            "rios": 3499,
+            "wios": 225,
+            "dbytes": 0,
+            "dios": 0
+          },
+          "source": "data/photon-stream/import-cgroup-final.txt"
+        }
+      },
+      {
+        "exit_code": 1,
+        "oom_killed": false,
+        "started": "2026-11-05T09:51:02.914259036Z",
+        "finished": "2026-11-05T10:04:28.185213794Z",
+        "elapsed_seconds": 805.270954,
+        "limits": {
+          "memory_bytes": 5368709120,
+          "cpus": 2.0,
+          "read_bytes_per_second": [
+            {
+              "Path": "/dev/sda",
+              "Rate": 5242880
+            }
+          ],
+          "write_bytes_per_second": [
+            {
+              "Path": "/dev/sda",
+              "Rate": 2097152
+            }
+          ]
+        },
+        "metrics": {
+          "memory_peak_bytes": 2494255104,
+          "memory_kind": "cgroup charged including cache; not process RSS",
+          "cpu_seconds": 562.686234,
+          "memory_events": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          },
+          "physical_ssd_io": {
+            "rbytes": 66813952,
+            "wbytes": 1036324864,
+            "rios": 705,
+            "wios": 3835,
+            "dbytes": 0,
+            "dios": 0
+          },
+          "source": "data/photon-stream2/import-cgroup-final.txt"
+        }
+      },
+      {
+        "exit_code": 1,
+        "oom_killed": false,
+        "started": "2026-11-05T10:05:26.736582154Z",
+        "finished": "2026-11-05T10:16:59.468803175Z",
+        "elapsed_seconds": 692.732221,
+        "limits": {
+          "memory_bytes": 5368709120,
+          "cpus": 2.0,
+          "read_bytes_per_second": [
+            {
+              "Path": "/dev/sda",
+              "Rate": 5242880
+            }
+          ],
+          "write_bytes_per_second": [
+            {
+              "Path": "/dev/sda",
+              "Rate": 5242880
+            }
+          ]
+        },
+        "metrics": {
+          "memory_peak_bytes": 2519265280,
+          "memory_kind": "cgroup charged including cache; not process RSS",
+          "cpu_seconds": 715.128743,
+          "memory_events": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          },
+          "physical_ssd_io": {
+            "rbytes": 266801152,
+            "wbytes": 1488093184,
+            "rios": 5627,
+            "wios": 5179,
+            "dbytes": 0,
+            "dios": 0
+          },
+          "source": "data/photon-stream3/import-cgroup-final.txt"
+        }
+      }
+    ]
+  },
+  "maps": {
+    "conversion": {
+      "exit_code": 0,
+      "oom_killed": false,
+      "started": "2026-11-05T10:44:50.126949789Z",
+      "finished": "2026-11-05T10:55:17.605703Z",
+      "elapsed_seconds": 627.478754,
+      "limits": {
+        "memory_bytes": 2147483648,
+        "cpus": 1.0,
+        "read_bytes_per_second": [
+          {
+            "Path": "/dev/sda",
+            "Rate": 5242880
+          }
+        ],
+        "write_bytes_per_second": [
+          {
+            "Path": "/dev/sda",
+            "Rate": 5242880
+          }
+        ]
+      },
+      "metrics": {
+        "memory_peak_bytes": 2147487744,
+        "memory_kind": "cgroup charged including cache; not process RSS",
+        "cpu_seconds": 131.640866,
+        "memory_events": {
+          "low": 0,
+          "high": 0,
+          "max": 6470,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0
+        },
+        "physical_ssd_io": {
+          "rbytes": 2826080256,
+          "wbytes": 2277416960,
+          "rios": 239579,
+          "wios": 4503,
+          "dbytes": 0,
+          "dios": 0
+        },
+        "source": "data/maps/convert-cgroup-final.txt"
+      }
+    },
+    "conversion_memory_snapshot": {
+      "time": 1793875830.9935708,
+      "memory_current_bytes": 2146918400,
+      "memory_peak_bytes": 2147487744,
+      "anonymous_bytes": 206979072,
+      "file_bytes": 1914380288,
+      "events": "low 0\nhigh 0\nmax 1254\noom 0\noom_kill 0\noom_group_kill 0"
+    },
+    "retained_directory_bytes": 2856857666,
+    "allocated_directory_bytes": 2856882176,
+    "inventory": {
+      "kind": "country-map-archive-inventory",
+      "files": {
+        "mbtiles": {
+          "bytes": 1558294528,
+          "sha256": "9263abe5ca89acc19ae11b6f60cfd4a026c76a19421cd055ae39d3f3ba2b1c5c",
+          "metadata": {
+            "name": "Shortbread",
+            "type": "baselayer",
+            "version": "1.0",
+            "description": "Tile config for a simple vector tiles schema",
+            "format": "pbf",
+            "minzoom": "0",
+            "maxzoom": "14",
+            "json": "{\"vector_layers\":[{\"id\":\"place_labels\",\"fields\":{\"kind\":\"String\",\"name\":\"String\",\"name_de\":\"String\",\"name_en\":\"String\",\"population\":\"Number\"},\"minzoom\":3,\"maxzoom\":14},{\"id\":\"boundaries\",\"fields\":{\"admin_level\":\"Number\",\"disputed\":\"Boolean\",\"maritime\":\"Boolean\"},\"minzoom\":0,\"maxzoom\":14},{\"id\":\"boundary_labels\",\"fields\":{\"admin_level\":\"Number\",\"name\":\"String\",\"name_de\":\"String\",\"name_en\":\"String\",\"way_area\":\"Number\"},\"minzoom\":2,\"maxzoom\":14},{\"id\":\"addresses\",\"fields\":{\"housename\":\"String\",\"housenumber\":\"String\"},\"minzoom\":14,\"maxzoom\":14},{\"id\":\"water_lines\",\"fields\":{\"bridge\":\"Boolean\",\"kind\":\"String\",\"tunnel\":\"Boolean\"},\"minzoom\":4,\"maxzoom\":14},{\"id\":\"water_lines_labels\",\"fields\":{\"bridge\":\"Boolean\",\"kind\":\"String\",\"name\":\"String\",\"name_de\":\"String\",\"name_en\":\"String\",\"tunnel\":\"Boolean\"},\"minzoom\":4,\"maxzoom\":14},{\"id\":\"dam_lines\",\"fields\":{\"kind\":\"String\"},\"minzoom\":12,\"maxzoom\":14},{\"id\":\"dam_polygons\",\"fields\":{\"kind\":\"String\"},\"minzoom\":12,\"maxzoom\":14},{\"id\":\"pier_lines\",\"fields\":{\"kind\":\"String\"},\"minzoom\":12,\"maxzoom\":14},{\"id\":\"pier_polygons\",\"fields\":{\"kind\":\"String\"},\"minzoom\":12,\"maxzoom\":14},{\"id\":\"bridges\",\"fields\":{\"kind\":\"String\"},\"minzoom\":12,\"maxzoom\":14},{\"id\":\"street_polygons\",\"fields\":{\"bridge\":\"Boolean\",\"kind\":\"String\",\"name\":\"String\",\"name_de\":\"String\",\"name_en\":\"String\",\"rail\":\"Boolean\",\"service\":\"String\",\"surface\":\"String\",\"tunnel\":\"Boolean\"},\"minzoom\":11,\"maxzoom\":14},{\"id\":\"streets_polygons_labels\",\"fields\":{\"kind\":\"String\",\"name\":\"String\",\"name_de\":\"String\",\"name_en\":\"String\"},\"minzoom\":14,\"maxzoom\":14},{\"id\":\"ferries\",\"fields\":{\"kind\":\"String\",\"name\":\"String\",\"name_de\":\"String\",\"name_en\":\"String\"},\"minzoom\":8,\"maxzoom\":14},{\"id\":\"streets\",\"fields\":{\"bicycle\":\"String\",\"bridge\":\"Boolean\",\"horse\":\"String\",\"kind\":\"String\",\"link\":\"Boolean\",\"oneway\":\"Boolean\",\"oneway_reverse\":\"Boolean\",\"rail\":\"Boolean\",\"service\":\"String\",\"surface\":\"String\",\"tracktype\":\"String\",\"tunnel\":\"Boolean\"},\"minzoom\":14,\"maxzoom\":14},{\"id\":\"street_labels\",\"fields\":{\"kind\":\"String\",\"name\":\"String\",\"name_de\":\"String\",\"name_en\":\"String\",\"ref\":\"String\",\"ref_cols\":\"Number\",\"ref_rows\":\"Number\",\"tunnel\":\"Boolean\"},\"minzoom\":10,\"maxzoom\":14},{\"id\":\"street_labels_points\",\"fields\":{\"kind\":\"String\",\"name\":\"String\",\"name_de\":\"String\",\"name_en\":\"String\",\"ref\":\"String\"},\"minzoom\":12,\"maxzoom\":14},{\"id\":\"aerialways\",\"fields\":{\"kind\":\"String\"},\"minzoom\":12,\"maxzoom\":14},{\"id\":\"public_transport\",\"fields\":{\"iata\":\"String\",\"kind\":\"String\",\"name\":\"String\",\"name_de\":\"String\",\"name_en\":\"String\"},\"minzoom\":11,\"maxzoom\":14},{\"id\":\"buildings\",\"fields\":{\"amenity\":\"String\",\"atm\":\"Boolean\",\"cuisine\":\"String\",\"denomination\":\"String\",\"dummy\":\"Number\",\"historic\":\"String\",\"housename\":\"String\",\"housenumber\":\"String\",\"leisure\":\"String\",\"man_made\":\"String\",\"name\":\"String\",\"name_de\":\"String\",\"name_en\":\"String\",\"religion\":\"String\",\"shop\":\"String\",\"sport\":\"String\",\"tourism\":\"String\"},\"minzoom\":14,\"maxzoom\":14},{\"id\":\"water_polygons\",\"fields\":{\"kind\":\"String\",\"way_area\":\"Number\"},\"minzoom\":4,\"maxzoom\":14},{\"id\":\"ocean\",\"fields\":{\"x\":\"Number\",\"y\":\"Number\"},\"minzoom\":8,\"maxzoom\":14},{\"id\":\"water_polygons_labels\",\"fields\":{\"kind\":\"String\",\"name\":\"String\",\"name_de\":\"String\",\"name_en\":\"String\",\"way_area\":\"Number\"},\"minzoom\":14,\"maxzoom\":14},{\"id\":\"land\",\"fields\":{\"amenity\":\"String\",\"housenumber\":\"String\",\"kind\":\"String\",\"leisure\":\"String\",\"name\":\"String\",\"name_de\":\"String\",\"name_en\":\"String\",\"sport\":\"String\"},\"minzoom\":7,\"maxzoom\":14},{\"id\":\"sites\",\"fields\":{\"amenity\":\"String\",\"housenumber\":\"String\",\"kind\":\"String\",\"name\":\"String\",\"name_de\":\"String\",\"name_en\":\"String\"},\"minzoom\":14,\"maxzoom\":14},{\"id\":\"pois\",\"fields\":{\"amenity\":\"String\",\"atm\":\"Boolean\",\"cuisine\":\"String\",\"denomination\":\"String\",\"emergency\":\"String\",\"highway\":\"String\",\"historic\":\"String\",\"housename\":\"String\",\"housenumber\":\"String\",\"information\":\"String\",\"leisure\":\"String\",\"man_made\":\"String\",\"name\":\"String\",\"name_de\":\"String\",\"name_en\":\"String\",\"recycling:clothes\":\"Boolean\",\"recycling:glass_bottles\":\"Boolean\",\"recycling:paper\":\"Boolean\",\"recycling:scrap_metal\":\"Boolean\",\"religion\":\"String\",\"shop\":\"String\",\"sport\":\"String\",\"tourism\":\"String\",\"tower:type\":\"String\",\"vending\":\"String\"},\"minzoom\":14,\"maxzoom\":14}]}",
+            "author": "OpenStreetMap contributors, Geofabrik GmbH",
+            "license": "Open Database License 1.0",
+            "bounds": "46.42304,40.55346,87.35359,55.50799",
+            "center": "66.888315,48.030725000000004,7"
+          },
+          "tiles_per_zoom": [
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ],
+            [
+              2,
+              1
+            ],
+            [
+              3,
+              2
+            ],
+            [
+              4,
+              4
+            ],
+            [
+              5,
+              12
+            ],
+            [
+              6,
+              40
+            ],
+            [
+              7,
+              144
+            ],
+            [
+              8,
+              510
+            ],
+            [
+              9,
+              1942
+            ],
+            [
+              10,
+              7447
+            ],
+            [
+              11,
+              27975
+            ],
+            [
+              12,
+              100192
+            ],
+            [
+              13,
+              351416
+            ],
+            [
+              14,
+              1228395
+            ]
+          ],
+          "samples": [
+            {
+              "place": "almaty",
+              "z": 6,
+              "x": 45,
+              "y_xyz": 23,
+              "present": true,
+              "bytes": 49224,
+              "sha256": "c65561d377f593e26db43f81da8fd9207487bf320ad0c86e88080ed562af5827",
+              "gzip": true
+            },
+            {
+              "place": "almaty",
+              "z": 10,
+              "x": 730,
+              "y_xyz": 375,
+              "present": true,
+              "bytes": 90924,
+              "sha256": "e2c3f5104bfecdc62ee2cdb974503b78ae98a2458dd1ed428a3a1cf5fb4d1ff7",
+              "gzip": true
+            },
+            {
+              "place": "almaty",
+              "z": 14,
+              "x": 11693,
+              "y_xyz": 6005,
+              "present": true,
+              "bytes": 95744,
+              "sha256": "c003dd16707bb4c6d4b9a37a75b7bacdea1c98e15ad68f108b7e329cd6596db7",
+              "gzip": true
+            },
+            {
+              "place": "astana",
+              "z": 6,
+              "x": 44,
+              "y_xyz": 21,
+              "present": true,
+              "bytes": 16208,
+              "sha256": "80fd5aa799ed0a8bd262e303c590773c394af12881d3ccb587688a1bceb0a7fa",
+              "gzip": true
+            },
+            {
+              "place": "astana",
+              "z": 10,
+              "x": 715,
+              "y_xyz": 342,
+              "present": true,
+              "bytes": 31642,
+              "sha256": "bbf2797db7038ceb60d4944bbab14107e2921f79bc206a57d60f4a1ccf0cd366",
+              "gzip": true
+            },
+            {
+              "place": "astana",
+              "z": 14,
+              "x": 11442,
+              "y_xyz": 5475,
+              "present": true,
+              "bytes": 58354,
+              "sha256": "8e4664307b6da6d332f8a82ad2896075cce15eddc0a299cd3199c572354041b2",
+              "gzip": true
+            },
+            {
+              "place": "shymkent",
+              "z": 6,
+              "x": 44,
+              "y_xyz": 23,
+              "present": true,
+              "bytes": 29800,
+              "sha256": "06f07a66ca67ff288ea9bbb133a6fdeb466e66564c4c765d3f05970ecda0ec66",
+              "gzip": true
+            },
+            {
+              "place": "shymkent",
+              "z": 10,
+              "x": 709,
+              "y_xyz": 378,
+              "present": true,
+              "bytes": 25762,
+              "sha256": "8a219b9ef970fa374a42b54e6821c67485cc74d276c019b8a48a95ee89c53e9c",
+              "gzip": true
+            },
+            {
+              "place": "shymkent",
+              "z": 14,
+              "x": 11359,
+              "y_xyz": 6062,
+              "present": true,
+              "bytes": 60706,
+              "sha256": "7ca0a3e802718d50653ad095687ea97bd51a891520323cd9521b120e6942ab57",
+              "gzip": true
+            },
+            {
+              "place": "charyn",
+              "z": 6,
+              "x": 46,
+              "y_xyz": 23,
+              "present": true,
+              "bytes": 47850,
+              "sha256": "60167850367b9ca8b1e23c285e5af0b9a742ecad2fc0701b2fd54ad2459cd777",
+              "gzip": true
+            },
+            {
+              "place": "charyn",
+              "z": 10,
+              "x": 736,
+              "y_xyz": 374,
+              "present": true,
+              "bytes": 656,
+              "sha256": "d636e70f5d59a2012052d225480ff284f6257bd56b27b591edc88f0ca2a8d77e",
+              "gzip": true
+            },
+            {
+              "place": "charyn",
+              "z": 14,
+              "x": 11791,
+              "y_xyz": 5998,
+              "present": true,
+              "bytes": 1373,
+              "sha256": "e17e5d1b957f41e134503ebf07cd5a4aa4f65b3619f67d0dff6ee7dc96e7b3a4",
+              "gzip": true
+            },
+            {
+              "place": "aktau",
+              "z": 6,
+              "x": 41,
+              "y_xyz": 23,
+              "present": true,
+              "bytes": 2890,
+              "sha256": "b5797a6328b7668fa1da4fd75861309cc7944deba7551d57a8100f94a55065f3",
+              "gzip": true
+            },
+            {
+              "place": "aktau",
+              "z": 10,
+              "x": 657,
+              "y_xyz": 373,
+              "present": true,
+              "bytes": 11270,
+              "sha256": "7f5b16d04c019e3c61450980559964c9dcf2601b7cf6a32b9be68427b36f008f",
+              "gzip": true
+            },
+            {
+              "place": "aktau",
+              "z": 14,
+              "x": 10520,
+              "y_xyz": 5979,
+              "present": true,
+              "bytes": 32389,
+              "sha256": "667c45a1a4cb7672a270ad4217ec1b67e63fb74ee6e081e32117188724cd3fb9",
+              "gzip": true
+            }
+          ],
+          "sample_limit": "Presence/hash checks only; not visual or road-quality validation"
+        },
+        "pmtiles": {
+          "bytes": 1298561630,
+          "sha256": "2583113c45ca582906e9e92c343f1c5a11ff08d6292c1eb8137cb0e764adb25c",
+          "header": {
+            "root_offset": 127,
+            "root_length": 1481,
+            "metadata_offset": 1608,
+            "metadata_length": 842,
+            "leaf_offset": 2450,
+            "leaf_length": 2713196,
+            "tile_offset": 2715646,
+            "tile_length": 1295845984,
+            "addressed_tiles": 1718082,
+            "tile_entries": 1458207,
+            "tile_contents": 1377492,
+            "version": 3,
+            "clustered": true,
+            "internal_compression": 2,
+            "tile_compression": 2,
+            "tile_type": 1,
+            "minzoom": 0,
+            "maxzoom": 14,
+            "bounds": [
+              46.42304,
+              40.55346,
+              87.35359,
+              55.50799
+            ]
+          },
+          "metadata": {
+            "author": "OpenStreetMap contributors, Geofabrik GmbH",
+            "description": "Tile config for a simple vector tiles schema",
+            "format": "pbf",
+            "license": "Open Database License 1.0",
+            "maxzoom": "14",
+            "minzoom": "0",
+            "name": "Shortbread",
+            "type": "baselayer",
+            "vector_layers": [
+              {
+                "fields": {
+                  "kind": "String",
+                  "name": "String",
+                  "name_de": "String",
+                  "name_en": "String",
+                  "population": "Number"
+                },
+                "id": "place_labels",
+                "maxzoom": 14,
+                "minzoom": 3
+              },
+              {
+                "fields": {
+                  "admin_level": "Number",
+                  "disputed": "Boolean",
+                  "maritime": "Boolean"
+                },
+                "id": "boundaries",
+                "maxzoom": 14,
+                "minzoom": 0
+              },
+              {
+                "fields": {
+                  "admin_level": "Number",
+                  "name": "String",
+                  "name_de": "String",
+                  "name_en": "String",
+                  "way_area": "Number"
+                },
+                "id": "boundary_labels",
+                "maxzoom": 14,
+                "minzoom": 2
+              },
+              {
+                "fields": {
+                  "housename": "String",
+                  "housenumber": "String"
+                },
+                "id": "addresses",
+                "maxzoom": 14,
+                "minzoom": 14
+              },
+              {
+                "fields": {
+                  "bridge": "Boolean",
+                  "kind": "String",
+                  "tunnel": "Boolean"
+                },
+                "id": "water_lines",
+                "maxzoom": 14,
+                "minzoom": 4
+              },
+              {
+                "fields": {
+                  "bridge": "Boolean",
+                  "kind": "String",
+                  "name": "String",
+                  "name_de": "String",
+                  "name_en": "String",
+                  "tunnel": "Boolean"
+                },
+                "id": "water_lines_labels",
+                "maxzoom": 14,
+                "minzoom": 4
+              },
+              {
+                "fields": {
+                  "kind": "String"
+                },
+                "id": "dam_lines",
+                "maxzoom": 14,
+                "minzoom": 12
+              },
+              {
+                "fields": {
+                  "kind": "String"
+                },
+                "id": "dam_polygons",
+                "maxzoom": 14,
+                "minzoom": 12
+              },
+              {
+                "fields": {
+                  "kind": "String"
+                },
+                "id": "pier_lines",
+                "maxzoom": 14,
+                "minzoom": 12
+              },
+              {
+                "fields": {
+                  "kind": "String"
+                },
+                "id": "pier_polygons",
+                "maxzoom": 14,
+                "minzoom": 12
+              },
+              {
+                "fields": {
+                  "kind": "String"
+                },
+                "id": "bridges",
+                "maxzoom": 14,
+                "minzoom": 12
+              },
+              {
+                "fields": {
+                  "bridge": "Boolean",
+                  "kind": "String",
+                  "name": "String",
+                  "name_de": "String",
+                  "name_en": "String",
+                  "rail": "Boolean",
+                  "service": "String",
+                  "surface": "String",
+                  "tunnel": "Boolean"
+                },
+                "id": "street_polygons",
+                "maxzoom": 14,
+                "minzoom": 11
+              },
+              {
+                "fields": {
+                  "kind": "String",
+                  "name": "String",
+                  "name_de": "String",
+                  "name_en": "String"
+                },
+                "id": "streets_polygons_labels",
+                "maxzoom": 14,
+                "minzoom": 14
+              },
+              {
+                "fields": {
+                  "kind": "String",
+                  "name": "String",
+                  "name_de": "String",
+                  "name_en": "String"
+                },
+                "id": "ferries",
+                "maxzoom": 14,
+                "minzoom": 8
+              },
+              {
+                "fields": {
+                  "bicycle": "String",
+                  "bridge": "Boolean",
+                  "horse": "String",
+                  "kind": "String",
+                  "link": "Boolean",
+                  "oneway": "Boolean",
+                  "oneway_reverse": "Boolean",
+                  "rail": "Boolean",
+                  "service": "String",
+                  "surface": "String",
+                  "tracktype": "String",
+                  "tunnel": "Boolean"
+                },
+                "id": "streets",
+                "maxzoom": 14,
+                "minzoom": 14
+              },
+              {
+                "fields": {
+                  "kind": "String",
+                  "name": "String",
+                  "name_de": "String",
+                  "name_en": "String",
+                  "ref": "String",
+                  "ref_cols": "Number",
+                  "ref_rows": "Number",
+                  "tunnel": "Boolean"
+                },
+                "id": "street_labels",
+                "maxzoom": 14,
+                "minzoom": 10
+              },
+              {
+                "fields": {
+                  "kind": "String",
+                  "name": "String",
+                  "name_de": "String",
+                  "name_en": "String",
+                  "ref": "String"
+                },
+                "id": "street_labels_points",
+                "maxzoom": 14,
+                "minzoom": 12
+              },
+              {
+                "fields": {
+                  "kind": "String"
+                },
+                "id": "aerialways",
+                "maxzoom": 14,
+                "minzoom": 12
+              },
+              {
+                "fields": {
+                  "iata": "String",
+                  "kind": "String",
+                  "name": "String",
+                  "name_de": "String",
+                  "name_en": "String"
+                },
+                "id": "public_transport",
+                "maxzoom": 14,
+                "minzoom": 11
+              },
+              {
+                "fields": {
+                  "amenity": "String",
+                  "atm": "Boolean",
+                  "cuisine": "String",
+                  "denomination": "String",
+                  "dummy": "Number",
+                  "historic": "String",
+                  "housename": "String",
+                  "housenumber": "String",
+                  "leisure": "String",
+                  "man_made": "String",
+                  "name": "String",
+                  "name_de": "String",
+                  "name_en": "String",
+                  "religion": "String",
+                  "shop": "String",
+                  "sport": "String",
+                  "tourism": "String"
+                },
+                "id": "buildings",
+                "maxzoom": 14,
+                "minzoom": 14
+              },
+              {
+                "fields": {
+                  "kind": "String",
+                  "way_area": "Number"
+                },
+                "id": "water_polygons",
+                "maxzoom": 14,
+                "minzoom": 4
+              },
+              {
+                "fields": {
+                  "x": "Number",
+                  "y": "Number"
+                },
+                "id": "ocean",
+                "maxzoom": 14,
+                "minzoom": 8
+              },
+              {
+                "fields": {
+                  "kind": "String",
+                  "name": "String",
+                  "name_de": "String",
+                  "name_en": "String",
+                  "way_area": "Number"
+                },
+                "id": "water_polygons_labels",
+                "maxzoom": 14,
+                "minzoom": 14
+              },
+              {
+                "fields": {
+                  "amenity": "String",
+                  "housenumber": "String",
+                  "kind": "String",
+                  "leisure": "String",
+                  "name": "String",
+                  "name_de": "String",
+                  "name_en": "String",
+                  "sport": "String"
+                },
+                "id": "land",
+                "maxzoom": 14,
+                "minzoom": 7
+              },
+              {
+                "fields": {
+                  "amenity": "String",
+                  "housenumber": "String",
+                  "kind": "String",
+                  "name": "String",
+                  "name_de": "String",
+                  "name_en": "String"
+                },
+                "id": "sites",
+                "maxzoom": 14,
+                "minzoom": 14
+              },
+              {
+                "fields": {
+                  "amenity": "String",
+                  "atm": "Boolean",
+                  "cuisine": "String",
+                  "denomination": "String",
+                  "emergency": "String",
+                  "highway": "String",
+                  "historic": "String",
+                  "housename": "String",
+                  "housenumber": "String",
+                  "information": "String",
+                  "leisure": "String",
+                  "man_made": "String",
+                  "name": "String",
+                  "name_de": "String",
+                  "name_en": "String",
+                  "recycling:clothes": "Boolean",
+                  "recycling:glass_bottles": "Boolean",
+                  "recycling:paper": "Boolean",
+                  "recycling:scrap_metal": "Boolean",
+                  "religion": "String",
+                  "shop": "String",
+                  "sport": "String",
+                  "tourism": "String",
+                  "tower:type": "String",
+                  "vending": "String"
+                },
+                "id": "pois",
+                "maxzoom": 14,
+                "minzoom": 14
+              }
+            ],
+            "version": "1.0"
+          }
+        }
+      }
+    },
+    "ranges": {
+      "kind": "loopback-pmtiles-http-range-delivery",
+      "archive_bytes": 1298561630,
+      "requests_per_run": 64,
+      "range_bytes": 65536,
+      "seed": 20261105,
+      "limitations": [
+        "No OS cache eviction; first-pass does not mean cold cache",
+        "Later concurrency levels reuse the same archive ranges",
+        "Fresh HTTP connection per request; local byte comparison excluded from latency",
+        "Measures file-range transport, not browser render, PMTiles client lookup, or Internet latency"
+      ],
+      "runs": [
+        {
+          "concurrency": 1,
+          "phase": "first-pass",
+          "requests": 64,
+          "verified": 64,
+          "errors": 0,
+          "error_examples": [],
+          "wall_seconds": 0.3536439299932681,
+          "p50_ms": 0.8341619977727532,
+          "p95_ms": 6.009651988279074,
+          "max_ms": 92.6850679970812,
+          "response_bytes": 4000146
+        },
+        {
+          "concurrency": 1,
+          "phase": "repeat-pass",
+          "requests": 64,
+          "verified": 64,
+          "errors": 0,
+          "error_examples": [],
+          "wall_seconds": 0.049639106990071014,
+          "p50_ms": 0.5915829970035702,
+          "p95_ms": 0.7490519783459604,
+          "max_ms": 2.80348100932315,
+          "response_bytes": 4000146
+        },
+        {
+          "concurrency": 4,
+          "phase": "first-pass",
+          "requests": 64,
+          "verified": 64,
+          "errors": 0,
+          "error_examples": [],
+          "wall_seconds": 0.04609711398370564,
+          "p50_ms": 1.6384939954150468,
+          "p95_ms": 3.706270013935864,
+          "max_ms": 9.647731989389285,
+          "response_bytes": 4000146
+        },
+        {
+          "concurrency": 4,
+          "phase": "repeat-pass",
+          "requests": 64,
+          "verified": 64,
+          "errors": 0,
+          "error_examples": [],
+          "wall_seconds": 0.08697862399276346,
+          "p50_ms": 1.5542949840892106,
+          "p95_ms": 2.677016978850588,
+          "max_ms": 54.58171697682701,
+          "response_bytes": 4000146
+        }
+      ]
+    },
+    "serving": {
+      "memory_peak_bytes": 4734976,
+      "memory_current_bytes": 3911680,
+      "anonymous_bytes": 1699840,
+      "file_bytes": 1683456,
+      "note": "Snapshot after query batch, before stopping service"
+    }
+  },
+  "monitoring": {
+    "serial_followup": {
+      "samples": 2769,
+      "failed_readiness": 0,
+      "guard_samples": 0,
+      "readiness_p50_ms": 3.0286549881566316,
+      "readiness_p95_ms": 3.992607002146542,
+      "readiness_max_ms": 38.23144698981196,
+      "minimum_available_bytes": 7909765120,
+      "minimum_free_disk_bytes": 31140925440,
+      "maximum_benchmark_bytes": 7277906127,
+      "max_io_full_avg10_percent": 76.97,
+      "sampled_cgroup_peaks_bytes": {
+        "valhalla-serve3": 67723264,
+        "photon-stream-import": 1348493312,
+        "photon-stream-import2": 2494255104,
+        "photon-stream-import3": 2519265280,
+        "photon-stream-import4": 2504134656,
+        "photon-serve4": 702091264,
+        "maps-convert": 2147487744,
+        "maps-inventory": 536870912
+      }
+    },
+    "initial_contention": {
+      "samples": 293,
+      "failed_readiness": 5,
+      "guard_samples": 8,
+      "readiness_p50_ms": 3.1675740028731525,
+      "readiness_p95_ms": 10.580895992461592,
+      "readiness_max_ms": 2011.1470829870086,
+      "minimum_available_bytes": 9415307264,
+      "minimum_free_disk_bytes": 33599569920,
+      "maximum_benchmark_bytes": 4744199697,
+      "max_io_full_avg10_percent": 60.91,
+      "sampled_cgroup_peaks_bytes": {
+        "valhalla-import3": 1761128448,
+        "photon-help": 5574656,
+        "photon-decode": 536870912
+      }
+    }
+  },
+  "final": {
+    "readiness": {
+      "okay": true,
+      "seconds": 0.0373743379896041
+    },
+    "existing_container_count": 41,
+    "cleanup": {
+      "watch_running": false,
+      "lease_state": "inactive",
+      "benchmark_running": []
+    },
+    "public_readiness": {
+      "url": "https://bikers.kz/health/ready",
+      "status": 200,
+      "body": {
+        "status": "ready"
+      },
+      "elapsed_seconds": 0.23622710900963284
+    },
+    "existing_container_changes": [],
+    "benchmark_running": [],
+    "available_bytes": 10272034816,
+    "free_disk_bytes": 32428060672,
+    "retained_task_directory_bytes": 6006821654,
+    "allocated_task_directory_bytes": 6022107136
+  },
+  "limitations": [
+    "Shared-host isolated directories/containers did not prevent the recorded initial app-readiness impact.",
+    "No OS cache flushing. First observed is not disk cold.",
+    "Small repeated fixtures; no production traffic or browser rendering test.",
+    "Map conversion uses prebuilt MBTiles, not PBF tile generation.",
+    "Configured languages do not prove translated names or complete addresses."
+  ]
+}

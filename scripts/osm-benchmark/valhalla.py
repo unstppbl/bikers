@@ -13,6 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 import json
 import math
+import os
 from pathlib import Path
 import time
 from urllib.error import HTTPError, URLError
@@ -116,7 +117,26 @@ def spec(stage: str, data_dir: Path, threads: int, port: int) -> dict:
         mount += ",readonly"
         ports = [{"host": "127.0.0.1", "host_port": port, "container_port": 8002}]
 
-    docker_args = ["--platform", "linux/amd64", "--mount", mount]
+    if stage == "import":
+        original = [entrypoint, *command]
+        entrypoint = "/bin/sh"
+        wrapper = '''set +e
+"$@"
+result=$?
+{
+  echo metric_kind=cgroup_charged_memory_not_process_rss
+  echo workload_exit_status=$result
+  for metric in memory.peak memory.stat memory.events cpu.stat io.stat; do
+    echo "[$metric]"
+    cat "/sys/fs/cgroup/$metric" 2>/dev/null || echo unavailable
+  done
+} > /custom_files/import-cgroup-final.txt
+exit "$result"
+'''
+        command = ["-c", wrapper, "valhalla-import", *original]
+
+    docker_args = ["--platform", "linux/amd64", "--user", f"{os.getuid()}:{os.getgid()}",
+                   "--env", "HOME=/tmp", "--mount", mount]
     for key, value in environment.items():
         docker_args.extend(["--env", f"{key}={value}"])
     for binding in ports:

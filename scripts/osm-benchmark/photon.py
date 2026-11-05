@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 import shutil
 import statistics
+import sys
 import time
 import urllib.error
 import urllib.parse
@@ -28,6 +29,22 @@ DUMP_MD5 = "7d0ddcbee9f54d5f5b36d9912058968e"
 DUMP_BYTES = 191650136
 MIB = 1024**2
 GIB = 1024**3
+IMPORT_WRAPPER = """java "$@"
+java_status=$?
+{
+    printf 'metric_kind=cgroup_charged_memory_not_process_rss\\n'
+    printf 'java_exit_status=%s\\n' "$java_status"
+    for metric in memory.peak memory.stat memory.events cpu.stat io.stat; do
+        printf '\\n[%s]\\n' "$metric"
+        if [ -r "/sys/fs/cgroup/$metric" ]; then
+            cat "/sys/fs/cgroup/$metric"
+        else
+            printf 'unavailable\\n'
+        fi
+    done
+} > /data/import-cgroup-final.txt
+exit "$java_status"
+"""
 
 # These are public search examples, not assertions that every house/translation exists.
 FIXTURES = [
@@ -77,10 +94,8 @@ def manifest() -> dict:
     }
 
 
-def decompress(source: Path, destination: Path, max_bytes: int, min_free_bytes: int) -> dict:
-    """Decode zstd with Ubuntu's existing libzstd; no host package installation."""
-    if destination.exists():
-        raise ValueError(f"Refusing to replace existing output: {destination}")
+def decode_zstd(source: Path, output, max_bytes: int, on_chunk=None) -> dict:
+    """Decode a bounded zstd stream to a binary writer without materializing JSON."""
     with source.open("rb") as compressed:
         if compressed.read(4) != b"\x28\xb5\x2f\xfd":
             raise ValueError("Input does not have the Zstandard frame magic")
@@ -114,42 +129,74 @@ def decompress(source: Path, destination: Path, max_bytes: int, min_free_bytes: 
     context = lib.ZSTD_createDStream()
     if not context:
         raise MemoryError("Cannot create Zstandard decoder")
-    temporary = destination.with_name(destination.name + ".partial")
     total = 0
+    header = None
+    header_bytes = bytearray()
     output_buffer = ctypes.create_string_buffer(256 * 1024)
     started = time.monotonic()
     try:
         check(lib.ZSTD_initDStream(context))
         remaining = 1
-        with source.open("rb") as compressed, temporary.open("xb") as output:
+        with source.open("rb") as compressed:
             while chunk := compressed.read(256 * 1024):
-                if shutil.disk_usage(destination.parent).free < min_free_bytes:
-                    raise RuntimeError("Disk free-space stop condition reached during decompression")
+                if on_chunk is not None:
+                    on_chunk()
                 input_buffer = ctypes.create_string_buffer(chunk)
                 incoming = Input(ctypes.cast(input_buffer, ctypes.c_void_p), len(chunk), 0)
-                while incoming.pos < incoming.size:
+                while True:
                     outgoing = Output(ctypes.cast(output_buffer, ctypes.c_void_p), len(output_buffer), 0)
                     remaining = check(lib.ZSTD_decompressStream(context, ctypes.byref(outgoing), ctypes.byref(incoming)))
-                    total += outgoing.pos
-                    if total > max_bytes:
+                    block = output_buffer.raw[:outgoing.pos]
+                    if total + len(block) > max_bytes:
                         raise RuntimeError("Decompressed source exceeds configured output budget")
-                    output.write(output_buffer.raw[:outgoing.pos])
+                    if header is None:
+                        end = block.find(b"\n")
+                        header_bytes.extend(block if end < 0 else block[:end])
+                        if len(header_bytes) > MIB:
+                            raise ValueError("Photon header exceeds the bounded header budget")
+                        if end >= 0:
+                            header = json.loads(header_bytes)
+                            if header.get("type") != "NominatimDumpFile":
+                                raise ValueError("Unexpected Photon dump header")
+                            header_bytes.clear()
+                    output.write(block)
+                    total += len(block)
+                    if incoming.pos == incoming.size and (remaining == 0 or outgoing.pos < len(output_buffer)):
+                        break
             if remaining:
                 raise ValueError("Truncated Zstandard input")
+            if header is None:
+                raise ValueError("Missing Photon dump header")
             output.flush()
-            os.fsync(output.fileno())
-        # The first header is small; never print the much larger CountryInfo object.
-        with temporary.open("rb") as output:
-            header = json.loads(output.readline(MIB))
-        if header.get("type") != "NominatimDumpFile":
-            raise ValueError("Unexpected Photon dump header")
-        os.link(temporary, destination)
-        temporary.unlink()
         return {"bytes": total, "elapsed_seconds": time.monotonic() - started, "header": header}
     finally:
         lib.ZSTD_freeDStream(context)
+
+
+def decompress(source: Path, destination: Path, max_bytes: int, min_free_bytes: int) -> dict:
+    """Materialize only when explicitly requested; the import benchmark uses stream."""
+    if destination.exists():
+        raise ValueError(f"Refusing to replace existing output: {destination}")
+    temporary = destination.with_name(destination.name + ".partial")
+
+    def disk_guard() -> None:
+        if shutil.disk_usage(destination.parent).free < min_free_bytes:
+            raise RuntimeError("Disk free-space stop condition reached during decompression")
+
+    try:
+        with temporary.open("xb") as output:
+            result = decode_zstd(source, output, max_bytes, disk_guard)
+            os.fsync(output.fileno())
+        os.link(temporary, destination)
+        temporary.unlink()
+        return result
+    finally:
         if temporary.exists():
             temporary.unlink()
+
+
+def stream(args: argparse.Namespace) -> dict:
+    return decode_zstd(args.source, sys.stdout.buffer, args.max_output_gib * GIB)
 
 
 def prepare(args: argparse.Namespace) -> dict:
@@ -180,7 +227,7 @@ def plan(args: argparse.Namespace) -> dict:
     elif not (data / "photon_data").is_dir():
         raise ValueError("Expected an imported photon_data directory")
     docker_args = [
-        "--user", f"{args.uid}:{args.gid}", "--read-only", "--entrypoint", "java",
+        "--user", f"{args.uid}:{args.gid}", "--read-only", "--entrypoint", "/bin/sh" if args.stage == "import" else "java",
         "--tmpfs", "/tmp:rw,nosuid,size=512m", "--env", "HOME=/tmp", "--workdir", "/data",
         "--mount", f"type=bind,src={location['jar']},dst=/opt/photon.jar,readonly",
         "--mount", f"type=bind,src={data},dst=/data",
@@ -189,6 +236,7 @@ def plan(args: argparse.Namespace) -> dict:
     if args.stage == "import":
         docker_args += ["--mount", f"type=bind,src={location['jsonl']},dst=/input/photon.jsonl,readonly"]
         command += ["-import-file", "/input/photon.jsonl", "-country-codes", "kz", "-languages", "kk,ru,en"]
+        command = ["-c", IMPORT_WRAPPER, "photon-import", *command]
     else:
         command += ["-listen-ip", "0.0.0.0", "-listen-port", "2322", "-max-results", "5", "-max-reverse-results", "5", "-query-timeout", "3"]
     return {"image": args.image, "docker_args": docker_args, "command": command, "container_port": 2322 if args.stage == "serve" else None, "data_dir": str(data)}
@@ -209,6 +257,21 @@ def request(base: str, fixture: dict) -> dict:
         return {"id": fixture["id"], "ok": False, "elapsed_ms": (time.perf_counter() - started) * 1000, "error": str(error)}
 
 
+def aggregate_latencies(samples: list[dict]) -> dict:
+    """Include failed attempts in timings so errors cannot hide slow queries."""
+    values = sorted(sample["elapsed_ms"] for sample in samples)
+    successes = sum(bool(sample["ok"]) for sample in samples)
+    return {
+        "count": len(samples),
+        "success_count": successes,
+        "error_count": len(samples) - successes,
+        "p50_ms": statistics.median(values) if values else None,
+        "p95_ms": values[math.ceil(len(values) * .95) - 1] if values else None,
+        "max_ms": values[-1] if values else None,
+        "latency_scope": "all_attempts_including_failures",
+    }
+
+
 def benchmark(args: argparse.Namespace) -> dict:
     base = args.base_url.rstrip("/")
     parsed = urllib.parse.urlsplit(base)
@@ -224,7 +287,7 @@ def benchmark(args: argparse.Namespace) -> dict:
     for fixture in FIXTURES:
         values = sorted(sample["elapsed_ms"] for sample in samples if sample["id"] == fixture["id"] and sample["ok"])
         summary[fixture["id"]] = {"count": len(values), "p50_ms": statistics.median(values) if values else None, "p95_ms": values[math.ceil(len(values) * .95) - 1] if values else None}
-    return {"fixture_count": len(FIXTURES), "concurrency": args.concurrency, "repeats": args.repeats, "first_pass": first_pass, "warm_summary": summary, "warm_failures": [sample for sample in samples if not sample["ok"]], "warm_elapsed_seconds": elapsed, "warm_requests_per_second": len(jobs) / elapsed, "cache_note": "First-pass means the first request per fixture in this run; process/OS caches may already be warm and host caches are never dropped."}
+    return {"fixture_count": len(FIXTURES), "concurrency": args.concurrency, "repeats": args.repeats, "first_pass": first_pass, "first_pass_aggregate": aggregate_latencies(first_pass), "warm_summary": summary, "warm_aggregate": aggregate_latencies(samples), "total_request_count": len(first_pass) + len(samples), "total_error_count": sum(not sample["ok"] for sample in first_pass + samples), "warm_failures": [sample for sample in samples if not sample["ok"]], "warm_elapsed_seconds": elapsed, "warm_requests_per_second": len(jobs) / elapsed, "cache_note": "First-pass means the first request per fixture in this run; process/OS caches may already be warm and host caches are never dropped."}
 
 
 def main() -> None:
@@ -232,6 +295,11 @@ def main() -> None:
     commands = parser.add_subparsers(dest="action", required=True)
     commands.add_parser("manifest")
     commands.add_parser("fixtures")
+    streamed = commands.add_parser("stream")
+    streamed.add_argument("--source", type=Path, required=True)
+    # The regional source expands beyond 4 GiB before country filtering. This caps
+    # bytes sent through the pipe, not resident memory or a materialized JSON file.
+    streamed.add_argument("--max-output-gib", type=int, choices=range(1, 17), default=16)
     prep = commands.add_parser("prepare")
     prep.add_argument("--root", type=Path, required=True)
     prep.add_argument("--max-output-gib", type=int, default=8)
@@ -247,6 +315,16 @@ def main() -> None:
     queries.add_argument("--repeats", type=int, choices=range(1, 21), default=8)
     queries.add_argument("--concurrency", type=int, choices=(1, 2), default=1)
     args = parser.parse_args()
+    if args.action == "stream":
+        try:
+            result = stream(args)
+        except (OSError, ValueError, RuntimeError, MemoryError) as error:
+            print(json.dumps({"stage": "photon-stream", "ok": False, "error": str(error)}), file=sys.stderr, flush=True)
+            if isinstance(error, BrokenPipeError):
+                os._exit(1)
+            raise SystemExit(1)
+        print(json.dumps({"stage": "photon-stream", "ok": True, **result}), file=sys.stderr, flush=True)
+        return
     if args.action == "manifest":
         result = manifest()
     elif args.action == "fixtures":
