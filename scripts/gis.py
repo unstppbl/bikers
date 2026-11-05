@@ -5,22 +5,31 @@ No timer, image pull, or implicit rebuild is installed. Private job receipts reu
 the benchmark's tested host guard, with tmpfs controls and an independent lease.
 """
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 import fcntl
 import hashlib
+import ipaddress
 import json
+import math
 import os
 from pathlib import Path, PurePosixPath
 import re
+import random
 import shutil
 import signal
 import subprocess
 import sys
 import tarfile
 import tempfile
+import threading
 import time
+import urllib.parse
+import urllib.request
 import uuid
 
+# Source integrity checks must not be invalidated by our own helper imports.
+sys.dont_write_bytecode = True
 TOOLS = Path(__file__).resolve().parent
 sys.path.insert(0, str(TOOLS / 'osm-benchmark'))
 import run as guard
@@ -441,6 +450,278 @@ def restart(runtime, component):
                       '--no-build', '--pull', 'never', '--wait', '--wait-timeout', '180', component], 240)
 
 
+def serving_snapshot():
+    names = ['bkgis-' + service + '-1' for service in ('valhalla', 'photon', 'maps')]
+    rows = json.loads(execute(['docker', 'inspect', *names], timeout=10))
+    result = {}
+    for row in rows:
+        labels = row['Config'].get('Labels', {})
+        service = labels.get('com.docker.compose.service')
+        if labels.get('com.docker.compose.project') != 'bkgis' or service not in ('valhalla', 'photon', 'maps'):
+            raise ValueError('Unexpected GIS container identity')
+        state = row['State']
+        if not state['Running'] or state.get('Health', {}).get('Status') != 'healthy':
+            raise ValueError(f'{service} is not healthy and running')
+        ip = None
+        if service != 'maps':
+            ip = row['NetworkSettings']['Networks']['bikerskz_gis']['IPAddress']
+            address = ipaddress.ip_address(ip)
+            if address.version != 4 or not address.is_private or address.is_loopback:
+                raise ValueError('Expected a private Docker IPv4 address')
+        relative = Path(f"/proc/{state['Pid']}/cgroup").read_text().strip().split('::', 1)[1]
+        directory = Path('/sys/fs/cgroup') / relative.lstrip('/')
+        metrics = {name: (directory / name).read_text().strip() for name in
+                   ('memory.current', 'memory.peak', 'memory.stat', 'memory.events', 'cpu.stat', 'io.stat')}
+        host = row['HostConfig']
+        result[service] = {'id': row['Id'], 'ip': ip, 'image': row['Config']['Image'],
+            'memory_limit': host['Memory'], 'memory_swap_limit': host['MemorySwap'],
+            'nano_cpus': host['NanoCpus'], 'cgroups': metrics,
+            'memory_kind': 'cgroup charged memory including cache; not process RSS; peak is since container creation'}
+    if set(result) != {'valhalla', 'photon', 'maps'}:
+        raise ValueError('Three distinct GIS services are required')
+    return result
+
+
+def verification_archive(runtime, values, archive_url=None):
+    if archive_url is None:
+        archive_url = values.get('MAPS_ARCHIVE_URL')
+    if archive_url is None:
+        sha = json.loads((runtime / 'seed.json').read_text())['map_sha256']
+        if not re.fullmatch('[a-f0-9]{64}', sha):
+            raise ValueError('Seed receipt lacks a map archive digest')
+        archive_url = f'/map-data/{sha[:12]}/kazakhstan.pmtiles'
+    if not re.fullmatch(r'/map-data/[a-f0-9]{12,64}/kazakhstan\.pmtiles', archive_url):
+        raise ValueError('Verification requires an explicit versioned same-origin map archive')
+    public = Path(values['GIS_PUBLIC_DIR']).resolve(strict=True)
+    archive = (public / archive_url.lstrip('/')).resolve(strict=True)
+    if not archive.is_relative_to(public) or not archive.is_file() or archive.stat().st_size < 65536:
+        raise ValueError('Expected a local selected map archive of at least 64 KiB')
+    with archive.open('rb') as source:
+        if source.read(8) != b'PMTiles\x03':
+            raise ValueError('Selected archive is not PMTiles v3')
+    return archive, archive_url
+
+
+def in_kazakhstan_box(coordinate):
+    return (isinstance(coordinate, list) and len(coordinate) == 2 and
+            all(isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value) for value in coordinate)
+            and 46 <= coordinate[0] <= 87.5 and 40.5 <= coordinate[1] <= 55.5)
+
+
+def validate_search(body, city=None):
+    if not isinstance(body, dict) or body.get('type') != 'FeatureCollection':
+        raise ValueError('Photon must return a GeoJSON FeatureCollection')
+    features = body.get('features')
+    if not isinstance(features, list) or not 1 <= len(features) <= 8:
+        raise ValueError('Photon must return 1–8 fixture results')
+    for feature in features:
+        geometry = feature.get('geometry', {})
+        properties = feature.get('properties', {})
+        if (feature.get('type') != 'Feature' or geometry.get('type') != 'Point' or
+                not in_kazakhstan_box(geometry.get('coordinates')) or
+                str(properties.get('countrycode', '')).upper() != 'KZ' or
+                not isinstance(properties.get('name'), str) or not properties['name'].strip()):
+            raise ValueError('Photon returned invalid or non-Kazakhstan fixture data')
+    if city:
+        lon, lat = {'almaty': (76.95, 43.24), 'astana': (71.43, 51.13)}[city]
+        if not any(abs(feature['geometry']['coordinates'][0] - lon) < 1 and
+                   abs(feature['geometry']['coordinates'][1] - lat) < 1 for feature in features):
+            raise ValueError('Photon fixture has no result near its expected city')
+    return {'features': len(features), 'first_name': features[0]['properties']['name']}
+
+
+def road_request(points):
+    return {'locations': [{'lat': lat, 'lon': lon, 'type': 'break', 'search_cutoff': 1000} for lat, lon in points],
+            'costing': 'motorcycle', 'costing_options': {'motorcycle': {'use_tracks': 0, 'use_trails': 0}},
+            'format': 'osrm', 'shape_format': 'geojson', 'directions_type': 'none', 'alternates': 0, 'units': 'kilometers'}
+
+
+def validate_route(body, points, distance_bounds):
+    if not isinstance(body, dict) or body.get('code') != 'Ok' or len(body.get('routes', [])) != 1:
+        raise ValueError('Valhalla must return one successful OSRM route')
+    route = body['routes'][0]
+    geometry = route.get('geometry', {})
+    coordinates = geometry.get('coordinates')
+    if (geometry.get('type') != 'LineString' or not isinstance(coordinates, list) or
+            not 2 <= len(coordinates) <= 50000 or not all(in_kazakhstan_box(point) for point in coordinates)):
+        raise ValueError('Valhalla must return bounded Kazakhstan GeoJSON coordinates')
+    distance, duration = route.get('distance'), route.get('duration')
+    if (not isinstance(distance, (int, float)) or not math.isfinite(distance) or
+            not distance_bounds[0] <= distance <= distance_bounds[1] or
+            not isinstance(duration, (int, float)) or isinstance(duration, bool) or not math.isfinite(duration) or not 0 < duration < 604800):
+        raise ValueError('Valhalla fixture distance or duration is invalid')
+    for coordinate, (lat, lon) in zip((coordinates[0], coordinates[-1]), points):
+        if abs(coordinate[0] - lon) > .03 or abs(coordinate[1] - lat) > .03:
+            raise ValueError('Valhalla geometry endpoints do not match the fixture')
+    return {'distance_meters': distance, 'duration_seconds': duration, 'coordinates': len(coordinates)}
+
+
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, _request, _fp, _code, _message, _headers, _url):
+        return None
+
+
+def verify_requests(plan):
+    """A fixed 96-request mixed pilot, never a configurable stress generator."""
+    archive = Path(plan['archive'])
+    size = archive.stat().st_size
+    deadline = time.monotonic() + 85
+    stopped = threading.Event()
+    limits = {'route': threading.Semaphore(1), 'search': threading.Semaphore(2), 'map': threading.Semaphore(2)}
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
+    cities = [('almaty', ['Almaty', 'Алматы', 'Алматы']), ('astana', ['Astana', 'Астана', 'Астана'])]
+    searches = [(city + '_' + lang, {'q': query, 'lang': lang, 'limit': 5,
+                 'countrycode': 'KZ', 'bbox': '46,40.5,87.5,55.5'})
+                for city, names in cities for lang, query in zip(('en', 'ru', 'kk'), names)]
+    routes = [(name, points, bounds) for (name, points), bounds in zip(valhalla.FIXTURES,
+              ((100, 50000), (1000, 100000), (500000, 2000000)))]
+    generator = random.Random(20261105)
+    tasks = []
+    for index in range(32):
+        tasks.extend([('route', *routes[index % len(routes)]), ('search', *searches[index % len(searches)]),
+                      ('map', 'header' if index == 0 else 'range-' + str(index),
+                       0 if index == 0 else generator.randrange(127, size - 65536 + 1), 127 if index == 0 else 65536)])
+
+    def request(task):
+        kind, name, *parameters = task
+        began = time.monotonic()
+        acquired = False
+        row = {'provider': kind, 'fixture': name, 'ok': False}
+        try:
+            if stopped.is_set():
+                raise RuntimeError('Skipped after an earlier verification failure')
+            remaining = deadline - time.monotonic()
+            if remaining <= 0 or not limits[kind].acquire(timeout=remaining):
+                raise TimeoutError('Mixed verification timebox exceeded')
+            acquired = True
+            if stopped.is_set():
+                raise RuntimeError('Skipped after an earlier verification failure')
+            headers, payload = {'Accept-Encoding': 'identity'}, None
+            if kind == 'search':
+                url = plan['photon'] + '/api/?' + urllib.parse.urlencode(parameters[0])
+                maximum = 256 * 1024
+            elif kind == 'route':
+                url = plan['valhalla'] + '/route'
+                payload = json.dumps(road_request(parameters[0])).encode()
+                headers['Content-Type'] = 'application/json'
+                maximum = 8 * 1024**2
+            else:
+                start, length = parameters
+                url = plan['maps']
+                headers['Range'] = f'bytes={start}-{start + length - 1}'
+                maximum = length
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError('Mixed verification timebox exceeded')
+            row['attempted'] = True
+            with opener.open(urllib.request.Request(url, data=payload, headers=headers), timeout=min(8, remaining)) as response:
+                body = response.read(maximum + 1)
+                if len(body) > maximum:
+                    raise ValueError('Provider response exceeds the bounded size')
+                if kind == 'map':
+                    if (response.status != 206 or response.headers.get('Content-Range') != f'bytes {start}-{start + length - 1}/{size}' or
+                            response.headers.get('Content-Length') != str(length) or
+                            response.headers.get('Content-Encoding', 'identity') != 'identity' or len(body) != length):
+                        raise ValueError('Incorrect HTTP range status, headers or length')
+                    with archive.open('rb') as source:
+                        source.seek(start)
+                        if body != source.read(length):
+                            raise ValueError('HTTP range bytes differ from the selected local archive')
+                    row.update(start=start, bytes=length)
+                else:
+                    if response.status != 200:
+                        raise ValueError('Provider did not return HTTP 200')
+                    data = json.loads(body)
+                    row.update(validate_search(data, name.split('_')[0]) if kind == 'search' else validate_route(data, *parameters))
+            row['ok'] = True
+        except Exception as error:
+            row['error'] = type(error).__name__ + ': ' + str(error)
+            stopped.set()
+        finally:
+            if acquired:
+                limits[kind].release()
+            row['elapsed_ms'] = (time.monotonic() - began) * 1000
+        return row
+
+    began = time.monotonic()
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        rows = list(pool.map(request, tasks))
+    summaries = {}
+    for kind in limits:
+        items = [row for row in rows if row['provider'] == kind]
+        values = sorted(row['elapsed_ms'] for row in items if row.get('attempted'))
+        summaries[kind] = {'planned': len(items), 'attempted': sum(bool(row.get('attempted')) for row in items),
+            'successful': sum(row['ok'] for row in items), 'errors': sum(not row['ok'] for row in items),
+            'p50_ms': values[math.ceil(len(values) * .5) - 1] if values else None,
+            'p95_ms': values[math.ceil(len(values) * .95) - 1] if values else None,
+            'max_ms': max(values) if values else None}
+    return {'kind': 'guarded-combined-gis-pilot', 'planned': len(tasks), 'error_count': sum(not row['ok'] for row in rows),
+        'elapsed_seconds': time.monotonic() - began, 'limits': {'workers': 5, 'route': 1, 'search': 2, 'map': 2,
+            'request_timeout_seconds': 8, 'query_window_seconds': 85}, 'summaries': summaries, 'requests': rows,
+        'limitations': ['No cache eviction; first requests are not cold-cache measurements',
+            'Small repeated fixtures and local-network file transport; not route safety or browser acceptance',
+            'Client latency includes semaphore wait and validation; not provider-only latency']}
+
+
+def verify(runtime, archive_url=None):
+    report = {'ok': False, 'started': time.time()}
+    job = None
+    try:
+        values = read_env(runtime / '.env')
+        archive, archive_url = verification_archive(runtime, values, archive_url)
+        with guarded_job(runtime, abort_services=('valhalla', 'photon', 'maps'), seconds=120) as job:
+            before = serving_snapshot()
+            if before['valhalla']['memory_limit'] != guard.GIB or before['valhalla']['memory_swap_limit'] != guard.GIB:
+                raise ValueError('Combined acceptance requires the selected 1 GiB Valhalla cap')
+            plan = {'archive': str(archive), 'archive_url': archive_url,
+                    'photon': 'http://' + before['photon']['ip'] + ':2322',
+                    'valhalla': 'http://' + before['valhalla']['ip'] + ':8002',
+                    'maps': 'http://10.0.0.2:3052' + archive_url}
+            guard.save(job / 'specs/verification.json', plan)
+            report.update(archive_url=archive_url, archive_bytes=archive.stat().st_size, before=before, job=str(job))
+            try:
+                guard.execute(job, 'verification', [sys.executable, str(Path(__file__).resolve()),
+                              '_verify', str(job / 'specs/verification.json')], 90)
+            finally:
+                log = job / 'logs/verification.log'
+                if log.exists():
+                    try:
+                        report['queries'] = json.loads(log.read_text())
+                    except ValueError:
+                        report['query_log_error'] = 'No complete JSON result; inspect the private job log'
+            if report.get('queries', {}).get('error_count') != 0:
+                raise ValueError('Combined verification has provider or range failures')
+            report['after'] = serving_snapshot()
+            for service, original in before.items():
+                current = report['after'][service]
+                if current['id'] != original['id']:
+                    raise ValueError('A GIS container changed during combined acceptance')
+                def events(value):
+                    return {key: int(count) for key, count in (line.split() for line in value['cgroups']['memory.events'].splitlines())}
+                previous_events, current_events = events(original), events(current)
+                if any(current_events.get(key, 0) > previous_events.get(key, 0) for key in ('oom', 'oom_kill')):
+                    raise ValueError('A GIS memory cgroup recorded OOM during combined acceptance')
+        report['ok'] = True
+    except BaseException as error:
+        report['error'] = type(error).__name__ + ': ' + str(error)
+        raise
+    finally:
+        report['ended'] = time.time()
+        if job is not None:
+            report['core_app_watch_receipts'] = {name: str(job / name) for name in
+                ('baseline.json', 'samples.jsonl', 'finished.json', 'abort.json') if (job / name).exists()}
+            if (job / 'samples.jsonl').exists():
+                samples = [json.loads(line) for line in (job / 'samples.jsonl').read_text().splitlines() if line]
+                readings = sorted(row['readiness']['seconds'] for row in samples)
+                report['core_app_watch_summary'] = {'samples': len(samples),
+                    'failed_probes': sum(not row['readiness']['okay'] for row in samples),
+                    'guard_flags': sum(bool(row['reasons']) for row in samples),
+                    'readiness_p95_ms': readings[math.ceil(len(readings) * .95) - 1] * 1000 if readings else None,
+                    'readiness_max_ms': max(readings) * 1000 if readings else None}
+        guard.save(runtime / 'verification.json', report)
+    print(json.dumps({'verified': True, 'receipt': str(runtime / 'verification.json'), 'requests': 96}))
+
+
 def switch(runtime, component, candidate):
     """Select a verified candidate explicitly; keep previous data for rollback."""
     candidate = candidate.resolve(strict=True)
@@ -552,12 +833,18 @@ def refresh(runtime, component, source, expected_sha256, dataset_id):
 
 
 def main():
-    if len(sys.argv) > 1 and sys.argv[1] in ('_watch', '_lease', '_seed-copy', '_copy-input'):
+    if len(sys.argv) > 1 and sys.argv[1] in ('_watch', '_lease', '_seed-copy', '_copy-input', '_verify'):
         action, *args = sys.argv[1:]
         if action == '_seed-copy':
             seed_copy(*map(Path, args)); return
         if action == '_copy-input':
             copy_verified(Path(args[0]), Path(args[1]), args[2]); return
+        if action == '_verify':
+            report = verify_requests(json.loads(Path(args[0]).read_text()))
+            print(json.dumps(report), flush=True)
+            if report['error_count']:
+                raise SystemExit(1)
+            return
         for sig in (signal.SIGTERM, signal.SIGHUP):
             signal.signal(sig, interrupted)
         if action == '_watch': child_watch(Path(args[0]), int(args[1]))
@@ -571,6 +858,8 @@ def main():
     seed_parser.add_argument('--id', required=True)
     commands.add_parser('activate')
     commands.add_parser('status')
+    check = commands.add_parser('verify')
+    check.add_argument('--archive-url', help='Versioned map-data URL; defaults to GIS selection or seed receipt')
     retry = commands.add_parser('restart')
     retry.add_argument('--component', choices=('valhalla', 'photon', 'maps'), required=True)
     build = commands.add_parser('refresh')
@@ -593,6 +882,7 @@ def main():
         elif args.action == 'refresh': refresh(runtime, args.component, args.source.resolve(strict=True), args.sha256, args.id)
         elif args.action == 'switch': switch(runtime, args.component, args.candidate)
         elif args.action == 'restart': restart(runtime, args.component)
+        elif args.action == 'verify': verify(runtime, args.archive_url)
         else: print(execute(compose(runtime) + ['ps', '--format', 'json']))
 
 

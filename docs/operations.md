@@ -181,7 +181,32 @@ python3 scripts/gis.py seed \
   --benchmark /home/user/benchmarks/bikers-osm-kz-20261105-16 \
   --id kz-20261105
 python3 scripts/gis.py activate
+python3 scripts/gis.py verify
 ```
+
+`verify` is the combined serving acceptance step before enabling the core app
+integration. It discovers the running private container IPs from Docker and
+requires the actual **1 GiB Valhalla memory/swap cap**. It sends 96 fixed mixed
+requests: 32 road-motorcycle routes in OSRM/GeoJSON format without directions,
+32 Kazakh/Russian/English Almaty/Astana searches with Kazakhstan filtering,
+and 32 map-header/random 64 KiB range checks against the selected local archive.
+Concurrency is bounded at one route, two searches and two map requests, five
+workers total. Each request has at most an eight-second timeout; the query
+window is 85 seconds, its worker is forcibly bounded at 90 seconds, and an
+independent 120-second lease covers the guarded phase. Preflight and cleanup
+add wall time. This is a small mixed pilot, not a stress or capacity test.
+
+Every response must have the expected type, coordinates/country, plausible
+fixture distance, and exact range status/length/Content-Range/local bytes.
+Any provider/guard error stops the three GIS services. The private
+`/home/user/apps/bikerskz-gis/verification.json` records per-provider latencies,
+counts/errors, before/after cgroup memory/CPU/I/O, container identity/OOM checks,
+and references to the core-app guard receipts. Cgroup peaks include file cache
+and earlier activity; no caches are evicted. After publishing a future map
+candidate, explicitly select its version for this check with
+`python3 scripts/gis.py verify --archive-url /map-data/CONTENT_HASH/kazakhstan.pmtiles`;
+file sizes and range checks come from that archive, rather than initial benchmark
+metadata. The default uses the GIS selected URL or its seed receipt.
 
 Seeding copies the completed `data/valhalla3`, `data/photon-stream4`, PMTiles and
 verified runtime files into a new `releases/kz-20261105` directory. It retains

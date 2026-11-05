@@ -4,9 +4,13 @@ import importlib.util
 import io
 import json
 import os
+import shutil
+import subprocess
+import sys
 from pathlib import Path
 import tarfile
 import tempfile
+import threading
 import unittest
 from unittest.mock import Mock, patch
 
@@ -223,6 +227,155 @@ class SelectionTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, 'already in use'):
                     GIS.activate(runtime)
             guard.assert_not_called()
+
+
+class VerificationTests(unittest.TestCase):
+    @staticmethod
+    def search(city='almaty'):
+        point = [76.95, 43.24] if city == 'almaty' else [71.43, 51.13]
+        return {'type': 'FeatureCollection', 'features': [{'type': 'Feature',
+            'geometry': {'type': 'Point', 'coordinates': point},
+            'properties': {'countrycode': 'KZ', 'name': city}}]}
+
+    def test_search_rejects_empty_foreign_or_wrong_city_data(self):
+        self.assertEqual(GIS.validate_search(self.search(), 'almaty')['features'], 1)
+        for body in ({'type': 'FeatureCollection', 'features': []}, self.search('astana'),
+                     {'type': 'FeatureCollection', 'features': [{'type': 'Feature',
+                      'geometry': {'type': 'Point', 'coordinates': [76.95, 43.24]},
+                      'properties': {'countrycode': 'RU', 'name': 'Almaty'}}]}):
+            with self.assertRaises(ValueError):
+                GIS.validate_search(body, 'almaty')
+
+    def test_route_requires_actual_osrm_geojson_and_fixture_endpoints(self):
+        _, points = GIS.valhalla.FIXTURES[0]
+        body = {'code': 'Ok', 'routes': [{'distance': 4498, 'duration': 600,
+            'geometry': {'type': 'LineString', 'coordinates': [[lon, lat] for lat, lon in points]}}]}
+        self.assertEqual(GIS.validate_route(body, points, (100, 50000))['distance_meters'], 4498)
+        request = GIS.road_request(points)
+        self.assertEqual((request['format'], request['shape_format'], request['directions_type']), ('osrm', 'geojson', 'none'))
+        self.assertEqual(request['costing_options']['motorcycle'], {'use_tracks': 0, 'use_trails': 0})
+        for wrong in ({'trip': {'status': 0}}, {'code': 'Ok', 'routes': []}):
+            with self.assertRaises(ValueError):
+                GIS.validate_route(wrong, points, (100, 50000))
+        body['routes'][0]['geometry']['coordinates'][0] = [71.43, 51.13]
+        with self.assertRaisesRegex(ValueError, 'endpoints'):
+            GIS.validate_route(body, points, (100, 50000))
+
+    def test_archive_selection_uses_current_path_size_and_magic_without_fixed_metadata(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = Path(tmp)
+            relative = '/map-data/' + 'b' * 16 + '/kazakhstan.pmtiles'
+            archive = runtime / relative.lstrip('/'); archive.parent.mkdir(parents=True)
+            archive.write_bytes(b'PMTiles\x03' + bytes(70001))
+            selected, url = GIS.verification_archive(runtime, {'GIS_PUBLIC_DIR': str(runtime)}, relative)
+            self.assertEqual(selected.stat().st_size, 70009)
+            self.assertEqual(url, relative)
+            with self.assertRaises(ValueError):
+                GIS.verification_archive(runtime, {'GIS_PUBLIC_DIR': str(runtime)}, '/map-data/current.pmtiles')
+
+    def test_fixed_mixed_pilot_checks_all_bytes_and_bounds_concurrency(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            archive = Path(tmp) / 'map.pmtiles'
+            data = b'PMTiles\x03' + bytes(range(256)) * 400
+            archive.write_bytes(data)
+            lock = threading.Lock()
+            active = {'route': 0, 'search': 0, 'map': 0}
+            peaks = dict(active)
+            calls = []
+            outer = self
+
+            class Response(io.BytesIO):
+                def __init__(self, body, kind, status=200, headers=None):
+                    super().__init__(body)
+                    self.kind, self.status, self.headers = kind, status, headers or {}
+                def __exit__(self, *_args):
+                    with lock:
+                        active[self.kind] -= 1
+                    self.close()
+
+            class Opener:
+                def open(self, request, timeout):
+                    path = GIS.urllib.parse.urlsplit(request.full_url)
+                    kind = 'route' if path.path == '/route' else 'search' if path.path == '/api/' else 'map'
+                    with lock:
+                        active[kind] += 1
+                        peaks[kind] = max(peaks[kind], active[kind])
+                        calls.append((kind, timeout))
+                    if kind == 'search':
+                        query = GIS.urllib.parse.parse_qs(path.query)
+                        outer.assertEqual(query['countrycode'], ['KZ'])
+                        outer.assertEqual(query['bbox'], ['46,40.5,87.5,55.5'])
+                        city = 'astana' if query['q'][0] in ('Astana', 'Астана') else 'almaty'
+                        return Response(json.dumps(outer.search(city)).encode(), kind)
+                    if kind == 'route':
+                        payload = json.loads(request.data)
+                        points = payload['locations']
+                        coordinates = [[point['lon'], point['lat']] for point in points]
+                        distance = 1227275 if points[-1]['lat'] > 50 else 24022 if points[0]['lon'] > 77 else 4498
+                        return Response(json.dumps({'code': 'Ok', 'routes': [{'distance': distance,
+                            'duration': 1000, 'geometry': {'type': 'LineString', 'coordinates': coordinates}}]}).encode(), kind)
+                    start, end = map(int, request.get_header('Range').split('=')[1].split('-'))
+                    return Response(data[start:end + 1], kind, 206,
+                                    {'Content-Range': f'bytes {start}-{end}/{len(data)}', 'Content-Length': str(end - start + 1)})
+
+            with patch.object(GIS.urllib.request, 'build_opener', return_value=Opener()):
+                report = GIS.verify_requests({'archive': str(archive), 'photon': 'http://photon',
+                    'valhalla': 'http://valhalla', 'maps': 'http://maps/map-data/other/kazakhstan.pmtiles'})
+            self.assertEqual(report['planned'], 96)
+            self.assertEqual(report['error_count'], 0)
+            self.assertEqual({name: row['successful'] for name, row in report['summaries'].items()},
+                             {'route': 32, 'search': 32, 'map': 32})
+            self.assertTrue(all(timeout <= 8 for _, timeout in calls))
+            self.assertTrue(peaks['route'] <= 1 and peaks['search'] <= 2 and peaks['map'] <= 2)
+
+    def test_verification_failure_retains_receipt_and_requests_all_gis_abort_cleanup(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = Path(tmp)
+            job = runtime / 'job'; (job / 'logs').mkdir(parents=True); (job / 'specs').mkdir()
+            GIS.atomic_env(runtime / '.env', {'GIS_PUBLIC_DIR': str(runtime)})
+            archive = runtime / 'map.pmtiles'; archive.write_bytes(b'PMTiles\x03' + bytes(70000))
+            seen = {}
+
+            @contextmanager
+            def guarded(_runtime, **kwargs):
+                seen.update(kwargs)
+                yield job
+
+            def failed_query(*_args):
+                (job / 'logs/verification.log').write_text(json.dumps({'error_count': 1, 'requests': []}))
+                raise RuntimeError('provider fixture failure')
+
+            before = {'valhalla': {'memory_limit': GIS.guard.GIB, 'memory_swap_limit': GIS.guard.GIB, 'ip': '172.25.0.2'},
+                      'photon': {'ip': '172.25.0.3'}}
+            with patch.object(GIS, 'guarded_job', guarded), patch.object(GIS, 'serving_snapshot', return_value=before), \
+                    patch.object(GIS, 'verification_archive', return_value=(archive, '/map-data/' + 'b' * 12 + '/kazakhstan.pmtiles')), \
+                    patch.object(GIS.guard, 'execute', side_effect=failed_query):
+                with self.assertRaisesRegex(RuntimeError, 'provider fixture failure'):
+                    GIS.verify(runtime)
+            receipt = json.loads((runtime / 'verification.json').read_text())
+            self.assertFalse(receipt['ok'])
+            self.assertEqual(receipt['queries']['error_count'], 1)
+            self.assertEqual(seen['abort_services'], ('valhalla', 'photon', 'maps'))
+            self.assertEqual(seen['seconds'], 120)
+
+class SourceCheckoutTests(unittest.TestCase):
+    def test_cli_does_not_create_bytecode_that_invalidates_its_clean_source_check(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            scripts = Path(tmp) / 'scripts'
+            tools = scripts / 'osm-benchmark'
+            tools.mkdir(parents=True)
+            shutil.copyfile(GIS.TOOLS / 'gis.py', scripts / 'gis.py')
+            for filename in ('run.py', 'valhalla.py', 'photon.py'):
+                shutil.copyfile(GIS.TOOLS / 'osm-benchmark' / filename, tools / filename)
+            environment = dict(os.environ)
+            environment.pop('PYTHONDONTWRITEBYTECODE', None)
+            environment.pop('PYTHONPYCACHEPREFIX', None)
+            result = subprocess.run([sys.executable, str(scripts / 'gis.py'), '--help'],
+                                    capture_output=True, text=True, env=environment, timeout=10)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertFalse((tools / '__pycache__').exists())
+            self.assertFalse((scripts / '__pycache__').exists())
+
 
 if __name__ == '__main__':
     unittest.main()
