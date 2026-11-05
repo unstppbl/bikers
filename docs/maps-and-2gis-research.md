@@ -1,8 +1,8 @@
-# Maps and 2GIS API research
+# Maps: 2GIS and OpenStreetMap research
 
 Checked **5 November 2026**. This is research and a proposed integration path, not approval to add map features, buy a subscription, or change the existing ride-access policy. No accounts, subscriptions, paid API calls, or vendor contacts were created for this review.
 
-**Recommendation:** evaluate 2GIS for the Kazakhstan pilot, starting with its cheaper 2D RasterJS/Raster Tiles option for an organizer-selected meeting/destination pin and an approved-participant map. Keep MapGL/vector maps as an alternative if their styling, rendering or mobile experience justify the higher tariff. Both can display our own pins and route overlays. Retain external navigation handoff, and add address search and route calculation only when they justify their separate API charges. [Map product choices](https://docs.2gis.com/en/maps/overview), [RasterJS capabilities](https://docs.2gis.com/en/maps/others/rasterjs/overview)
+**Recommendation after comparing OSM options:** trial MapLibre with Geoapify's commercial Free tier for a low-traffic pin-and-map pilot, provided its daily quota fits, and compare it against 2GIS RasterJS in the same Kazakhstan test area. Keep MapTiler as a paid comparator and regional self-hosted tiles as an independence option. OSM has no data royalty, while tiles/search/routing still need a provider or infrastructure. Neither provider's local quality has been benchmarked here. Retain external navigation handoff and scope search/routing separately. [OSM license](https://www.openstreetmap.org/copyright), [MapLibre](https://maplibre.org/projects/gl-js/), [Geoapify pricing](https://www.geoapify.com/pricing/), [2GIS map choices](https://docs.2gis.com/en/maps/overview)
 
 ## Which 2GIS products we would use
 
@@ -115,8 +115,59 @@ This review does not change the deferred status of a community route library, li
 
 | Option | Published commercial starting point | Fit and qualification |
 | --- | --- | --- |
-| 2GIS RasterJS or MapGL | Separate tile/API subscriptions; see tariff comparison above | Preferred candidate for a Kazakhstan pilot; evaluate actual meeting places and routes before committing. |
+| 2GIS RasterJS or MapGL | Separate tile/API subscriptions; see tariff comparison above | Candidate for a Kazakhstan pilot; evaluate actual meeting places and routes before committing. |
 | MapTiler Cloud with its SDK or MapLibre | Flex lists **US$30/month excluding VAT**, with 25,000 map sessions through MapTiler SDK or 500,000 API requests for third-party SDK use; 3,000 search sessions | A useful price/coverage comparator. These are different billing metrics: MapLibre does not automatically inherit the SDK session allowance. The free plan is for testing/personal noncommercial use. [MapTiler pricing](https://www.maptiler.com/cloud/pricing/), [MapLibre project](https://maplibre.org/projects/gl-js/) |
 | Yandex Maps | Paid tariffs depend on the product and selected offer | Its free-use terms require open/free access, while explicitly allowing ordinary registration. Organizer-approved private ride details need written licensing confirmation; do not treat either “all authentication is forbidden” or “any authenticated page is free” as the rule. [Terms, section 4.1.1](https://www.yandex.ru/legal/maps_api/en/), [tariffs](https://yandex.ru/maps-api/tariffs) |
 
-OpenStreetMap data and MapLibre rendering are separate from a production tile-hosting service. The standard OSM tile server has usage restrictions, no SLA and no permission for offline/bulk downloads. An OSM-based option needs a suitable paid tile provider or a self-hosting/operations budget. [OSM tile-use policy](https://operations.osmfoundation.org/policies/tiles/)
+## OpenStreetMap: data, rendering and services
+
+OSM is an open geographic database, not one bundled maps/search/routing product. A practical stack has separate parts:
+
+| Part | Example | What we pay for |
+| --- | --- | --- |
+| Map data | OSM under ODbL | No data royalty; attribution and license obligations apply. |
+| Browser rendering | MapLibre GL JS for vector maps; Leaflet for raster maps | Open-source library; it does not supply hosted map data or search by itself. |
+| Tiles, styles and map assets | Hosted provider, or our PMTiles archive/static host | Provider plan, or storage/requests/bandwidth and operations. |
+| Address/POI search | Hosted geocoder, or our own search service | Separate service/hosting; displaying a pin does not require it. |
+| Road-route calculation | Hosted or self-operated routing engine | Separate service/hosting; a map renderer can draw a supplied route without calculating it. |
+
+[OSM data license](https://www.openstreetmap.org/copyright), [MapLibre project](https://maplibre.org/projects/gl-js/), [Leaflet](https://leafletjs.com/), [Protomaps system overview](https://docs.protomaps.com/)
+
+### Hosted costs for a pilot
+
+KZT estimates below use the NBK's 5 November 2026 rate of **₸452.91 per USD** and exclude applicable taxes and payment fees. [NBK rates](https://nationalbank.kz/en/exchangerates/ezhednevnye-oficialnye-rynochnye-kursy-valyut)
+
+| Option | Published allowance and price | BIKERS.KZ implication |
+| --- | --- | --- |
+| Geoapify Free | **US$0**, 3,000 credits/day; pricing FAQ explicitly permits commercial production use within the limits and attribution requirements | A practical first trial. The daily pool is shared across APIs, not a monthly allowance. |
+| Geoapify API 10 | **US$59/month**, 10,000 credits/day; taxes extra | About **₸26,722/month** at the exchange rate used above. |
+| MapTiler Flex | **US$30/month**, excluding VAT; SDK sessions and third-party-renderer requests have separate allowances | About **₸13,587/month**; use the request allowance when choosing MapLibre, as explained in the shortlist. |
+| Our regional PMTiles | **US$0 OSM data royalty**; hosting, delivery, build/refresh and operations are ours | No vendor map-call license fee; exact cost needs an archive-size/traffic measurement and hosting choice. |
+
+Geoapify lists 0.25 credit per standard map tile and one credit per simple geocoding/autocomplete request; routing costs depend on waypoints, distance and additional features. If all Free credits were spent on tiles, that is **12,000 tiles/day**, with no room left for other APIs. It is not 12,000 map opens, and unused daily allowance is not a monthly budget. Free use requires Geoapify and data-source attribution, including OpenMapTiles for most styles. [Geoapify prices and production-use FAQ](https://www.geoapify.com/pricing/), [credit rules](https://www.geoapify.com/pricing-details/), [map API accounting](https://apidocs.geoapify.com/docs/maps/), [MapTiler pricing](https://www.maptiler.com/cloud/pricing/)
+
+Geoapify separately documents a motorcycle routing mode and permission to store/redistribute route results, subject to attribution and underlying-data licensing. That makes it worth evaluating for a saved-route feature rather than assuming all hosted API output must be temporary. Local route quality remains untested. [Geoapify motorcycle routing and result reuse](https://www.geoapify.com/routing-api/)
+
+### License and our ride data
+
+OSM permits commercial use. Show visible “© OpenStreetMap contributors” attribution linked to the license information. ODbL does not require disclosing our application source code. Independently collected ride/member data shown as a separate overlay does not automatically become an OSM derivative database; keep its provenance and separation clear. An adapted OSM database or substantial extracted dataset can have share-alike obligations, so do not treat a copied OSM POI directory as our independent data. [Copyright and attribution](https://www.openstreetmap.org/copyright), [ODbL sections 2.3, 3.1 and 4](https://opendatacommons.org/licenses/odbl/1-0/), [OSMF horizontal-layer guidance](https://osmfoundation.org/wiki/Licence/Community_Guidelines/Horizontal_Map_Layers_-_Guideline)
+
+### Public OSM services have separate rules
+
+The standard `tile.openstreetmap.org` service allows compliant normal interactive viewing; it does **not** categorically ban commercial applications. It requires attribution, an identifying client/referrer and caching according to response headers (at least seven days if those headers cannot be read). Bulk/offline downloading and prefetching are prohibited. It has no SLA and access can be withdrawn, so it is unsuitable as our assumed unlimited production infrastructure. These restrictions apply to that public raster service, not to all OSM-based providers or self-hosted data. [OSMF tile policy](https://operations.osmfoundation.org/policies/tiles/)
+
+Public Nominatim allows moderate user-triggered searches at an aggregate maximum of **one request/second for the entire application**. It requires identification, attribution and the ability to switch service; caching is recommended. Autocomplete, systematic POI extraction and sending confidential data are prohibited. Consequently, it is not a drop-in free autocomplete backend for BIKERS.KZ. A commercial geocoder or self-hosted service has its own capacity and terms. [Public Nominatim policy](https://operations.osmfoundation.org/policies/nominatim/)
+
+### Practical Kazakhstan self-hosting path
+
+Our proposed vector-map path is:
+
+`Kazakhstan OSM extract → Planetiler/Protomaps → versioned PMTiles + styles/fonts/icons → static HTTPS hosting → MapLibre in the PWA`
+
+Geofabrik provides a Kazakhstan `.osm.pbf` extract, listed at **215 MB** when checked, plus update files. That is compressed input data, not the finished tileset size or a runtime memory estimate. Planetiler can generate PMTiles from regional OSM data. Alternatively, Protomaps documents extracting a chosen bounding box from its daily basemap builds. Neither path requires downloading tiles from OSMF's public raster server. [Kazakhstan extract](https://download.geofabrik.de/asia/kazakhstan.html), [Planetiler](https://github.com/onthegomap/planetiler), [Protomaps regional extraction](https://docs.protomaps.com/guide/getting-started)
+
+PMTiles can be served by object storage or Nginx/Caddy using HTTP Range requests, with appropriate CORS when hosted on another origin. MapLibre also needs compatible styles, glyphs and sprites. This avoids operating a dynamic tile-rendering database for each map view, but still requires rebuilds/refreshes, versioned publication, capacity monitoring and storage/traffic costs. Keep private rider overlays in the existing authenticated API, separate from the public basemap archive. [PMTiles hosting](https://docs.protomaps.com/pmtiles/cloud-storage), [MapLibre assets](https://docs.protomaps.com/basemaps/maplibre)
+
+Future self-hosted routing could evaluate Valhalla's **beta** motorcycle costing or GraphHopper's example motorcycle/curvature models; these require profile validation and Kazakhstan route tests, and are not interchangeable with a scooter profile. [Valhalla routing reference](https://valhalla.github.io/valhalla/api/route/api-reference/), [GraphHopper example configuration](https://github.com/graphhopper/graphhopper/blob/master/config-example.yml)
+
+For the first release, I would trial **MapLibre plus Geoapify Free**, measure daily tile/search credits and compare actual Kazakhstan roads, addresses and English/Russian/Kazakh labels against 2GIS. Use manual pin selection and external navigation first. Move to paid hosting when the quota or features require it; choose a Kazakhstan PMTiles archive if owning updates/hosting becomes worthwhile. Add geocoding or routing when that feature is approved; neither is included merely by adopting OSM. A combination with 2GIS remains subject to its own cross-provider display/storage terms.
