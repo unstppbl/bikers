@@ -43,7 +43,7 @@ class GateFixture:
         (self.runtime / '.deploy').mkdir(parents=True)
         for index, filename in enumerate(GATE.DEPLOY.MIGRATION_FILES, 1):
             (directory / filename).write_text(f'-- migration {index}\n')
-        (directory / 'migrations.go').write_text(','.join(f'{{{i}, schema{i}}}' for i in range(1, 10)))
+        (directory / 'migrations.go').write_text(','.join(f'{{{i}, schema{i}}}' for i in range(1, 11)))
         self.schema = GATE.DEPLOY.migration_checksums(self.checkout)
         self.main, self.live, self.head = REVISION, OLD, OLD
         self.run_value, self.jobs = ci_run(), ci_jobs()

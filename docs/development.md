@@ -332,3 +332,21 @@ opt-out invalidate stale reminder delivery. Downloaded calendar files use stable
 UIDs and plan sequences, UTC departure, private classification and cancellation
 status, and remain snapshots. This development change does not perform a
 production migration, OTP request or live notification test.
+
+
+## Self-hosted maps
+
+`make up` creates the local internal `bikerskz_gis` network if needed. Leave
+`PHOTON_BASE_URL`, `VALHALLA_BASE_URL` and `MAPS_ARCHIVE_URL` empty to develop
+text-only rides. A map-enabled environment uses private Photon and Valhalla
+origins plus a versioned same-origin archive path such as
+`/map-data/2583113c45ca/kazakhstan.pmtiles`.
+
+The Vite development server forwards `/map-data/` to `BIKERSKZ_DEV_MAPS_TARGET`
+(or the API target by default). Address queries and route plans stay online-only
+and private; the service worker does not cache them. The test-only browser harness
+can opt into explicitly supplied GIS origins with `BROWSER_HARNESS_GIS=1`.
+
+See [GIS operations](operations.md) for the durable Jarvis services and guarded,
+serial data staging/refresh commands. Development must use disposable databases;
+production accounts and sessions are never copied into a local map fixture.

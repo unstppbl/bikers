@@ -10,11 +10,11 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-const rideColumns = "id::text,city,description,status,title,starts_at,timezone,meeting_point,destination,route_url,expectations,capacity,plan_version,organizer_id::text,to_char(starts_at AT TIME ZONE timezone,'YYYY-MM-DD')"
+const rideColumns = "id::text,city,description,status,title,starts_at,timezone,meeting_point,destination,route_url,expectations,capacity,plan_version,organizer_id::text,to_char(starts_at AT TIME ZONE timezone,'YYYY-MM-DD'),map_plan"
 
 func scanRide(row pgx.Row) (models.Ride, error) {
 	var ride models.Ride
-	err := row.Scan(&ride.ID, &ride.City, &ride.Description, &ride.Status, &ride.Title, &ride.StartsAt, &ride.Timezone, &ride.MeetingPoint, &ride.Destination, &ride.RouteURL, &ride.Expectations, &ride.Capacity, &ride.PlanVersion, &ride.OrganizerID, &ride.Date)
+	err := row.Scan(&ride.ID, &ride.City, &ride.Description, &ride.Status, &ride.Title, &ride.StartsAt, &ride.Timezone, &ride.MeetingPoint, &ride.Destination, &ride.RouteURL, &ride.Expectations, &ride.Capacity, &ride.PlanVersion, &ride.OrganizerID, &ride.Date, &ride.MapPlan)
 	return ride, repositoryError(err)
 }
 func readParticipation(ctx context.Context, q querier, rideID, userID string) (string, error) {
@@ -122,7 +122,7 @@ func (s *Store) CreateRide(ctx context.Context, ride models.Ride, organizerState
 	if err = decide(owner); err != nil {
 		return models.Ride{}, err
 	}
-	_, err = tx.Exec(ctx, `INSERT INTO rides(id,organizer_id,city,description,title,starts_at,timezone,meeting_point,destination,route_url,expectations,capacity,status,plan_version,created_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`, ride.ID, ride.OrganizerID, ride.City, ride.Description, ride.Title, ride.StartsAt, ride.Timezone, ride.MeetingPoint, ride.Destination, ride.RouteURL, ride.Expectations, ride.Capacity, ride.Status, ride.PlanVersion, at)
+	_, err = tx.Exec(ctx, `INSERT INTO rides(id,organizer_id,city,description,title,starts_at,timezone,meeting_point,destination,route_url,expectations,capacity,status,plan_version,created_at,map_plan) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`, ride.ID, ride.OrganizerID, ride.City, ride.Description, ride.Title, ride.StartsAt, ride.Timezone, ride.MeetingPoint, ride.Destination, ride.RouteURL, ride.Expectations, ride.Capacity, ride.Status, ride.PlanVersion, at, ride.MapPlan)
 	if err != nil {
 		return models.Ride{}, repositoryError(err)
 	}
@@ -182,7 +182,7 @@ func (t *rideTransaction) SetParticipation(userID, state string, at time.Time) e
 }
 func (t *rideTransaction) UpdateRide(ride models.Ride) error {
 	// Identity/ownership and message sequence are not changed by a plan update.
-	updated, err := scanRide(t.tx.QueryRow(t.ctx, `UPDATE rides SET city=$2,description=$3,title=$4,starts_at=$5,timezone=$6,meeting_point=$7,destination=$8,route_url=$9,expectations=$10,capacity=$11,status=$12,plan_version=$13 WHERE id=$1 RETURNING `+rideColumns, t.ride.ID, ride.City, ride.Description, ride.Title, ride.StartsAt, ride.Timezone, ride.MeetingPoint, ride.Destination, ride.RouteURL, ride.Expectations, ride.Capacity, ride.Status, ride.PlanVersion))
+	updated, err := scanRide(t.tx.QueryRow(t.ctx, `UPDATE rides SET city=$2,description=$3,title=$4,starts_at=$5,timezone=$6,meeting_point=$7,destination=$8,route_url=$9,expectations=$10,capacity=$11,status=$12,plan_version=$13,map_plan=$14 WHERE id=$1 RETURNING `+rideColumns, t.ride.ID, ride.City, ride.Description, ride.Title, ride.StartsAt, ride.Timezone, ride.MeetingPoint, ride.Destination, ride.RouteURL, ride.Expectations, ride.Capacity, ride.Status, ride.PlanVersion, ride.MapPlan))
 	if err != nil {
 		return err
 	}

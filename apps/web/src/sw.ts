@@ -8,7 +8,7 @@ declare const self: ServiceWorkerGlobalScope & { __WB_MANIFEST: { url: string; r
 clientsClaim()
 cleanupOutdatedCaches()
 precacheAndRoute(self.__WB_MANIFEST)
-registerRoute(new NavigationRoute(createHandlerBoundToURL('index.html'), { denylist: [/^\/api(?:\/|$)/, /^\/media(?:\/|$)/, /^\/bike-models(?:\/|$)/] }))
+registerRoute(new NavigationRoute(createHandlerBoundToURL('index.html'), { denylist: [/^\/map-data(?:\/|$)/, /^\/api(?:\/|$)/, /^\/media(?:\/|$)/, /^\/bike-models(?:\/|$)/] }))
 self.addEventListener('message', (event) => { if (event.data?.type === 'SKIP_WAITING') void self.skipWaiting() })
 self.addEventListener('push', (event) => {
   let payload: unknown

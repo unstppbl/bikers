@@ -22,6 +22,9 @@ type Config struct {
 	PushPublicKey     string
 	PushPrivateKey    string
 	PushSubject       string
+	PhotonBaseURL     string
+	ValhallaBaseURL   string
+	MapsArchiveURL    string
 }
 
 func Load() (Config, error) {
@@ -29,6 +32,12 @@ func Load() (Config, error) {
 	c.PushPublicKey = os.Getenv("WEB_PUSH_PUBLIC_KEY")
 	c.PushPrivateKey = os.Getenv("WEB_PUSH_PRIVATE_KEY")
 	c.PushSubject = os.Getenv("WEB_PUSH_SUBJECT")
+	c.PhotonBaseURL = os.Getenv("PHOTON_BASE_URL")
+	c.ValhallaBaseURL = os.Getenv("VALHALLA_BASE_URL")
+	c.MapsArchiveURL = os.Getenv("MAPS_ARCHIVE_URL")
+	if err := ValidateMaps(c.PhotonBaseURL, c.ValhallaBaseURL, c.MapsArchiveURL); err != nil {
+		return c, err
+	}
 	if err := ValidatePush(c.PushPublicKey, c.PushPrivateKey, c.PushSubject); err != nil {
 		return c, err
 	}

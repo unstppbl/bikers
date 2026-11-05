@@ -38,13 +38,16 @@ var clubNotificationsSQL string
 //go:embed schema_009_notification_preferences_reminders.sql
 var notificationPreferencesRemindersSQL string
 
+//go:embed schema_010_ride_maps.sql
+var rideMapsSQL string
+
 type migration struct {
 	version int
 	sql     string
 }
 
 func migrations() []migration {
-	return []migration{{1, schemaSQL}, {2, garageClubsSQL}, {3, bikePhotosSQL}, {4, clubImagesSQL}, {5, mediaSQL}, {6, trustSQL}, {7, notificationsSQL}, {8, clubNotificationsSQL}, {9, notificationPreferencesRemindersSQL}}
+	return []migration{{1, schemaSQL}, {2, garageClubsSQL}, {3, bikePhotosSQL}, {4, clubImagesSQL}, {5, mediaSQL}, {6, trustSQL}, {7, notificationsSQL}, {8, clubNotificationsSQL}, {9, notificationPreferencesRemindersSQL}, {10, rideMapsSQL}}
 }
 func migrationChecksum(sql string) string { return fmt.Sprintf("%x", sha256.Sum256([]byte(sql))) }
 func schemaChecksum() string              { return migrationChecksum(schemaSQL) }

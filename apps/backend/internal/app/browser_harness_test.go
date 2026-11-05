@@ -77,6 +77,15 @@ func TestBrowserHarness(t *testing.T) {
 	cfg := f.cfg
 	cfg.BaseURL = base
 	cfg.WebDistDir = web
+	if os.Getenv("BROWSER_HARNESS_GIS") == "1" {
+		cfg.PhotonBaseURL = os.Getenv("PHOTON_BASE_URL")
+		cfg.ValhallaBaseURL = os.Getenv("VALHALLA_BASE_URL")
+		cfg.MapsArchiveURL = os.Getenv("MAPS_ARCHIVE_URL")
+		if cfg.PhotonBaseURL == "" || cfg.ValhallaBaseURL == "" || cfg.MapsArchiveURL == "" {
+			t.Fatal("GIS harness requires explicit PHOTON_BASE_URL, VALHALLA_BASE_URL and MAPS_ARCHIVE_URL")
+		}
+		t.Log("TEST-ONLY GIS providers and same-origin archive enabled from explicit environment settings")
+	}
 	options := Options{Now: func() time.Time { return time.Now().UTC() }}
 	if os.Getenv("BROWSER_HARNESS_PUSH") == "1" {
 		private, x, y, err := elliptic.GenerateKey(elliptic.P256(), rand.Reader)

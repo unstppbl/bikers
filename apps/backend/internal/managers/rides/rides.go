@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"net/url"
+	"reflect"
 	"strings"
 	"time"
 
@@ -15,19 +16,23 @@ import (
 )
 
 type Events interface{ Publish(string, string) }
+type Planner interface {
+	Plan(context.Context, models.User, []models.MapPoint) (*models.MapPlan, error)
+}
 
 type Manager struct {
 	repo      database.RidesRepository
 	events    Events
 	now       func() time.Time
 	cursorKey [32]byte
+	planner   Planner
 }
 
-func New(repo database.RidesRepository, events interface{ Publish(string, string) }, now func() time.Time) *Manager {
+func New(repo database.RidesRepository, events interface{ Publish(string, string) }, now func() time.Time, planner Planner) *Manager {
 	if now == nil {
 		now = time.Now
 	}
-	manager := &Manager{repo: repo, events: events, now: now}
+	manager := &Manager{repo: repo, events: events, now: now, planner: planner}
 	if _, err := rand.Read(manager.cursorKey[:]); err != nil {
 		panic("cannot initialize ride cursor signing key")
 	}
@@ -99,7 +104,12 @@ func (m *Manager) Create(ctx context.Context, actor models.User, input models.Ri
 	if !actor.OnboardingComplete {
 		return models.Ride{}, models.Fail("profile_required", "Complete your rider profile first")
 	}
+	input = withMapLabels(input, input.MapPoints)
 	input, err := validateInput(input)
+	if err != nil {
+		return models.Ride{}, err
+	}
+	plan, err := m.plan(ctx, actor, input.MapPoints)
 	if err != nil {
 		return models.Ride{}, err
 	}
@@ -107,7 +117,7 @@ func (m *Manager) Create(ctx context.Context, actor models.User, input models.Ri
 		RideSummary: models.RideSummary{ID: uuid.NewString(), City: input.City, Description: input.Description, Status: "published"},
 		Title:       input.Title, StartsAt: input.StartsAt, Timezone: input.Timezone, MeetingPoint: input.MeetingPoint,
 		Destination: input.Destination, RouteURL: input.RouteURL, Expectations: input.Expectations, Capacity: input.Capacity,
-		PlanVersion: 1, OrganizerID: actor.ID,
+		PlanVersion: 1, OrganizerID: actor.ID, MapPlan: plan,
 	}
 	stored, err := m.repo.CreateRide(ctx, ride, "approved", m.now().UTC(), func(owner models.GarageOwner) error {
 		if owner.Status != "active" {
@@ -126,22 +136,39 @@ func (m *Manager) Update(ctx context.Context, actor models.User, id string, patc
 	if err != nil {
 		return models.Ride{}, err
 	}
+	var preparedPlan *models.MapPlan
+	if patch.MapPoints != nil {
+		// A cheap read avoids planning for unauthorized or already-stale edits.
+		// Every condition is checked again under the write lock after the call.
+		current, err := m.repo.Ride(ctx, id)
+		if err != nil {
+			return models.Ride{}, rideError(err)
+		}
+		if err := editableRide(current, actor.ID, patch.PlanVersion); err != nil {
+			return models.Ride{}, err
+		}
+		if _, err := validateInput(withMapLabels(patchedInput(current, patch), *patch.MapPoints)); err != nil {
+			return models.Ride{}, err
+		}
+		preparedPlan, err = m.plan(ctx, actor, *patch.MapPoints)
+		if err != nil {
+			return models.Ride{}, err
+		}
+	}
 	var result models.Ride
 	err = m.repo.WithRide(ctx, id, func(tx database.RideTransaction) error {
 		if err := activeRideActor(tx, actor.ID); err != nil {
 			return err
 		}
 		ride := tx.Ride()
-		if ride.OrganizerID != actor.ID {
-			return models.Fail("forbidden", "Organizer access required")
+		if err := editableRide(ride, actor.ID, patch.PlanVersion); err != nil {
+			return err
 		}
-		if ride.Status == "cancelled" {
-			return models.Fail("ride_cancelled", "Ride is cancelled")
+		input := patchedInput(ride, patch)
+		if patch.MapPoints != nil {
+			input = withMapLabels(input, *patch.MapPoints)
 		}
-		if patch.PlanVersion != ride.PlanVersion {
-			return models.Fail("stale_plan", "Ride plan changed; refresh and retry")
-		}
-		input, err := validateInput(patchedInput(ride, patch))
+		input, err := validateInput(input)
 		if err != nil {
 			return err
 		}
@@ -152,10 +179,17 @@ func (m *Manager) Update(ctx context.Context, actor models.User, id string, patc
 		if input.Capacity < count {
 			return models.Fail("capacity_too_small", "Capacity is below the approved participant count")
 		}
-		significant := !ride.StartsAt.Equal(input.StartsAt) || ride.MeetingPoint != input.MeetingPoint || ride.Destination != input.Destination || ride.RouteURL != input.RouteURL || ride.Expectations != input.Expectations
+		plan := ride.MapPlan
+		if patch.MapPoints != nil {
+			plan = preparedPlan
+		} else if ride.MeetingPoint != input.MeetingPoint || ride.Destination != input.Destination {
+			plan = nil
+		}
+		significant := !ride.StartsAt.Equal(input.StartsAt) || ride.MeetingPoint != input.MeetingPoint || ride.Destination != input.Destination || ride.RouteURL != input.RouteURL || ride.Expectations != input.Expectations || !reflect.DeepEqual(ride.MapPlan, plan)
 		ride.City, ride.Description, ride.Title = input.City, input.Description, input.Title
 		ride.StartsAt, ride.Timezone, ride.MeetingPoint = input.StartsAt, input.Timezone, input.MeetingPoint
 		ride.Destination, ride.RouteURL, ride.Expectations, ride.Capacity = input.Destination, input.RouteURL, input.Expectations, input.Capacity
+		ride.MapPlan = plan
 		ride.PlanVersion++
 		if err := tx.UpdateRide(ride); err != nil {
 			return err
@@ -171,6 +205,41 @@ func (m *Manager) Update(ctx context.Context, actor models.User, id string, patc
 	}
 	m.publish(id, "ride.updated")
 	return result, nil
+}
+
+func editableRide(ride models.Ride, actor string, version int64) error {
+	if ride.OrganizerID != actor {
+		return models.Fail("forbidden", "Organizer access required")
+	}
+	if ride.Status == "cancelled" {
+		return models.Fail("ride_cancelled", "Ride is cancelled")
+	}
+	if version != ride.PlanVersion {
+		return models.Fail("stale_plan", "Ride plan changed; refresh and retry")
+	}
+	return nil
+}
+
+func (m *Manager) plan(ctx context.Context, actor models.User, points []models.MapPoint) (*models.MapPlan, error) {
+	if len(points) == 0 {
+		return nil, nil
+	}
+	if m.planner == nil {
+		return nil, models.Fail("maps_unavailable", "Maps are temporarily unavailable")
+	}
+	return m.planner.Plan(ctx, actor, points)
+}
+
+func withMapLabels(input models.RideInput, points []models.MapPoint) models.RideInput {
+	if len(points) == 0 {
+		return input
+	}
+	input.MeetingPoint = points[0].Label
+	input.Destination = ""
+	if len(points) > 1 {
+		input.Destination = points[len(points)-1].Label
+	}
+	return input
 }
 
 func (m *Manager) Cancel(ctx context.Context, actor models.User, id string, planVersion int64) (models.Ride, error) {
