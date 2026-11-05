@@ -6,6 +6,7 @@ import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import { Protocol } from 'pmtiles'
 import type { Locale, MapGeometry, MapPoint } from '../../types'
 import { mapStyle } from './map-style'
+import { resetMapArchive } from './map-runtime'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import './map-canvas.css'
 
@@ -166,5 +167,13 @@ function MapSurface({ points, geometry, archiveUrl, locale, onPick, disabled, re
 
 export default function MapCanvas(props: MapCanvasProps) {
   const [attempt, setAttempt] = useState(0)
-  return <MapSurface key={`${props.archiveUrl}:${props.locale}:${attempt}`} {...props} retry={() => setAttempt((current) => current + 1)} />
+  const retry = () => {
+    try {
+      if (protocol) resetMapArchive(protocol, props.archiveUrl, window.location.origin)
+    } catch {
+      return
+    }
+    setAttempt((current) => current + 1)
+  }
+  return <MapSurface key={`${props.archiveUrl}:${props.locale}:${attempt}`} {...props} retry={retry} />
 }
