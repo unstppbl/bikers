@@ -358,6 +358,195 @@ class VerificationTests(unittest.TestCase):
             self.assertEqual(seen['abort_services'], ('valhalla', 'photon', 'maps'))
             self.assertEqual(seen['seconds'], 120)
 
+
+class AdoptionTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name)
+        self.runtime = self.root / 'runtime'; self.runtime.mkdir()
+        self.benchmark = self.root / 'bikers-osm-kz-source'; self.benchmark.mkdir()
+        self.job = self.runtime / 'jobs/bikers-osm-kz-adopt'
+        for folder in ('data', 'inputs', 'logs', 'results', 'specs'):
+            (self.job / folder).mkdir(parents=True, exist_ok=True)
+        for relative, _ in GIS.ADOPT_SOURCES:
+            path = self.benchmark / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            if relative in ('data/valhalla3', 'data/photon-stream4', 'tools/jre'):
+                path.mkdir(); (path / 'original').write_text(relative)
+            else:
+                path.write_text(relative)
+        self.counter = b'workload_exit_status=0\n[memory.peak]\n123456\n'
+        for relative in ('data/valhalla3/import-cgroup-final.txt', 'data/photon-stream4/import-cgroup-final.txt', 'data/maps/convert-cgroup-final.txt'):
+            (self.benchmark / relative).write_bytes(self.counter)
+        (self.benchmark / 'finished.json').write_text(json.dumps({'existing_container_changes': [],
+            'benchmark_running': [], 'readiness': {'okay': True}}))
+        (self.benchmark / 'results').mkdir()
+        receipt = {'valhalla': {'import': {'exit_code': 0, 'oom_killed': False}},
+                   'photon': {'import': {'exit_code': 0, 'oom_killed': False},
+                              'stream_completion': {'ok': True}, 'status': {'status': 'Ok'}},
+                   'maps': {'conversion': {'exit_code': 0, 'oom_killed': False}}}
+        (self.benchmark / 'results/published-results.json').write_text(json.dumps(receipt))
+        self.source_identity = {relative: GIS.object_identity(self.benchmark / relative) for relative, _ in GIS.ADOPT_SOURCES}
+        self.addCleanup(patch.stopall)
+        patch.object(GIS, 'ADOPTION_UID', os.getuid()).start()
+        patch.object(GIS, 'execute', return_value='').start()
+        patch.object(GIS.guard, 'ensure_watch').start()
+
+        @contextmanager
+        def job(*_args, **_kwargs):
+            yield self.job
+            self.assertFalse((self.runtime / '.env').exists(), 'Environment published before final guard completed')
+        patch.object(GIS, 'guarded_job', job).start()
+
+        def prepare(_job, name, *_args, **_kwargs):
+            self.assertEqual(name, 'adopt-prepare')
+            output = self.job / 'data/adopting'
+            (output / 'runtime').mkdir(parents=True)
+            (output / 'public/map-data' / GIS.MAP_SHA256[:12]).mkdir(parents=True)
+            inventory = GIS.validate_adoption_tree(self.benchmark, self.runtime.stat().st_dev)
+            (self.job / 'logs/adopt-prepare.log').write_text(json.dumps({'source_inventory': inventory}))
+        patch.object(GIS, 'stage', side_effect=prepare).start()
+
+    def adopt(self):
+        GIS.adopt(self.runtime, self.benchmark, 'adopted', self.job / 'inputs')
+
+    def assert_sources_restored(self):
+        for relative, _ in GIS.ADOPT_SOURCES:
+            self.assertEqual(GIS.object_identity(self.benchmark / relative), self.source_identity[relative])
+        self.assertFalse((self.runtime / '.env').exists())
+        self.assertFalse((self.runtime / 'adoption.json').exists())
+
+    def test_adoption_moves_original_inodes_and_preserves_counter_evidence(self):
+        self.adopt()
+        release = self.runtime / 'releases/adopted'
+        for relative, target in GIS.ADOPT_SOURCES:
+            self.assertEqual(GIS.object_identity(release / target), self.source_identity[relative])
+        for relative in ('data/valhalla3', 'data/photon-stream4'):
+            old = self.benchmark / relative
+            self.assertEqual((old / 'import-cgroup-final.txt').read_bytes(), self.counter)
+            self.assertFalse((old / 'original').exists())
+            self.assertFalse(old.is_symlink())
+            self.assertEqual(json.loads((old / 'PROMOTED.json').read_text())['adoption_id'], 'adopted')
+        self.assertTrue((self.benchmark / 'data/maps/convert-cgroup-final.txt').exists())
+        self.assertEqual((release / 'photon/original').stat().st_nlink, 1)
+        GIS.require_committed_adoption(self.runtime)
+
+    def test_caught_failure_before_or_after_final_or_environment_rename_restores_every_source(self):
+        # Each test fixture is independent so all failure positions are real renames.
+        real = GIS.checked_rename
+        destination = self.runtime / '.env'
+
+        def fail_after_environment(source, target):
+            real(source, target)
+            if target == destination:
+                raise OSError('interrupted after environment rename')
+        with patch.object(GIS, 'checked_rename', side_effect=fail_after_environment):
+            with self.assertRaisesRegex(OSError, 'after environment'):
+                self.adopt()
+        self.assert_sources_restored()
+        journal = json.loads((self.runtime / 'adoptions/adopted.json').read_text())
+        self.assertEqual(journal['state'], 'rolled-back')
+        self.assertTrue(all(step['state'] == 'restored' for step in journal['steps']))
+
+    def test_failure_before_a_data_rename_restores_prior_moves(self):
+        real = GIS.checked_rename
+        def fail(source, target):
+            if source == self.benchmark / 'inputs/photon.jar':
+                raise OSError('before jar move')
+            real(source, target)
+        with patch.object(GIS, 'checked_rename', side_effect=fail):
+            with self.assertRaisesRegex(OSError, 'before jar'):
+                self.adopt()
+        self.assert_sources_restored()
+
+    def test_failure_after_final_rename_is_reconciled_even_without_moved_state(self):
+        real = GIS.checked_rename
+        def fail(source, target):
+            real(source, target)
+            if target == self.runtime / 'releases/adopted':
+                raise OSError('after final directory rename')
+        with patch.object(GIS, 'checked_rename', side_effect=fail):
+            with self.assertRaisesRegex(OSError, 'after final'):
+                self.adopt()
+        self.assert_sources_restored()
+
+    def test_recovery_accepts_pre_yield_zero_step_journal_and_is_idempotent(self):
+        path = self.runtime / 'adoptions/early.json'; path.parent.mkdir()
+        GIS.durable_json(path, {'version': 1, 'id': 'early', 'state': 'preparing', 'steps': [],
+            'benchmark': str(self.benchmark), 'release': str(self.runtime / 'releases/early')})
+        GIS.recover_adoption(self.runtime, 'early')
+        GIS.recover_adoption(self.runtime, 'early')
+        self.assertEqual(json.loads(path.read_text())['state'], 'rolled-back')
+        self.assert_sources_restored()
+
+    def test_recovery_reconciles_rename_completed_before_journal_update(self):
+        source = self.benchmark / 'data/photon-stream4'
+        target = self.job / 'data/photon'
+        path = self.runtime / 'adoptions/crashed.json'; path.parent.mkdir()
+        journal = {'version': 1, 'id': 'crashed', 'state': 'moving', 'benchmark': str(self.benchmark),
+            'release': str(self.runtime / 'releases/crashed'), 'job': str(self.job),
+            'steps': [{'source': str(source), 'target': str(target), 'identity': GIS.object_identity(source), 'state': 'planned'}]}
+        GIS.durable_json(path, journal)
+        GIS.checked_rename(source, target)  # launcher died before marking this step moved
+        GIS.recover_adoption(self.runtime, 'crashed')
+        GIS.recover_adoption(self.runtime, 'crashed')
+        self.assert_sources_restored()
+
+    def test_recovery_never_overwrites_a_conflicting_source(self):
+        source = self.benchmark / 'data/photon-stream4'
+        target = self.job / 'data/photon'
+        path = self.runtime / 'adoptions/conflict.json'; path.parent.mkdir()
+        journal = {'version': 1, 'id': 'conflict', 'state': 'moving', 'benchmark': str(self.benchmark),
+            'release': str(self.runtime / 'releases/conflict'), 'job': str(self.job),
+            'steps': [{'source': str(source), 'target': str(target), 'identity': GIS.object_identity(source), 'state': 'moved'}]}
+        GIS.checked_rename(source, target); source.mkdir(); (source / 'unrelated').write_text('keep')
+        GIS.durable_json(path, journal)
+        with self.assertRaisesRegex(RuntimeError, 'Ambiguous'):
+            GIS.recover_adoption(self.runtime, 'conflict')
+        self.assertEqual((source / 'unrelated').read_text(), 'keep')
+        self.assertTrue((target / 'original').exists())
+        self.assertEqual(json.loads(path.read_text())['state'], 'recovery-required')
+
+    def test_pending_environment_cannot_activate_and_journal_paths_are_confined(self):
+        self.adopt()
+        path = self.runtime / 'adoptions/adopted.json'
+        journal = json.loads(path.read_text()); journal['state'] = 'publishing'; GIS.durable_json(path, journal)
+        with self.assertRaisesRegex(RuntimeError, 'not committed'):
+            GIS.require_committed_adoption(self.runtime)
+        journal['steps'][0]['target'] = str(self.root / 'another-app')
+        with self.assertRaisesRegex(ValueError, 'outside'):
+            GIS.validate_adoption_journal(self.runtime, journal)
+
+    def test_source_tree_rejects_wrong_owner_device_photon_links_and_external_symlinks(self):
+        device = self.runtime.stat().st_dev
+        with self.assertRaisesRegex(ValueError, 'filesystem'):
+            GIS.validate_adoption_tree(self.benchmark, device + 1)
+        with patch.object(GIS, 'ADOPTION_UID', os.getuid() + 1):
+            with self.assertRaisesRegex(ValueError, 'UID'):
+                GIS.validate_adoption_tree(self.benchmark, device)
+        alias = self.benchmark / 'data/photon-stream4/alias'
+        os.link(self.benchmark / 'data/photon-stream4/original', alias)
+        with self.assertRaisesRegex(ValueError, 'independently owned'):
+            GIS.validate_adoption_tree(self.benchmark, device)
+        alias.unlink()
+        alias.symlink_to(self.root / 'another-app')
+        with self.assertRaisesRegex(ValueError, 'symlinks'):
+            GIS.validate_adoption_tree(self.benchmark, device)
+
+    def test_failed_component_or_running_source_is_rejected_before_any_move(self):
+        GIS.execute.return_value = 'running-container'
+        with self.assertRaisesRegex(RuntimeError, 'running source'):
+            self.adopt()
+        self.assert_sources_restored()
+        GIS.execute.return_value = ''
+        path = self.benchmark / 'results/published-results.json'
+        receipt = json.loads(path.read_text()); receipt['photon']['import']['exit_code'] = 1
+        path.write_text(json.dumps(receipt))
+        with self.assertRaisesRegex(ValueError, 'completed component'):
+            self.adopt()
+        self.assert_sources_restored()
+
 class SourceCheckoutTests(unittest.TestCase):
     def test_cli_does_not_create_bytecode_that_invalidates_its_clean_source_check(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -31,9 +31,9 @@ type MapPlace struct {
 }
 
 type MapSearch struct {
-	Query string
-	Lang  string
-	Near  *MapPoint
+	Query string    `json:"query"`
+	Lang  string    `json:"lang"`
+	Near  *MapPoint `json:"near,omitempty"`
 }
 
 type MapRouteInput struct {

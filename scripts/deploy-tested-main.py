@@ -185,7 +185,16 @@ def deploy_tested_main(checkout, runtime, revision, retry=False):
         try:
             live_revision = live_release(checkout, runtime)
             if live_revision == revision:
-                return {'status': 'already-deployed', 'revision': revision, 'ci_run_id': ci_run}
+                prepare_checkout(checkout, revision, live_revision)
+                require_current_schema(checkout)
+                require_current_main(revision)
+                result = {'status': 'already-deployed', 'revision': revision,
+                          'running_revision': live_revision, 'ci_run_id': ci_run,
+                          'checked_at': datetime.now(timezone.utc).isoformat()}
+                record(receipts / 'last-automatic-check.json', result)
+                if failure.exists():
+                    failure.unlink()
+                return result
             prepare_checkout(checkout, revision, live_revision)
             require_current_schema(checkout)
             require_current_main(revision)

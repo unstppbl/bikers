@@ -135,7 +135,7 @@ Keep a planned route separate from a recorded ride. A participant’s detour mus
 
 **MVP agreed — 2 November 2026:** Open a meeting point or destination in an external navigation app and support an organizer-supplied route link. Saved route collections, native navigation, offline maps, and advanced routing are deferred.
 
-Initially support saved routes and opening navigation in an external application. Native turn-by-turn navigation, offline maps, and advanced routing are later-stage candidates.
+**Scope added — 5 November 2026 ([#18](https://github.com/unstppbl/bikers/issues/18)):** Self-hosted Kazakhstan maps, address search and road-motorcycle route calculation belong in the private ride plan. Organizers can select a meeting point, destination and intermediate stops; only the organizer and approved participants receive the exact saved points and route. External navigation handoff remains available. This does not add a community route library, recorded tracks, native turn-by-turn navigation or offline maps. The issue records live rollout acceptance separately from source implementation.
 
 ### EXPLORE-03 — Useful places
 
