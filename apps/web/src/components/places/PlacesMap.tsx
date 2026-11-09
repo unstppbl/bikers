@@ -27,7 +27,7 @@ function MapSurface({ places, selected, archiveUrl, bounds, onSelect, onViewport
     let active = true, map: LibreMap | undefined
     try {
       initializeMapRuntime()
-      map = new LibreMap({ container: container.current, style: mapStyle(archiveUrl, locale, window.location.origin), center: [66.888315, 48.030725], zoom: 4, maxBounds: [[region.west, region.south], [region.east, region.north]], attributionControl: false, dragRotate: false, touchPitch: false })
+      map = new LibreMap({ container: container.current, style: mapStyle(archiveUrl, locale, window.location.origin), center: [66.888315, 48.030725], zoom: 4, renderWorldCopies: false, attributionControl: false, dragRotate: false, touchPitch: false })
       mapRef.current = map
       map.addControl(new AttributionControl({ compact: false }), 'bottom-left')
       map.getCanvas().setAttribute('aria-label', t('placesMap'))
