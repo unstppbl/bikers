@@ -33,7 +33,7 @@ function ancillary(url: string, user: User | null = rider) {
 beforeEach(() => setCsrfToken())
 afterEach(() => { setCsrfToken(); vi.unstubAllGlobals() })
 
-describe('public useful places', () => {
+describe('public community map', () => {
   it('browses even when the session service fails, without private requests or geolocation', async () => {
     const gps = vi.fn()
     Object.defineProperty(navigator, 'geolocation', { configurable: true, value: { getCurrentPosition: gps } })
@@ -162,7 +162,7 @@ describe('places moderation', () => {
       return ancillary(url) ?? response({})
     }))
     mount('/admin')
-    await userEvent.click(await screen.findByRole('button', { name: 'Useful places' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Map' }))
     await userEvent.click(await screen.findByRole('button', { name: /Updated workshop/ }))
     expect(await screen.findByText('Current published place')).toBeInTheDocument()
     await userEvent.type(screen.getByRole('textbox', { name: /Review reason/ }), 'Checked the submitted evidence')
@@ -183,7 +183,7 @@ describe('stale moderation and private request lifecycle', () => {
       return ancillary(url) ?? response({})
     }))
     mount('/admin')
-    await userEvent.click(await screen.findByRole('button', { name: 'Useful places' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Map' }))
     await userEvent.click(await screen.findByRole('button', { name: /Updated workshop/ }))
     await screen.findByText('This place or suggestion changed. Load the latest version and review your changes again before sending.')
     expect(screen.getByRole('button', { name: 'Approve suggestion' })).toBeDisabled()
@@ -235,7 +235,7 @@ describe('suggestion rebase and translated directory', () => {
     expect(payloads.map((p) => p.base_version)).toEqual([3, 4])
     expect(payloads[1].reason).toBe('Checked the latest information')
   })
-  it.each([['ru', 'Полезные места', 'Заправки'], ['kk', 'Пайдалы орындар', 'Жанармай бекеттері']])('renders the %s public directory copy', async (locale, title, category) => {
+  it.each([['ru', 'Карта', 'Заправки'], ['kk', 'Карта', 'Жанармай бекеттері']])('renders the %s public directory copy', async (locale, title, category) => {
     localStorage.setItem('bikerskz.locale', locale)
     vi.stubGlobal('fetch', vi.fn(async (url: string) => url.includes('/places?') ? response({ places: [], next_cursor: '' }) : ancillary(url, null) ?? response({})))
     mount('/places')

@@ -351,7 +351,7 @@ See [GIS operations](operations.md) for the durable Jarvis services and guarded,
 serial data staging/refresh commands. Development must use disposable databases;
 production accounts and sessions are never copied into a local map fixture.
 
-## Useful places
+## Map and user-curated places
 
 The public `/places` directory shares the self-hosted basemap and adds bounded
 category, text, city and viewport filters. The public map configuration is
@@ -366,7 +366,11 @@ versions under the transaction locks. A stale correction requires a fresh
 proposal. Contributor/reviewer identities and pending details are absent from
 public places. Contributor history and administrator queues use private queries.
 
-The CLI `api places import --file FILE --sha256 DIGEST` consumes a bounded,
+The directory starts empty and is populated through reviewed user suggestions
+([#24](https://github.com/unstppbl/bikers/issues/24)). No seed runs at startup or
+on a schedule. A future bulk import requires a new owner instruction.
+
+The historical CLI `api places import --file FILE --sha256 DIGEST` consumes a bounded,
 fully validated local NDJSON artifact atomically. Replays keep IDs stable;
 community edits and closures survive later OSM refreshes. There is no public
 bulk-import endpoint or network fetch inside the import transaction.
