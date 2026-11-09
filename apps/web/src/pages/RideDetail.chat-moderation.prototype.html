@@ -1,0 +1,400 @@
+<div id="chat-moderation-options" lang="ru">
+  <style>
+    #chat-moderation-options {
+      --cm-bg: light-dark(#f6f7f3, #181818);
+      --cm-surface: light-dark(#ffffff, #1f1f1f);
+      --cm-menu: light-dark(#ffffff, #272727);
+      --cm-text: light-dark(#20241c, #eff1e9);
+      --cm-muted: light-dark(#64695e, #adb2a6);
+      --cm-line: light-dark(#d9ddd1, #313131);
+      --cm-lime: light-dark(#405e13, #d2ed75);
+      --cm-lime-surface: light-dark(#e6edce, #31382a);
+      --cm-hover: light-dark(#eef1e8, #313131);
+      --cm-danger: light-dark(#a83d3d, #e5a0a0);
+      --cm-shade: light-dark(rgb(28 34 20 / 15%), rgb(0 0 0 / 46%));
+      --cm-shadow: light-dark(rgb(28 34 20 / 16%), rgb(0 0 0 / 38%));
+      color: var(--cm-text);
+      font-family: "Manrope", ui-sans-serif, system-ui, sans-serif;
+      font-size: 14px;
+      line-height: 20px;
+      width: 100%;
+    }
+    #chat-moderation-options * { box-sizing: border-box; }
+    #chat-moderation-options [hidden] { display: none !important; }
+    #chat-moderation-options button,
+    #chat-moderation-options input { font: inherit; }
+    #chat-moderation-options button { color: inherit; }
+    #chat-moderation-options h2,
+    #chat-moderation-options h3,
+    #chat-moderation-options p { margin: 0; }
+    #chat-moderation-options .cm-heading {
+      font-size: 20px; line-height: 28px; font-weight: 500;
+      padding-right: 96px; margin-bottom: 16px;
+    }
+    #chat-moderation-options .cm-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+    #chat-moderation-options .cm-tab {
+      flex: 1; min-width: 0; padding: 8px 12px; min-height: 44px;
+      border: 1px solid var(--cm-line); border-radius: 8px;
+      background: var(--cm-bg); font-weight: 500; text-wrap: balance;
+    }
+    #chat-moderation-options .cm-tab[aria-selected="true"] {
+      background: var(--cm-lime-surface); border-color: var(--cm-lime); color: var(--cm-lime);
+    }
+    #chat-moderation-options .cm-tab:hover { background: var(--cm-hover); }
+    #chat-moderation-options .cm-meta {
+      display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+      gap: 8px 16px; margin-bottom: 16px;
+    }
+    #chat-moderation-options .cm-recommend { color: var(--cm-lime); font-weight: 500; }
+    #chat-moderation-options .cm-role { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; }
+    #chat-moderation-options .cm-role input { width: 16px; height: 16px; accent-color: var(--cm-lime); }
+    #chat-moderation-options .cm-before {
+      border: 1px solid var(--cm-line); background: var(--cm-bg); border-radius: 8px;
+      padding: 12px 16px; margin-bottom: 16px;
+    }
+    #chat-moderation-options .cm-caption { color: var(--cm-muted); font-size: 12px; line-height: 16px; }
+    #chat-moderation-options .cm-before-person { margin: 4px 0; }
+    #chat-moderation-options .cm-old-actions { display: flex; gap: 4px 12px; flex-wrap: wrap; }
+    #chat-moderation-options .cm-old-action {
+      padding: 4px 0; border: 0; background: transparent; font-size: 12px; line-height: 16px;
+      color: var(--cm-muted); text-decoration: underline; text-underline-offset: 3px;
+    }
+    #chat-moderation-options .cm-stage { padding: 16px; border-radius: 8px; }
+    #chat-moderation-options .cm-chat {
+      width: 100%; max-width: 600px; margin: 0 auto; position: relative;
+      background: var(--cm-surface); border: 1px solid var(--cm-line); border-radius: 16px;
+      min-height: 500px; isolation: isolate;
+    }
+    #chat-moderation-options .cm-chat-head {
+      display: flex; align-items: center; gap: 12px; padding: 16px 20px;
+      border-bottom: 1px solid var(--cm-line);
+    }
+    #chat-moderation-options .cm-chat-title { font-size: 16px; line-height: 24px; font-weight: 500; }
+    #chat-moderation-options .cm-ride-icon {
+      display: grid; place-items: center; width: 40px; height: 40px;
+      border-radius: 8px; background: var(--cm-lime-surface); color: var(--cm-lime); flex: none;
+    }
+    #chat-moderation-options .cm-feed { padding: 16px 20px 24px; display: grid; gap: 16px; }
+    #chat-moderation-options .cm-day { text-align: center; }
+    #chat-moderation-options .cm-message { min-width: 0; }
+    #chat-moderation-options .cm-message-head { display: flex; align-items: center; gap: 8px; min-height: 36px; }
+    #chat-moderation-options .cm-avatar {
+      width: 32px; height: 32px; flex: none; border-radius: 50%; display: grid; place-items: center;
+      color: var(--cm-text); background: var(--cm-hover); font-size: 12px; line-height: 16px; font-weight: 500;
+    }
+    #chat-moderation-options .cm-person,
+    #chat-moderation-options .cm-person-static { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+    #chat-moderation-options .cm-person {
+      border: 0; background: transparent; padding: 0; min-height: 40px; border-radius: 8px;
+      text-align: left; font-weight: 500;
+    }
+    #chat-moderation-options .cm-person:hover { background: var(--cm-hover); }
+    #chat-moderation-options .cm-name { font-weight: 500; }
+    #chat-moderation-options .cm-time { margin-left: auto; white-space: nowrap; }
+    #chat-moderation-options .cm-dots,
+    #chat-moderation-options .cm-close {
+      border: 0; background: transparent; display: grid; place-items: center;
+      width: 36px; height: 36px; min-width: 36px; border-radius: 8px; padding: 0;
+    }
+    #chat-moderation-options .cm-dots { font-size: 20px; line-height: 28px; }
+    #chat-moderation-options .cm-dots:hover,
+    #chat-moderation-options .cm-close:hover { background: var(--cm-hover); }
+    #chat-moderation-options .cm-dots[aria-expanded="true"],
+    #chat-moderation-options .cm-person[aria-expanded="true"] { background: var(--cm-lime-surface); color: var(--cm-lime); }
+    #chat-moderation-options .cm-message-body { margin-left: 40px; margin-top: 4px; overflow-wrap: anywhere; text-wrap: pretty; }
+    #chat-moderation-options .cm-message-footer { margin-left: 40px; display: flex; justify-content: flex-end; }
+    #chat-moderation-options .cm-mine { margin-left: 64px; }
+    #chat-moderation-options .cm-mine .cm-message-body {
+      margin-left: 0; padding: 8px 12px; background: var(--cm-lime-surface); border-radius: 8px;
+    }
+    #chat-moderation-options .cm-mine-label { display: flex; justify-content: flex-end; gap: 8px; }
+    #chat-moderation-options .cm-overlay { position: absolute; inset: 0; z-index: 3; }
+    #chat-moderation-options .cm-backdrop {
+      position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border: 0;
+      background: transparent; border-radius: 16px;
+    }
+    #chat-moderation-options .cm-overlay.cm-sheet-mode .cm-backdrop { background: var(--cm-shade); }
+    #chat-moderation-options .cm-menu {
+      position: absolute; width: 304px; max-width: calc(100% - 24px);
+      background: var(--cm-menu); color: var(--cm-text); border: 1px solid var(--cm-line);
+      border-radius: 12px; box-shadow: 0 8px 24px var(--cm-shadow); padding: 8px;
+    }
+    #chat-moderation-options .cm-menu.cm-sheet {
+      left: 12px !important; right: 12px; bottom: 12px; top: auto !important;
+      width: auto; max-width: none; border-radius: 16px;
+    }
+    #chat-moderation-options .cm-menu-head { display: flex; align-items: center; gap: 8px; padding: 4px 8px 8px; }
+    #chat-moderation-options .cm-menu-heading { flex: 1; min-width: 0; font-weight: 500; }
+    #chat-moderation-options .cm-group { padding: 4px 0; }
+    #chat-moderation-options .cm-group + .cm-group { border-top: 1px solid var(--cm-line); }
+    #chat-moderation-options .cm-group-label { color: var(--cm-muted); font-size: 12px; line-height: 16px; padding: 8px 12px 4px; }
+    #chat-moderation-options .cm-action {
+      width: 100%; min-height: 44px; display: flex; align-items: center; gap: 12px; padding: 8px 12px;
+      border: 0; border-radius: 8px; background: transparent; text-align: left;
+    }
+    #chat-moderation-options .cm-action:hover { background: var(--cm-hover); }
+    #chat-moderation-options .cm-action.cm-danger { color: var(--cm-danger); }
+    #chat-moderation-options .cm-icon { flex: none; }
+    #chat-moderation-options .cm-bottom {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      margin-top: 16px; flex-wrap: wrap;
+    }
+    #chat-moderation-options .cm-choose {
+      border: 1px solid var(--cm-line); border-radius: 8px; padding: 8px 12px;
+      background: var(--cm-lime-surface); color: var(--cm-lime); min-height: 44px; font-weight: 500;
+    }
+    #chat-moderation-options .cm-choose:hover { background: var(--cm-hover); }
+    #chat-moderation-options .cm-status { flex: 1; min-width: 160px; color: var(--cm-muted); }
+    @media (max-width: 480px) {
+      #chat-moderation-options .cm-stage { padding: 8px; }
+      #chat-moderation-options .cm-chat { min-height: 560px; }
+      #chat-moderation-options .cm-chat-head { padding: 12px; }
+      #chat-moderation-options .cm-feed { padding: 12px 12px 24px; }
+      #chat-moderation-options .cm-before { padding: 12px; }
+      #chat-moderation-options .cm-mine { margin-left: 40px; }
+    }
+    @media (pointer: coarse) {
+      #chat-moderation-options .cm-dots,
+      #chat-moderation-options .cm-close { width: 44px; height: 44px; min-width: 44px; }
+      #chat-moderation-options .cm-person { min-height: 44px; }
+      #chat-moderation-options .cm-old-action { min-height: 44px; }
+    }
+  </style>
+
+  <!--
+  Phosphor Icons — MIT License
+  Copyright (c) 2020 Phosphor Icons
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+  -->
+  <svg width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute">
+    <defs>
+      <symbol id="cm-icon-motorcycle" viewBox="0 0 256 256"><path d="M216,120a41,41,0,0,0-6.6.55l-5.82-15.14A55.64,55.64,0,0,1,216,104a8,8,0,0,0,0-16H196.88L183.47,53.13A8,8,0,0,0,176,48H144a8,8,0,0,0,0,16h26.51l9.23,24H152c-18.5,0-33.5,4.31-43.37,12.46a16,16,0,0,1-16.76,2.07C81.29,97.72,31.13,77.33,26.71,75.6L21,73.36A17.74,17.74,0,0,0,16,72a8,8,0,0,0-2.87,15.46h0c.46.18,47.19,18.3,72.13,29.63a32.15,32.15,0,0,0,33.56-4.29c4.86-4,14.57-8.8,33.19-8.8h18.82a71.74,71.74,0,0,0-24.17,36.59A15.86,15.86,0,0,1,131.32,152H79.2a40,40,0,1,0,0,16h52.12a31.91,31.91,0,0,0,30.74-23.1,56,56,0,0,1,26.59-33.72l5.82,15.13A40,40,0,1,0,216,120ZM40,168H62.62a24,24,0,1,1,0-16H40a8,8,0,0,0,0,16Zm176,16a24,24,0,0,1-15.58-42.23l8.11,21.1a8,8,0,1,0,14.94-5.74L215.35,136l.65,0a24,24,0,0,1,0,48Z"/></symbol>
+      <symbol id="cm-icon-flag" viewBox="0 0 256 256"><path d="M42.76,50A8,8,0,0,0,40,56V224a8,8,0,0,0,16,0V179.77c26.79-21.16,49.87-9.75,76.45,3.41,16.4,8.11,34.06,16.85,53,16.85,13.93,0,28.54-4.75,43.82-18a8,8,0,0,0,2.76-6V56A8,8,0,0,0,218.76,50c-28,24.23-51.72,12.49-79.21-1.12C111.07,34.76,78.78,18.79,42.76,50ZM216,172.25c-26.79,21.16-49.87,9.74-76.45-3.41-25-12.35-52.81-26.13-83.55-8.4V59.79c26.79-21.16,49.87-9.75,76.45,3.4,25,12.35,52.82,26.13,83.55,8.4Z"/></symbol>
+      <symbol id="cm-icon-user" viewBox="0 0 256 256"><path d="M230.92,212c-15.23-26.33-38.7-45.21-66.09-54.16a72,72,0,1,0-73.66,0C63.78,166.78,40.31,185.66,25.08,212a8,8,0,1,0,13.85,8c18.84-32.56,52.14-52,89.07-52s70.23,19.44,89.07,52a8,8,0,1,0,13.85-8ZM72,96a56,56,0,1,1,56,56A56.06,56.06,0,0,1,72,96Z"/></symbol>
+      <symbol id="cm-icon-prohibit" viewBox="0 0 256 256"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm88,104a87.56,87.56,0,0,1-20.41,56.28L71.72,60.4A88,88,0,0,1,216,128ZM40,128A87.56,87.56,0,0,1,60.41,71.72L184.28,195.6A88,88,0,0,1,40,128Z"/></symbol>
+      <symbol id="cm-icon-shield" viewBox="0 0 256 256"><path d="M208,40H48A16,16,0,0,0,32,56v56c0,52.72,25.52,84.67,46.93,102.19,23.06,18.86,46,25.27,47,25.53a8,8,0,0,0,4.2,0c1-.26,23.91-6.67,47-25.53C198.48,196.67,224,164.72,224,112V56A16,16,0,0,0,208,40Zm0,72c0,37.07-13.66,67.16-40.6,89.42A129.3,129.3,0,0,1,128,223.62a128.25,128.25,0,0,1-38.92-21.81C61.82,179.51,48,149.3,48,112l0-56,160,0Z"/></symbol>
+      <symbol id="cm-icon-x" viewBox="0 0 256 256"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"/></symbol>
+      <symbol id="cm-icon-caret-down" viewBox="0 0 256 256"><path d="M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z"/></symbol>
+    </defs>
+  </svg>
+
+  <h2 class="cm-heading">Действия в чате</h2>
+  <div class="cm-tabs" role="tablist" aria-label="Варианты меню действий">
+    <button class="cm-tab" id="cm-tab-message" role="tab" aria-selected="true" aria-controls="cm-panel" type="button" data-variant="message">Меню сообщения</button>
+    <button class="cm-tab" id="cm-tab-author" role="tab" aria-selected="false" aria-controls="cm-panel" type="button" data-variant="author">Меню автора</button>
+    <button class="cm-tab" id="cm-tab-sheet" role="tab" aria-selected="false" aria-controls="cm-panel" type="button" data-variant="sheet">Нижняя панель</button>
+  </div>
+  <div class="cm-meta">
+    <span class="cm-recommend" id="cm-recommend">Рекомендуемый вариант</span>
+    <label class="cm-role"><input id="cm-admin" type="checkbox" checked>Предпросмотр администратора</label>
+  </div>
+
+  <div class="cm-before" aria-label="Текущий вариант">
+    <div class="cm-caption">Сейчас</div>
+    <p class="cm-before-person"><span class="cm-name">Алексей</span> · Буду к 19:30.</p>
+    <div class="cm-old-actions">
+      <button class="cm-old-action" type="button" data-preview="Пожаловаться на сообщение">Пожаловаться на сообщение</button>
+      <button class="cm-old-action" type="button" data-preview="Пожаловаться на райдера">Пожаловаться на райдера</button>
+      <button class="cm-old-action" type="button" data-preview="Заблокировать райдера">Заблокировать райдера</button>
+      <button class="cm-old-action" type="button" data-preview="Управлять райдером" data-admin-only>Управлять райдером</button>
+    </div>
+  </div>
+
+  <section id="cm-panel" role="tabpanel" aria-labelledby="cm-tab-message">
+    <div class="cm-stage viz-dotted-background">
+      <div class="cm-chat" id="cm-chat" aria-label="Предпросмотр чата поездки">
+        <header class="cm-chat-head">
+          <span class="cm-ride-icon" aria-hidden="true"><svg class="cm-icon" width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true" focusable="false"><use href="#cm-icon-motorcycle"/></svg></span>
+          <div><h3 class="cm-chat-title">Вечерний выезд</h3><p class="cm-caption">Чат поездки · 6 участников</p></div>
+        </header>
+        <div class="cm-feed" id="cm-feed"></div>
+        <div class="cm-overlay" id="cm-overlay" hidden>
+          <button class="cm-backdrop" id="cm-backdrop" type="button" aria-label="Закрыть меню"></button>
+          <div class="cm-menu" id="cm-menu" role="dialog" aria-label="Действия с сообщением и райдером"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <div class="cm-bottom">
+    <div class="cm-status" id="cm-status" role="status" aria-live="polite">Предпросмотр · действия не применяются</div>
+    <button class="cm-choose" id="cm-choose" type="button">Выбрать вариант</button>
+  </div>
+
+  <script>
+    (() => {
+      const root = document.getElementById('chat-moderation-options');
+      const chat = root.querySelector('#cm-chat');
+      const feed = root.querySelector('#cm-feed');
+      const menu = root.querySelector('#cm-menu');
+      const overlay = root.querySelector('#cm-overlay');
+      const admin = root.querySelector('#cm-admin');
+      const status = root.querySelector('#cm-status');
+      const names = { message: 'Меню сообщения', author: 'Меню автора', sheet: 'Нижняя панель' };
+      const messages = [
+        { id: 'm1', name: 'Данияр', initials: 'ДА', time: '19:14', text: 'Встречаемся у заправки на Аль-Фараби. К 19:30 все успеют?' },
+        { id: 'm2', name: 'Алексей', initials: 'АК', time: '19:16', text: 'Да, буду. После перекрёстка держимся правее.' },
+        { id: 'm3', name: 'Алексей', initials: 'АК', time: '19:17', text: 'Если задержусь на пару минут, напишу сюда.' },
+        { id: 'm4', name: 'Вы', time: '19:18', text: 'Принято, до встречи.', mine: true }
+      ];
+      const state = { variant: 'message', admin: true, chosen: null };
+      let opened = { id: 'm2', kind: 'message' };
+      let trigger = null;
+
+      function icon(name) {
+        return `<svg class="cm-icon" width="16" height="16" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true" focusable="false"><use href="#cm-icon-${name}"/></svg>`;
+      }
+      function restore(snapshot) {
+        if (!snapshot || typeof snapshot !== 'object') return;
+        const saved = snapshot.privateContent || snapshot;
+        if (Object.hasOwn(names, saved.variant)) state.variant = saved.variant;
+        if (typeof saved.admin === 'boolean') state.admin = saved.admin;
+        const chosen = snapshot.modelContent && snapshot.modelContent.chosenChatMenu;
+        if (Object.hasOwn(names, chosen)) state.chosen = chosen;
+      }
+      function remember() {
+        if (window.openai && window.openai.setWidgetState) {
+          Promise.resolve(window.openai.setWidgetState({
+            modelContent: { chosenChatMenu: state.chosen, chosenChatMenuLabel: state.chosen ? names[state.chosen] : null },
+            privateContent: { variant: state.variant, admin: state.admin }
+          })).catch(() => {});
+        }
+      }
+      function closeMenu(restoreFocus = true) {
+        opened = null;
+        overlay.hidden = true;
+        root.querySelectorAll('[data-open]').forEach(button => button.setAttribute('aria-expanded', 'false'));
+        if (restoreFocus && trigger && trigger.isConnected) trigger.focus();
+      }
+      function renderMessages() {
+        feed.innerHTML = '<div class="cm-caption cm-day">Сегодня</div>' + messages.map(message => {
+          if (message.mine) return `<article class="cm-message cm-mine"><div class="cm-mine-label cm-caption">Вы <span>${message.time}</span></div><p class="cm-message-body">${message.text}</p></article>`;
+          const person = state.variant === 'author'
+            ? `<button class="cm-person" type="button" data-open="rider" data-id="${message.id}" aria-label="Действия райдера ${message.name}" aria-expanded="false" aria-controls="cm-menu"><span class="cm-avatar" aria-hidden="true">${message.initials}</span>${message.name}${icon('caret-down')}</button>`
+            : `<span class="cm-person-static"><span class="cm-avatar" aria-hidden="true">${message.initials}</span><span class="cm-name">${message.name}</span></span>`;
+          const dots = `<button class="cm-dots" type="button" data-open="message" data-id="${message.id}" aria-label="Действия с сообщением ${message.name}, ${message.time}" aria-expanded="false" aria-controls="cm-menu">⋯</button>`;
+          return `<article class="cm-message"><div class="cm-message-head">${person}<span class="cm-caption cm-time">${message.time}</span>${dots}</div><p class="cm-message-body">${message.text}</p></article>`;
+        }).join('');
+      }
+      function action(iconName, label, danger = false) {
+        return `<button class="cm-action${danger ? ' cm-danger' : ''}" type="button" data-preview="${label}">${icon(iconName)}<span>${label}</span></button>`;
+      }
+      function positionMenu() {
+        if (!opened || state.variant === 'sheet') return;
+        const frame = chat.getBoundingClientRect();
+        const anchor = trigger.getBoundingClientRect();
+        const box = menu.getBoundingClientRect();
+        const left = opened.kind === 'rider' ? anchor.left - frame.left : anchor.right - frame.left - box.width;
+        menu.style.left = `${Math.max(12, Math.min(left, frame.width - box.width - 12))}px`;
+        menu.style.top = `${Math.max(12, Math.min(anchor.bottom - frame.top + 4, frame.height - box.height - 12))}px`;
+      }
+      function renderMenu(focus = false) {
+        if (!opened) { overlay.hidden = true; return; }
+        const message = messages.find(item => item.id === opened.id);
+        trigger = root.querySelector(`[data-open="${opened.kind}"][data-id="${opened.id}"]`);
+        if (!message || !trigger) { closeMenu(false); return; }
+        const messageOnly = state.variant === 'author' && opened.kind === 'message';
+        const riderOnly = state.variant === 'author' && opened.kind === 'rider';
+        const title = messageOnly ? `Сообщение · ${message.time}` : riderOnly ? message.name : `Действия · ${message.name}`;
+        menu.setAttribute('aria-label', title);
+        menu.setAttribute('aria-modal', state.variant === 'sheet' ? 'true' : 'false');
+        menu.innerHTML = `<div class="cm-menu-head"><span class="cm-menu-heading">${title}</span><button class="cm-close" type="button" data-close aria-label="Закрыть меню">${icon('x')}</button></div>` +
+          (!riderOnly ? `<div class="cm-group"><div class="cm-group-label">Сообщение</div>${action('flag', 'Пожаловаться на сообщение')}</div>` : '') +
+          (!messageOnly ? `<div class="cm-group"><div class="cm-group-label">Райдер · ${message.name}</div>${action('user', 'Пожаловаться на райдера')}${action('prohibit', 'Заблокировать райдера', true)}</div>${state.admin ? `<div class="cm-group"><div class="cm-group-label">Администратор</div>${action('shield', 'Управлять райдером')}</div>` : ''}` : '');
+        overlay.classList.toggle('cm-sheet-mode', state.variant === 'sheet');
+        menu.classList.toggle('cm-sheet', state.variant === 'sheet');
+        overlay.hidden = false;
+        root.querySelectorAll('[data-open]').forEach(button => button.setAttribute('aria-expanded', String(button === trigger)));
+        positionMenu();
+        if (focus) menu.querySelector('[data-preview]').focus();
+      }
+      function render() {
+        admin.checked = state.admin;
+        root.querySelectorAll('.cm-tab').forEach(tab => tab.setAttribute('aria-selected', String(tab.dataset.variant === state.variant)));
+        root.querySelector('#cm-panel').setAttribute('aria-labelledby', `cm-tab-${state.variant}`);
+        root.querySelector('#cm-recommend').textContent = state.variant === 'message' ? 'Рекомендуемый вариант' : names[state.variant];
+        root.querySelectorAll('[data-admin-only]').forEach(item => { item.hidden = !state.admin; });
+        root.querySelector('#cm-choose').textContent = state.chosen === state.variant ? 'Вариант выбран' : 'Выбрать вариант';
+        renderMessages();
+        renderMenu();
+      }
+      restore(window.openai && window.openai.widgetState);
+      opened.kind = state.variant === 'author' ? 'rider' : 'message';
+      render();
+
+      root.addEventListener('click', event => {
+        const tab = event.target.closest('.cm-tab');
+        if (tab) {
+          state.variant = tab.dataset.variant;
+          opened = { id: 'm2', kind: state.variant === 'author' ? 'rider' : 'message' };
+          status.textContent = state.chosen ? `Выбрано: ${names[state.chosen]}` : 'Предпросмотр · действия не применяются';
+          render(); remember(); return;
+        }
+        const opener = event.target.closest('[data-open]');
+        if (opener) {
+          if (opened && opened.id === opener.dataset.id && opened.kind === opener.dataset.open) closeMenu();
+          else { opened = { id: opener.dataset.id, kind: opener.dataset.open }; renderMenu(true); }
+          return;
+        }
+        const preview = event.target.closest('[data-preview]');
+        if (preview) {
+          const label = preview.dataset.preview;
+          closeMenu();
+          status.textContent = `Предпросмотр: «${label}». Данные не меняются.`;
+          return;
+        }
+        if (event.target.closest('[data-close]') || event.target.closest('#cm-backdrop')) closeMenu();
+        if (event.target.closest('#cm-choose')) {
+          state.chosen = state.variant;
+          status.textContent = `Выбрано: ${names[state.chosen]}`;
+          root.querySelector('#cm-choose').textContent = 'Вариант выбран';
+          remember();
+        }
+      });
+      admin.addEventListener('change', () => { state.admin = admin.checked; render(); remember(); });
+      document.addEventListener('pointerdown', event => {
+        if (opened && !menu.contains(event.target) && !event.target.closest('[data-open]') && !event.target.closest('.cm-tab')) closeMenu(false);
+      });
+      document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && opened) { event.preventDefault(); closeMenu(); return; }
+        const tab = event.target.closest('.cm-tab');
+        if (tab && ['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+          event.preventDefault();
+          const tabs = Array.from(root.querySelectorAll('.cm-tab'));
+          let index = tabs.indexOf(tab);
+          index = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+          tabs[index].focus(); tabs[index].click(); return;
+        }
+        if (!opened || !menu.contains(event.target)) return;
+        const buttons = Array.from(menu.querySelectorAll('button'));
+        const index = buttons.indexOf(document.activeElement);
+        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+          event.preventDefault(); buttons[(index + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length].focus();
+        } else if (event.key === 'Tab' && ((event.shiftKey && index === 0) || (!event.shiftKey && index === buttons.length - 1))) {
+          event.preventDefault(); buttons[event.shiftKey ? buttons.length - 1 : 0].focus();
+        }
+      });
+      window.addEventListener('resize', positionMenu);
+      window.addEventListener('openai:set_globals', event => {
+        const snapshot = event.detail && event.detail.globals && event.detail.globals.widgetState;
+        if (snapshot) { restore(snapshot); opened = null; render(); }
+      });
+    })();
+  </script>
+</div>
