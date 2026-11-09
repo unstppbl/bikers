@@ -2,6 +2,7 @@ package app
 
 import (
 	"bikers.kz/backend/internal/database/postgres"
+	"bikers.kz/backend/internal/models"
 	"context"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -52,6 +53,33 @@ func TestBrowserHarness(t *testing.T) {
 			catalogueBike(t, f, owner, fields)
 		}
 		t.Log("TEST-ONLY public catalogue fixture: three public reference-image bikes and one private bike; owner=+77011239904; OTP=123456")
+	}
+	if os.Getenv("BROWSER_HARNESS_PLACES") == "1" {
+		contributor := f.login("+77011239922", "QA Places Contributor")
+		admin := f.login("+77011239923", "QA Places Administrator")
+		grantTestAdmin(t, f, admin)
+		fixtures := []models.PlaceInput{
+			{Name: "QA fuel point", Category: "fuel", Lat: 43.24, Lon: 76.91, City: "Almaty", Description: "Test fixture only"},
+			{Name: "QA workshop", Category: "workshop", Lat: 43.243, Lon: 76.915, City: "Almaty", Description: "Test fixture only"},
+			{Name: "QA meeting point", Category: "meeting_spot", Lat: 43.237, Lon: 76.905, City: "Almaty", Description: "Test fixture only"},
+		}
+		firstID := ""
+		for i, place := range fixtures {
+			created := f.request("POST", "/api/v1/places/submissions", models.PlaceSubmissionInput{Kind: "new", Place: &place, Reason: "Test fixture only"}, contributor)
+			expect(t, created, 201)
+			submission := created.body["submission"].(map[string]any)
+			reviewed := f.request("POST", "/api/v1/admin/place-submissions/"+submission["id"].(string)+"/review", models.PlaceReviewInput{Version: 1, Status: "approved", Reason: "Test fixture only"}, admin)
+			expect(t, reviewed, 200)
+			if i == 0 {
+				firstID = reviewed.body["submission"].(map[string]any)["place_id"].(string)
+			}
+		}
+		correction := fixtures[0]
+		correction.Name = "QA fuel point correction"
+		expect(t, f.request("POST", "/api/v1/places/submissions", models.PlaceSubmissionInput{Kind: "correction", PlaceID: firstID, BaseVersion: 1, Place: &correction, Reason: "Test fixture only"}, contributor), 201)
+		pending := models.PlaceInput{Name: "QA pending meeting point", Category: "meeting_spot", Lat: 43.242, Lon: 76.912, City: "Almaty", Description: "Test fixture only"}
+		expect(t, f.request("POST", "/api/v1/places/submissions", models.PlaceSubmissionInput{Kind: "new", Place: &pending, Reason: "Test fixture only"}, contributor), 201)
+		t.Log("TEST-ONLY places fixture: contributor phone=+77011239922; administrator phone=+77011239923")
 	}
 	f.ts.Close()
 	port := os.Getenv("BROWSER_HARNESS_PORT")

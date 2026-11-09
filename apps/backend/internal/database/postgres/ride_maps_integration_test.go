@@ -14,6 +14,7 @@ import (
 
 func removeRideMaps(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
+	removePlaces(t, pool)
 	if _, err := pool.Exec(context.Background(), `ALTER TABLE rides DROP COLUMN map_plan; DELETE FROM schema_migrations WHERE version=10`); err != nil {
 		t.Fatal(err)
 	}

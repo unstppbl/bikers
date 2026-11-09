@@ -23,6 +23,7 @@ import (
 	"bikers.kz/backend/internal/managers/media"
 	"bikers.kz/backend/internal/managers/notifications"
 	"bikers.kz/backend/internal/managers/photos"
+	"bikers.kz/backend/internal/managers/places"
 	"bikers.kz/backend/internal/managers/reminders"
 	"bikers.kz/backend/internal/managers/rides"
 	"bikers.kz/backend/internal/managers/rooms"
@@ -46,6 +47,7 @@ type Runtime struct {
 	Trust         *trust.Manager
 	Notifications *notifications.Manager
 	Reminders     *reminders.Manager
+	Places        *places.Manager
 	settings      config.Config
 	close         func()
 }
@@ -94,8 +96,9 @@ func New(cfg config.Config, repository database.Repository, gateway accounts.Gat
 	}
 	nf := notifications.New(repository, push, cfg.PushPublicKey, now)
 	reminderManager := reminders.New(repository, now)
-	transport := httpapi.New(httpapi.Settings{Origin: origin, TrustedProxies: proxies, WebDistDir: cfg.WebDistDir}, httpapi.Managers{Accounts: a, Rides: r, Rooms: rm, System: sy, Events: events, Garage: g, Geo: mapManager, Clubs: c, Media: md, Trust: tr, Notifications: nf, Reminders: reminderManager})
-	return &Runtime{Handler: transport.Handler(), System: sy, Trust: tr, Notifications: nf, Reminders: reminderManager, settings: cfg}, nil
+	placeManager := places.New(repository, cfg.MapsArchiveURL, now)
+	transport := httpapi.New(httpapi.Settings{Origin: origin, TrustedProxies: proxies, WebDistDir: cfg.WebDistDir}, httpapi.Managers{Accounts: a, Rides: r, Rooms: rm, System: sy, Events: events, Garage: g, Geo: mapManager, Clubs: c, Media: md, Trust: tr, Notifications: nf, Reminders: reminderManager, Places: placeManager})
+	return &Runtime{Handler: transport.Handler(), System: sy, Trust: tr, Notifications: nf, Reminders: reminderManager, Places: placeManager, settings: cfg}, nil
 }
 
 // Open owns construction and cleanup of production dependencies.

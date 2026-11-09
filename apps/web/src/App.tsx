@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useId, useRef, useState } from 'react'
-import { ArrowUpRightIcon as ArrowUpRight, BellIcon as Bell, CalendarDotsIcon as CalendarDays, SignOutIcon as LogOut, ListIcon as Menu, MotorcycleIcon as Motorbike, PlusIcon as Plus, GearSixIcon as Settings, ShieldCheckIcon as ShieldCheck, UserCircleIcon as UserRound, UsersThreeIcon as Users, WrenchIcon as Wrench, XIcon as X, LightningIcon as Zap } from '@phosphor-icons/react'
+import { MapPinIcon, ArrowUpRightIcon as ArrowUpRight, BellIcon as Bell, CalendarDotsIcon as CalendarDays, SignOutIcon as LogOut, ListIcon as Menu, MotorcycleIcon as Motorbike, PlusIcon as Plus, GearSixIcon as Settings, ShieldCheckIcon as ShieldCheck, UserCircleIcon as UserRound, UsersThreeIcon as Users, WrenchIcon as Wrench, XIcon as X, LightningIcon as Zap } from '@phosphor-icons/react'
 import { Link, NavLink, Route, Routes, useLocation, useNavigate, useNavigationType } from 'react-router-dom'
 import { useRegisterSW } from 'virtual:pwa-register/react'
 import { mutation } from './api'
@@ -15,6 +15,9 @@ import { useTrust } from './components/Trust'
 import { NotificationBadge, useUnreadNotifications } from './components/NotificationBadge'
 import type { Locale } from './types'
 
+const PlacesPage = lazy(() => import('./pages/Places').then((module) => ({ default: module.PlacesPage })))
+const PlaceSubmissionPage = lazy(() => import('./pages/PlaceSubmissions').then((module) => ({ default: module.PlaceSubmissionPage })))
+const MyPlaceSubmissionsPage = lazy(() => import('./pages/PlaceSubmissions').then((module) => ({ default: module.MyPlaceSubmissionsPage })))
 const GaragePage = lazy(() => import('./pages/Garage').then((module) => ({ default: module.GaragePage })))
 const BikeFormPage = lazy(() => import('./pages/Garage').then((module) => ({ default: module.BikeFormPage })))
 const BikeOwnerPage = lazy(() => import('./pages/Garage').then((module) => ({ default: module.BikeOwnerPage })))
@@ -113,6 +116,7 @@ export function App() {
       <div className="sidebar-label">{t('community')}</div>
       <nav className="side-navigation">
         <span className="nav-group-label">{t('navExplore')}</span>
+        <NavLink to="/places" onClick={() => setMenuOpen(false)}><MapPinIcon size={20} />{t('placesTitle')}</NavLink>
         <NavLink to="/" end onClick={() => setMenuOpen(false)}><Motorbike size={20} />{t('rides')}<ArrowUpRight className="nav-arrow" size={17} /></NavLink>
         <NavLink to="/clubs" end onClick={() => setMenuOpen(false)}><Users size={20} />{t('clubs')}</NavLink>
         <NavLink to="/bikes" onClick={() => setMenuOpen(false)}><Motorbike size={20} />{t('bikeCatalogue')}</NavLink>
@@ -150,6 +154,10 @@ export function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/profile" element={<RequireUser allowOnboarding><ProfilePage /></RequireUser>} />
           <Route path="/inbox" element={<RequireUser><InboxPage key={user?.id} /></RequireUser>} />
+          <Route path="/places" element={<PlacesPage />} />
+          <Route path="/places/new" element={<RequireUser><PlaceSubmissionPage key={user?.id} /></RequireUser>} />
+          <Route path="/places/:placeId/suggest" element={<RequireUser><PlaceSubmissionPage key={user?.id} /></RequireUser>} />
+          <Route path="/places/submissions" element={<RequireUser><MyPlaceSubmissionsPage key={user?.id} /></RequireUser>} />
           <Route path="/admin" element={<RequireUser><AdminPage key={user?.id} /></RequireUser>} />
           <Route path="/settings" element={<RequireUser allowOnboarding><SettingsPage /></RequireUser>} />
           <Route path="/install" element={<InstallPage />} />

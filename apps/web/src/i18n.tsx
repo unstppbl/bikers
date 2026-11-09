@@ -1,3 +1,4 @@
+import { placesEn, placesRu, placesKk } from './places-i18n'
 import { mapsEn, mapsRu, mapsKk } from './maps-i18n'
 import { createContext, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
@@ -15,6 +16,7 @@ import { notificationFeaturesEn, notificationFeaturesKk, notificationFeaturesRu 
 import { bikeCatalogueEn, bikeCatalogueKk, bikeCatalogueRu } from './bike-catalogue-i18n'
 
 const en = {
+  ...placesEn,
   ...mapsEn,
   ...bikeCatalogueEn,
   ...clubDiscoveryEn,
@@ -98,6 +100,7 @@ const en = {
 
 type Key = keyof typeof en
 const ru: Record<Key, string> = {
+  ...placesRu,
   ...mapsRu,
   ...bikeCatalogueRu,
   ...clubDiscoveryRu,
@@ -180,6 +183,7 @@ const ru: Record<Key, string> = {
 }
 
 const kk: Record<Key, string> = {
+  ...placesKk,
   ...mapsKk,
   ...bikeCatalogueKk,
   ...clubDiscoveryKk,

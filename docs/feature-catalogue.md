@@ -141,6 +141,8 @@ Keep a planned route separate from a recorded ride. A participant’s detour mus
 
 **MVP decision — 2 November 2026:** The useful-places map and directory are deferred beyond the MVP. The full proposal is retained below.
 
+**Scope added — 9 November 2026 ([#22](https://github.com/unstppbl/bikers/issues/22)):** The owner approved a public useful-places map and directory, initially covering fuel, workshops, tire services, motorcycle shops, parking and meeting spots. Public OSM records retain their source and snapshot date. Signed-in riders can propose additions, corrections or closures; administrators review them before publication. Imported records are not community verification. This approval supersedes the earlier useful-places deferral. Service booking, payments and provider inquiries remain separate deferred work.
+
 Map categories may include meeting spots, motorcycle parking, workshops, tire services, shops, riding schools, and seasonal storage providers.
 
 The map’s purpose is to answer “Where can I ride, stop, or get help?” rather than simply display nearby people.

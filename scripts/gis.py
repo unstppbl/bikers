@@ -37,8 +37,10 @@ sys.path.insert(0, str(TOOLS / 'osm-benchmark'))
 import run as guard
 import valhalla
 import photon
+import places_osm
 
 DEFAULT_RUNTIME = Path('/home/user/apps/bikerskz-gis')
+DEFAULT_APP_RUNTIME = Path('/home/user/apps/bikerskz')
 COMPOSE = TOOLS.parent / 'deploy/gis/compose.yml'
 MAP_SHA256 = '2583113c45ca582906e9e92c343f1c5a11ff08d6292c1eb8137cb0e764adb25c'
 ASSETS = {
@@ -186,9 +188,37 @@ def child_lease(job, seconds, pid, identity):
             guard.save(job / 'abort.json', {'time': time.time(), 'reason': str(error)})
         raise
     finally:
-        guard.stop_owned(job)
+        try:
+            guard.stop_owned(job)
+        finally:
+            cleanup_private_job_inputs(job)
         if (job / 'abort.json').exists():
             guard.save(job / 'finished.json', {'lease_cleanup': True, 'failed': True})
+
+
+def cleanup_private_job_inputs(job):
+    # The import worker receives a temporary private env file; the independent
+    # lease must remove it even if the launcher cannot execute its finally block.
+    (job / 'inputs/app.env').unlink(missing_ok=True)
+    if not (job / 'specs/places-import.json').exists():
+        return
+    # Successful workers retain their State/resource receipt, but not a stopped
+    # duplicate of the app's secret environment in Docker Config.Env. Serialize
+    # launcher/lease cleanup, and identify this one-off by BOTH name and label.
+    with (job / '.private-cleanup.lock').open('a') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        name = job.name + '-places-import'
+        ids = execute(['docker', 'ps', '-aq', '--filter', f'name=^{name}$',
+                       '--filter', f'label={guard.LABEL}={job.name}'], timeout=10).splitlines()
+        if not ids:
+            return
+        if len(ids) != 1:
+            raise RuntimeError('Cannot uniquely identify the private places import worker')
+        info = json.loads(execute(['docker', 'inspect', ids[0]], timeout=10))[0]
+        if (info['Name'] != '/' + name or info['Config'].get('Labels', {}).get(guard.LABEL) != job.name or
+                info['State']['Running']):
+            raise RuntimeError('Cannot safely remove the private places import worker')
+        execute(['docker', 'rm', ids[0]], timeout=10)
 
 
 def stop_child(process):
@@ -209,7 +239,7 @@ def serial(runtime):
     if os.getuid() != 1000:
         raise RuntimeError('Run GIS operations as the existing benchmark UID 1000')
     runtime.mkdir(parents=True, mode=0o700, exist_ok=True)
-    with (runtime / '.refresh.lock').open('a') as lock, Path('/home/user/apps/bikerskz/.deploy.lock').open('a') as app_lock:
+    with (runtime / '.refresh.lock').open('a') as lock, (DEFAULT_APP_RUNTIME / '.deploy.lock').open('a') as app_lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         fcntl.flock(app_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         yield
@@ -289,6 +319,10 @@ def guarded_job(runtime, *, abort_services=(), excluded=(), seconds=7200):
             for handle in handles:
                 handle.close()
             if children_stopped:
+                try:
+                    cleanup_private_job_inputs(job)
+                except BaseException as error:
+                    cleanup_error = cleanup_error or error
                 for name in names:
                     link = job / name
                     content = link.read_bytes() if link.exists() else None
@@ -1103,6 +1137,112 @@ def refresh(runtime, component, source, expected_sha256, dataset_id):
     print(json.dumps({'candidate': str(release), 'activated': False}))
 
 
+def extract_places(runtime, source, expected_sha256, source_date, dataset_id):
+    dataset_id = validate_id(dataset_id)
+    target = runtime / 'places-datasets' / dataset_id
+    if target.exists() or target.is_symlink():
+        raise RuntimeError('Places extraction requires a new dataset ID')
+    if not re.fullmatch(r'[a-f0-9]{64}', expected_sha256):
+        raise ValueError('Places input requires a complete lowercase SHA256')
+    time.strptime(source_date, '%Y-%m-%d')
+    info = source.stat()
+    if not source.is_file() or info.st_uid != 1000 or info.st_size > places_osm.MAX_INPUT_BYTES:
+        raise ValueError('Places input must be an owned regular country PBF within the extractor byte limit')
+    with guarded_job(runtime, seconds=1800) as job:
+        for item in places_osm.wheel_manifest():
+            guard.fetch(job, argparse.Namespace(name=item['filename'], url=item['url'],
+                        max_bytes=item['bytes'], sha256=item['sha256'], md5=None, timeout=120))
+        mounts = [(TOOLS, '/tools', True), (job, '/job', False)]
+        stage(job, 'places-prepare', ['python3', '-B', '/tools/places_osm.py', 'prepare',
+              '--wheels-dir', '/job/inputs', '--site-dir', '/job/site'], mounts, memory='256m', seconds=120)
+        environment = {'PYTHONPATH': '/job/site', 'OSMIUM_POOL_THREADS': '1', 'OSMIUM_MAX_WORK_QUEUE_SIZE': '2'}
+        stage(job, 'places-runtime', ['python3', '-B', '/tools/places_osm.py', 'probe'],
+              mounts, memory='256m', seconds=30, environment=environment)
+        stage(job, 'places-parser-tests', ['python3', '-B', '-m', 'unittest', 'discover',
+              '-s', '/tools', '-p', 'test_places_osm.py', '-q'],
+              mounts, memory='256m', seconds=90, environment=environment)
+        stage(job, 'places-extract', ['python3', '-B', '/tools/places_osm.py', 'extract',
+              '--input', '/input/country.osm.pbf', '--output', '/job/data/places.ndjson',
+              '--sha256', expected_sha256, '--source-date', source_date],
+              [*mounts, (source, '/input/country.osm.pbf', True)], memory='512m', seconds=1500,
+              environment=environment)
+        result = job / 'data/places.ndjson'
+        if not result.is_file() or result.stat().st_size == 0 or result.stat().st_size > 32 * 1024**2:
+            raise RuntimeError('Places extractor must produce a nonempty bounded dataset')
+        # Hash output inside the same capped worker rather than re-reading the
+        # PBF or publishing an unverified file after the guard has ended.
+        output_check = '''import hashlib,json
+h=hashlib.sha256(); size=0; rows=0
+with open('/job/data/places.ndjson','rb') as source:
+    for block in iter(lambda:source.read(65536),b''):
+        h.update(block); size+=len(block); rows+=block.count(b'\\n')
+print(json.dumps({'sha256':h.hexdigest(),'bytes':size,'records':rows}))
+'''
+        stage(job, 'places-output', ['python3', '-B', '-c', output_check],
+              mounts, memory='128m', seconds=60)
+        receipt = json.loads((job / 'logs/places-output.log').read_text())
+        if not 0 < receipt['records'] <= 50000:
+            raise RuntimeError('Places extraction record count is outside the bounded import contract')
+        receipt.update(source=str(source), input_sha256=expected_sha256, source_date=source_date,
+                       job=str(job), imported=False)
+    target.parent.mkdir(exist_ok=True)
+    sync_directory(runtime)
+    (job / 'data').rename(target)
+    sync_directory(job)
+    sync_directory(target.parent)
+    durable_json(target / 'dataset.json', receipt)
+    print(json.dumps({'dataset': str(target), **receipt}))
+
+
+def import_places(runtime, dataset, app_runtime=DEFAULT_APP_RUNTIME):
+    if dataset.is_symlink() or dataset.parent != runtime / 'places-datasets':
+        raise ValueError('Select a retained places dataset from this runtime')
+    receipt = json.loads((dataset / 'dataset.json').read_text())
+    source = dataset / 'places.ndjson'
+    if not source.is_file() or source.is_symlink() or source.stat().st_size != receipt['bytes']:
+        raise ValueError('Selected places dataset changed or is not a regular file')
+    if not re.fullmatch(r'[a-f0-9]{64}', receipt['sha256']):
+        raise ValueError('Selected places dataset has no verified checksum')
+    release = json.loads((app_runtime / '.deploy/current-git-release.json').read_text())
+    app = json.loads(execute(['docker', 'inspect', 'bikerskz-app-1']))[0]
+    if (app['State'].get('Health', {}).get('Status') != 'healthy' or release.get('healthy') is not True or
+            app['Config'].get('Labels', {}).get('org.opencontainers.image.revision') != release.get('revision') or
+            app['Image'] != release.get('image_id') or app['Config']['Image'] != release.get('image')):
+        raise RuntimeError('Places import requires the healthy receipt-matching live app image')
+    # Only use the already selected private app environment, never command-line
+    # credentials or values taken from the public extraction dataset.
+    with guarded_job(runtime, seconds=300) as job:
+        environment = job / 'inputs/app.env'
+        values = app['Config']['Env']
+        if any('\n' in value or '\r' in value for value in values):
+            raise RuntimeError('Live application environment contains unsupported newlines')
+        environment.write_text('\n'.join(values) + '\n'); environment.chmod(0o600)
+        spec = {'name': 'places-import', 'image': app['Image'], 'memory': '512m', 'cpus': '1.0',
+                'read_bps': '5mb', 'write_bps': '5mb', 'timeout': 180, 'network': 'bikerskz_default',
+                'args': ['--pull=never', '--read-only', '--user', '10001:10001',
+                         '--env-file', str(environment), '--mount',
+                         f'type=bind,source={source},target=/input/places.ndjson,readonly',
+                         '--entrypoint', '/app/api'],
+                'command': ['places', 'import', '--file', '/input/places.ndjson', '--sha256', receipt['sha256']]}
+        path = job / 'specs/places-import.json'
+        guard.save(path, spec)
+        try:
+            guard.stage(job, path)
+        finally:
+            # The env is recoverable from the live app; retain no extra secret
+            # copy in an otherwise public-source data job after it terminates.
+            environment.unlink(missing_ok=True)
+        result = json.loads((job / 'logs/places-import.log').read_text())
+        counters = ('inserted', 'updated', 'unchanged', 'preserved')
+        if (result.get('total') != receipt['records'] or
+                any(type(result.get(key)) is not int or result[key] < 0 for key in counters) or
+                sum(result[key] for key in counters) != result['total']):
+            raise RuntimeError('Places import counts differ from the pinned dataset; reconcile before retrying')
+    durable_json(dataset / 'last-import.json', {'time': time.time(), 'job': str(job),
+                 'revision': release['revision'], 'dataset_sha256': receipt['sha256'], 'result': result})
+    print(json.dumps({'imported': True, 'dataset': str(dataset), 'job': str(job), 'result': result}))
+
+
 def main():
     if len(sys.argv) > 1 and sys.argv[1] in ('_watch', '_lease', '_adopt-prepare', '_copy-input', '_verify'):
         action, *args = sys.argv[1:]
@@ -1132,6 +1272,13 @@ def main():
     recovery.add_argument('--id', required=True)
     commands.add_parser('activate')
     commands.add_parser('status')
+    extraction = commands.add_parser('extract-places')
+    extraction.add_argument('--source', type=Path, required=True)
+    extraction.add_argument('--sha256', required=True)
+    extraction.add_argument('--source-date', required=True)
+    extraction.add_argument('--id', required=True)
+    importing = commands.add_parser('import-places')
+    importing.add_argument('--dataset', type=Path, required=True)
     check = commands.add_parser('verify')
     check.add_argument('--archive-url', help='Versioned map-data URL; defaults to GIS selection or adoption receipt')
     retry = commands.add_parser('restart')
@@ -1161,6 +1308,9 @@ def main():
         elif args.action == 'switch': switch(runtime, args.component, args.candidate)
         elif args.action == 'restart': restart(runtime, args.component)
         elif args.action == 'verify': verify(runtime, args.archive_url)
+        elif args.action == 'extract-places': extract_places(runtime, args.source.resolve(strict=True),
+            args.sha256, args.source_date, args.id)
+        elif args.action == 'import-places': import_places(runtime, args.dataset.resolve(strict=True))
         else: print(execute(compose(runtime) + ['ps', '--format', 'json']))
 
 

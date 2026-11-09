@@ -1,3 +1,4 @@
+import { AdminPlacesQueue } from '../components/places/AdminPlacesQueue'
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -31,11 +32,11 @@ export function AdminPage() {
 function AdminWorkspace() {
   const { t } = useI18n()
   const { user } = useSession()
-  const [tab, setTab] = useState<'reports' | 'audit'>('reports')
+  const [tab, setTab] = useState<'reports' | 'audit' | 'places'>('reports')
   const [search] = useSearchParams()
   const targetUserId = search.get('user') ?? ''
   const target: Target | undefined = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetUserId) ? { type: 'user', id: targetUserId } : undefined
-  return <div className="page-content admin-page"><Link className="back-link" to="/"><ArrowLeft size={17} />{t('back')}</Link><div className="page-heading"><span className="eyebrow">{t('admin')}</span><h1>{t('adminTitle')}</h1></div><nav className="collection-tabs"><button className={tab === 'reports' ? 'active' : ''} onClick={() => setTab('reports')}>{t('adminReports')}</button><button className={tab === 'audit' ? 'active' : ''} onClick={() => setTab('audit')}>{t('adminAudit')}</button></nav>{tab === 'reports' ? <ReportQueue key={`reports:${user?.id}`} /> : <AuditHistory key={`audit:${user?.id}`} />}<AdminActionForm key={`actions:${user?.id}:${target?.id ?? ''}`} target={target} /></div>
+  return <div className="page-content admin-page"><Link className="back-link" to="/"><ArrowLeft size={17} />{t('back')}</Link><div className="page-heading"><span className="eyebrow">{t('admin')}</span><h1>{t('adminTitle')}</h1></div><nav className="collection-tabs"><button className={tab === 'reports' ? 'active' : ''} onClick={() => setTab('reports')}>{t('adminReports')}</button><button className={tab === 'audit' ? 'active' : ''} onClick={() => setTab('audit')}>{t('adminAudit')}</button><button className={tab === 'places' ? 'active' : ''} onClick={() => setTab('places')}>{t('placesTitle')}</button></nav>{tab === 'reports' ? <ReportQueue key={`reports:${user?.id}`} /> : tab === 'places' ? <AdminPlacesQueue key={user?.id} /> : <AuditHistory key={`audit:${user?.id}`} />}{tab !== 'places' && <AdminActionForm key={`actions:${user?.id}:${target?.id ?? ''}`} target={target} />}</div>
 }
 function ReportQueue() {
   const { t, locale } = useI18n()
