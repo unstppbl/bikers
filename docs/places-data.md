@@ -1,6 +1,26 @@
-# Useful-place data from the retained Kazakhstan OSM snapshot
+# Map data and the historical Kazakhstan OSM seed
 
-Initial useful places come from the already acquired Kazakhstan OpenStreetMap
+## Current policy: user-curated places
+
+[Issue #24](https://github.com/unstppbl/bikers/issues/24) supersedes the initial
+OSM seed on 9 November 2026. The public feature is **Map / Карта**, immediately
+after Motorcycles in navigation. Its place directory starts empty: riders
+suggest places and administrators review additions, corrections and closures.
+There is no scheduled import or automatic seed on startup. Do not repopulate
+the directory from OSM or run a bulk import without a new owner instruction.
+
+The self-hosted OSM basemap, address search and motorcycle routing remain in
+use. Their map data is separate from the community's place entries. Existing
+SQL migration files and source/provenance fields remain unchanged.
+
+The extraction and import details below are historical reproduction records
+for #22, not current production population instructions. Keep the retained
+dataset and private reset backup for recovery and audit; record execution
+evidence and the reset's count/hash checks in #24.
+
+## Historical initial seed
+
+Initial useful places came from the already acquired Kazakhstan OpenStreetMap
 extract. No demonstration businesses, bulk public Overpass queries, inferred
 meeting spots or user-content exports are part of this process. Extraction and
 database import are separate, explicit guarded operations.
@@ -101,9 +121,9 @@ escapes. No verification, availability or publication-status field is supplied
 by the extractor. Preserve `© OpenStreetMap contributors`, source IDs and the
 ODbL notice alongside the imported data; see [OSM copyright and licence](https://www.openstreetmap.org/copyright).
 
-## Guarded extraction and import
+## Historical guarded extraction and import
 
-Use the clean pushed `main` checkout and the approved schema-11 release. The
+The initial seed used the clean pushed `main` checkout and the approved schema-11 release. The
 existing GIS wrapper owns the deployment/refresh locks, independent lease,
 readiness checks, bounded acquisition and labelled containers. Do not run a
 country scan directly in the live Valhalla service.

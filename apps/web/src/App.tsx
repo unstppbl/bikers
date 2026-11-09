@@ -116,10 +116,10 @@ export function App() {
       <div className="sidebar-label">{t('community')}</div>
       <nav className="side-navigation">
         <span className="nav-group-label">{t('navExplore')}</span>
-        <NavLink to="/places" onClick={() => setMenuOpen(false)}><MapPinIcon size={20} />{t('placesTitle')}</NavLink>
         <NavLink to="/" end onClick={() => setMenuOpen(false)}><Motorbike size={20} />{t('rides')}<ArrowUpRight className="nav-arrow" size={17} /></NavLink>
         <NavLink to="/clubs" end onClick={() => setMenuOpen(false)}><Users size={20} />{t('clubs')}</NavLink>
         <NavLink to="/bikes" onClick={() => setMenuOpen(false)}><Motorbike size={20} />{t('bikeCatalogue')}</NavLink>
+        <NavLink to="/places" onClick={() => setMenuOpen(false)}><MapPinIcon size={20} />{t('placesTitle')}</NavLink>
         <span className="nav-group-label">{t('navYourSpace')}</span>
         <NavLink to="/my-rides" onClick={() => setMenuOpen(false)}><CalendarDays size={20} />{t('myRides')}</NavLink>
         <NavLink to="/garage" onClick={() => setMenuOpen(false)}><Wrench size={20} />{t('garage')}</NavLink>

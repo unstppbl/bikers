@@ -373,6 +373,14 @@ reporting acceptance; a healthy final check does not erase earlier impact.
 
 ## Useful places schema and data
 
+Current population policy is **Map / Карта**, curated through reviewed user
+contributions ([#24](https://github.com/unstppbl/bikers/issues/24)). The initial
+OSM place seed is withdrawn. Fresh directories start empty; do not run place
+extraction/import to repopulate them without a new owner instruction. The
+self-hosted OSM basemap, address search and routing are separate and remain in
+use. The schema rollout and initial seed procedure below record the historical
+#22 release; retain its dataset and receipts as recovery evidence.
+
 [#22](https://github.com/unstppbl/bikers/issues/22) adds public useful-place
 discovery and private moderated submissions. Schema 11 creates only `places`
 and `place_submissions`; existing SQL migrations are immutable. Suggestions
@@ -405,7 +413,7 @@ retained data/container state, main CI and the private deployment check before
 resuming both automatic controls. No GIS environment, network, edge or service
 restart is needed for this feature.
 
-Initial country data is extracted from the retained verified PBF, using pinned
+The historical initial country data was extracted from the retained verified PBF, using pinned
 Python wheels in the existing parser image. The explicit `extract-places` and
 `import-places` commands share the existing serial locks, health guard and
 independent lease. They use at most 512 MiB/1 CPU and 5 MiB/s disk I/O. No PBF is
