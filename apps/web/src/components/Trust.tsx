@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ProhibitIcon as Ban, FlagIcon as Flag, ShieldCheckIcon as ShieldCheck } from '@phosphor-icons/react'
@@ -18,30 +18,51 @@ export function useTrust() {
   const { user, loading, error } = useSession()
   return useQuery({ queryKey: ['trust', user?.id], queryFn: ({ signal }) => request<{ is_admin: boolean }>('/me/trust', { signal }), enabled: !!user && !loading && !error, meta: { private: true }, retry: false, staleTime: 30_000, refetchInterval: user ? 30_000 : false })
 }
-export function ReportButton({ targetType, targetId, label = 'report' }: { targetType: ReportTarget; targetId: string; label?: 'report' | 'reportRider' | 'reportAvatar' }) {
-  const { user, loading, error } = useSession()
-  if (!user || loading || error) return null
-  return <ReportForm key={`${user.id}:${getSessionEpoch()}:${targetType}:${targetId}`} targetType={targetType} targetId={targetId} label={label} />
+export interface ReportActionTarget {
+  targetType: ReportTarget; targetId: string; label: 'report' | 'reportMessage' | 'reportRider' | 'reportAvatar'
 }
-function ReportForm({ targetType, targetId, label }: { targetType: ReportTarget; targetId: string; label: 'report' | 'reportRider' | 'reportAvatar' }) {
+// Keep operation state outside ephemeral menus. Existing inline report controls
+// and message menus share the same payload, session guards and feedback.
+export function useReportAction({ focusOnOpen = false, onClose }: { focusOnOpen?: boolean; onClose?: () => void } = {}) {
   const { t } = useI18n()
   const start = useSessionTask()
   const online = useOnline()
+  const [target, setTarget] = useState<ReportActionTarget>()
   const [open, setOpen] = useState(false)
   const [reason, setReason] = useState<typeof reportReasons[number]>('spam')
   const [details, setDetails] = useState('')
   const [busy, setBusy] = useState(false)
   const [sent, setSent] = useState(false)
   const [error, setError] = useState<unknown>()
+  const reasonRef = useRef<HTMLSelectElement>(null)
+  useEffect(() => { if (open && focusOnOpen) reasonRef.current?.focus() }, [open, focusOnOpen])
+  function show(next: ReportActionTarget) {
+    if (busy || !next.targetId) return
+    if (target?.targetType !== next.targetType || target.targetId !== next.targetId) { setReason('spam'); setDetails('') }
+    setTarget(next); setOpen(true); setSent(false); setError(undefined)
+  }
+  function close() { setOpen(false); onClose?.() }
   async function submit(event: FormEvent) {
     event.preventDefault()
+    if (!target || busy) return
     if (new TextEncoder().encode(details.trim()).length > 4000) { setError(new ApiError(422, 'invalid_report')); return }
     const task = start(); if (!task.current()) { task.finish(); return }; setBusy(true); setError(undefined)
-    try { await request('/reports', { method: 'POST', signal: task.signal, body: JSON.stringify({ target_type: targetType, target_id: targetId, reason, details: details.trim() }) }); if (task.current()) { setOpen(false); setSent(true); setDetails('') } }
+    try { await request('/reports', { method: 'POST', signal: task.signal, body: JSON.stringify({ target_type: target.targetType, target_id: target.targetId, reason, details: details.trim() }) }); if (task.current()) { close(); setSent(true); setDetails('') } }
     catch (value) { if (task.current()) setError(value) }
     finally { if (task.current()) setBusy(false); task.finish() }
   }
-  return <div className={`report-control ${open ? 'report-control-open' : ''}`}><button type="button" className="text-button report-button" aria-expanded={open} onClick={() => { setOpen(!open); setSent(false) }}><Flag size={13} />{t(label)}</button>{sent && <span className="success-message" role="status">{t('reportSent')}</span>}{open && <form className="surface report-form" onSubmit={(event) => void submit(event)}><h3>{t(label)}</h3><p>{t('reportHint')}</p><Field label={t('reportReason')}><select value={reason} disabled={busy} onChange={(event) => setReason(event.target.value as typeof reason)}>{reportReasons.map((value) => <option key={value} value={value}>{t(`reason_${value}`)}</option>)}</select></Field><TextArea label={t('reportDetails')} value={details} onChange={setDetails} maxLength={4000} rows={3} />{error != null && <ErrorNotice error={error} />}<div className="form-actions"><button className="button button-outline" type="button" disabled={busy} onClick={() => setOpen(false)}>{t('cancel')}</button><button className="button button-primary" type="submit" disabled={busy || !online}>{t(busy ? 'sending' : 'reportSubmit')}</button></div></form>}</div>
+  const content = <>{sent && <span className="success-message" role="status">{t('reportSent')}</span>}{open && target && <form className="surface report-form" onSubmit={(event) => void submit(event)}><h3>{t(target.label)}</h3><p>{t('reportHint')}</p><Field label={t('reportReason')}><select ref={reasonRef} value={reason} disabled={busy} onChange={(event) => setReason(event.target.value as typeof reason)}>{reportReasons.map((value) => <option key={value} value={value}>{t(('reason_' + value) as 'reason_spam' | 'reason_harassment' | 'reason_dangerous_content' | 'reason_other')}</option>)}</select></Field><TextArea label={t('reportDetails')} value={details} onChange={setDetails} maxLength={4000} rows={3} />{error != null && <ErrorNotice error={error} />}<div className="form-actions"><button className="button button-outline" type="button" disabled={busy} onClick={close}>{t('cancel')}</button><button className="button button-primary" type="submit" disabled={busy || !online}>{t(busy ? 'sending' : 'reportSubmit')}</button></div></form>}</>
+  return { open, busy, show, close, content }
+}
+export function ReportButton({ targetType, targetId, label = 'report' }: { targetType: ReportTarget; targetId: string; label?: 'report' | 'reportRider' | 'reportAvatar' }) {
+  const { user, loading, error } = useSession()
+  if (!user || loading || error) return null
+  return <ReportForm key={user.id + ':' + getSessionEpoch() + ':' + targetType + ':' + targetId} targetType={targetType} targetId={targetId} label={label} />
+}
+function ReportForm(target: ReportActionTarget) {
+  const { t } = useI18n()
+  const action = useReportAction()
+  return <div className={'report-control ' + (action.open ? 'report-control-open' : '')}><button type="button" className="text-button report-button" aria-expanded={action.open} onClick={() => { if (action.open) action.close(); else action.show(target) }}><Flag size={13} />{t(target.label)}</button>{action.content}</div>
 }
 export function useBlocks() {
   const { user, loading, error } = useSession()
@@ -60,7 +81,7 @@ export function useBlocks() {
     },
   })
 }
-export function BlockButton({ userId, name }: { userId: string; name: string }) {
+export function useBlockAction({ userId, name }: { userId: string; name: string }) {
   const { user, error: sessionError } = useSession()
   const { t } = useI18n()
   const blocks = useBlocks()
@@ -94,8 +115,18 @@ export function BlockButton({ userId, name }: { userId: string; name: string }) 
       task.finish()
     }
   }
-  if (!user || user.id === userId || sessionError) return null
-  return <div className="block-control">{dialog}<button type="button" className="text-button" disabled={busy || !online || blocks.isPending || blocks.isError} onClick={() => void change()}><Ban size={13} />{t(blocked ? 'unblockRider' : 'blockRider')}</button>{error != null && <ErrorNotice error={error} />}</div>
+  return { blocked, busy, disabled: busy || !online || blocks.isPending || blocks.isError || !!sessionError,
+    change, feedback: <>{dialog}{error != null && <ErrorNotice error={error} />}</> }
+}
+export function BlockButton({ userId, name }: { userId: string; name: string }) {
+  const { user, loading, error } = useSession()
+  if (!user || loading || error || user.id === userId) return null
+  return <BlockControl key={user.id + ':' + getSessionEpoch() + ':' + userId} userId={userId} name={name} />
+}
+function BlockControl(props: { userId: string; name: string }) {
+  const { t } = useI18n()
+  const action = useBlockAction(props)
+  return <div className="block-control">{action.feedback}<button type="button" className="text-button" disabled={action.disabled} onClick={() => void action.change()}><Ban size={13} />{t(action.blocked ? 'unblockRider' : 'blockRider')}</button></div>
 }
 export function ManageUserLink({ userId }: { userId: string }) {
   const { t } = useI18n()

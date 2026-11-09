@@ -1,4 +1,9 @@
 const phrases = {
+  messageActions: ['Message actions for {name}', 'Действия с сообщением: {name}', '{name} хабарламасының әрекеттері'],
+  messageActionsMenu: ['Message actions', 'Действия с сообщением', 'Хабарлама әрекеттері'],
+  messageActionMessageGroup: ['Message', 'Сообщение', 'Хабарлама'],
+  messageActionRiderGroup: ['Rider', 'Райдер', 'Райдер'],
+  reportMessage: ['Report message', 'Пожаловаться на сообщение', 'Хабарламаға шағымдану'],
   adminContent: ['Content', 'Контент', 'Мазмұн'],
   target_report: ['Report', 'Жалоба', 'Шағым'],
   auditReviewContent: ['Reported image reviewed', 'Изображение по жалобе просмотрено', 'Шағым түскен сурет қаралды'],
