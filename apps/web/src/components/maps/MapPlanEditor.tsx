@@ -40,7 +40,7 @@ interface LocationFieldProps {
   onText: (value: string) => void; onSelect: (point: MapPoint) => void; onPick: () => void
 }
 
-function LocationField({ label, value, selected, bias, required = false, disabled, onText, onSelect, onPick }: LocationFieldProps) {
+export function LocationField({ label, value, selected, bias, required = false, disabled, onText, onSelect, onPick }: LocationFieldProps) {
   const { t, locale } = useI18n()
   const { user } = useSession()
   const id = useId()

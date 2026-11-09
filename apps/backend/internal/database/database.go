@@ -58,6 +58,7 @@ type Repository interface {
 	TrustRepository
 	NotificationRepository
 	ReminderRepository
+	PlacesRepository
 }
 
 // The implementation locks the ride first, then runs the decision and commits.

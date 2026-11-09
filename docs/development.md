@@ -350,3 +350,25 @@ can opt into explicitly supplied GIS origins with `BROWSER_HARNESS_GIS=1`.
 See [GIS operations](operations.md) for the durable Jarvis services and guarded,
 serial data staging/refresh commands. Development must use disposable databases;
 production accounts and sessions are never copied into a local map fixture.
+
+## Useful places
+
+The public `/places` directory shares the self-hosted basemap and adds bounded
+category, text, city and viewport filters. The public map configuration is
+separate from authenticated address/route APIs. Precise ride plans are never
+used as directory data or copied into public caches. Opening the directory
+does not request device location.
+
+Schema 11 adds public places and private moderation submissions; versions 1–10
+are unchanged. Active signed-in riders submit additions, corrections or closure
+reports. Publication requires an active administrator and current place/submission
+versions under the transaction locks. A stale correction requires a fresh
+proposal. Contributor/reviewer identities and pending details are absent from
+public places. Contributor history and administrator queues use private queries.
+
+The CLI `api places import --file FILE --sha256 DIGEST` consumes a bounded,
+fully validated local NDJSON artifact atomically. Replays keep IDs stable;
+community edits and closures survive later OSM refreshes. There is no public
+bulk-import endpoint or network fetch inside the import transaction.
+See [Places data](places-data.md) and the
+[coordinated schema rollout](operations.md#useful-places-schema-and-data).

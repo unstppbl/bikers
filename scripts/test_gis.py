@@ -179,6 +179,184 @@ class GuardTests(unittest.TestCase):
         self.stop_gis.assert_called_with(self.runtime, ['photon'])
         self.assertTrue(json.loads((job / 'finished.json').read_text())['failed'])
 
+    def test_lease_removes_private_environment_even_when_docker_stop_fails(self):
+        job = self.runtime / 'private-lease'; job.mkdir()
+        (job / 'inputs').mkdir()
+        private = job / 'inputs/app.env'; private.write_text('PRIVATE_FIXTURE=secret\n')
+        GIS.guard.save(job / 'guard-plan.json', {'runtime': str(self.runtime), 'abort_services': []})
+        self.stopped.side_effect = RuntimeError('Docker cleanup failed')
+        with patch.object(GIS.guard, 'ensure_watch', side_effect=RuntimeError('launcher disappeared')):
+            with self.assertRaisesRegex(RuntimeError, 'Docker cleanup failed'):
+                GIS.child_lease(job, 60, 12345, 'parent-start')
+        self.assertFalse(private.exists())
+        self.assertEqual(json.loads((job / 'abort.json').read_text())['reason'], 'launcher disappeared')
+
+
+class PlacesOperationsTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        self.runtime = self.root / 'gis'; self.runtime.mkdir()
+        self.app_runtime = self.root / 'app'; (self.app_runtime / '.deploy').mkdir(parents=True)
+        self.dataset = self.runtime / 'places-datasets/initial'; self.dataset.mkdir(parents=True)
+        self.source = self.dataset / 'places.ndjson'
+        self.source.write_text('{"source_ref":"node/1","name":"Public fuel"}\n')
+        self.source.chmod(0o644)
+        self.sha256 = GIS.digest(self.source)
+        GIS.guard.save(self.dataset / 'dataset.json', {'sha256': self.sha256, 'bytes': self.source.stat().st_size, 'records': 1})
+        self.release = {'revision': 'a' * 40, 'image': 'bikerskz:git-' + 'a' * 40,
+                        'image_id': 'sha256:' + 'b' * 64, 'healthy': True}
+        GIS.guard.save(self.app_runtime / '.deploy/current-git-release.json', self.release)
+        self.environment = ['DATABASE_URL=postgres://fixture:secret@db/fixture',
+                            'BASE_URL=https://bikers.kz', 'TELEGRAM_GATEWAY_TOKEN=fixture-token']
+        self.app = {'State': {'Health': {'Status': 'healthy'}}, 'Image': self.release['image_id'],
+                    'Config': {'Image': self.release['image'], 'Env': self.environment,
+                               'Labels': {'org.opencontainers.image.revision': self.release['revision']}}}
+        self.job = self.runtime / 'jobs/bikers-osm-kz-placesfixture'
+        for folder in ('inputs', 'specs', 'logs', 'data'):
+            (self.job / folder).mkdir(parents=True)
+        self.result = {'total': 1, 'inserted': 1, 'updated': 0, 'unchanged': 0, 'preserved': 0}
+
+    @contextmanager
+    def guarded(self, runtime, **kwargs):
+        self.assertEqual(runtime, self.runtime)
+        self.assertEqual(kwargs['seconds'], 300)
+        yield self.job
+
+    def test_import_count_mismatch_never_publishes_a_success_receipt(self):
+        wrong = {**self.result, 'total': 2, 'inserted': 2}
+        with patch.object(GIS, 'execute', return_value=json.dumps([self.app])), \
+                patch.object(GIS, 'guarded_job', self.guarded), \
+                patch.object(GIS.guard, 'stage', side_effect=lambda job, _path: GIS.guard.save(job / 'logs/places-import.log', wrong)):
+            with self.assertRaisesRegex(RuntimeError, 'reconcile before retrying'):
+                GIS.import_places(self.runtime, self.dataset, app_runtime=self.app_runtime)
+        self.assertFalse((self.dataset / 'last-import.json').exists())
+        self.assertFalse((self.job / 'inputs/app.env').exists())
+
+    def test_import_uses_exact_live_image_and_private_environment_without_secret_spec_values(self):
+        def stage(job, path):
+            self.assertEqual(job, self.job)
+            spec = json.loads(path.read_text())
+            self.assertEqual(spec['image'], self.release['image_id'])
+            self.assertEqual((spec['memory'], spec['cpus'], spec['timeout']), ('512m', '1.0', 180))
+            self.assertEqual((spec['read_bps'], spec['write_bps']), ('5mb', '5mb'))
+            self.assertEqual(spec['network'], 'bikerskz_default')
+            self.assertIn('--pull=never', spec['args'])
+            self.assertIn('--read-only', spec['args'])
+            self.assertEqual(spec['args'][spec['args'].index('--user') + 1], '10001:10001')
+            private = Path(spec['args'][spec['args'].index('--env-file') + 1])
+            self.assertEqual(private, self.job / 'inputs/app.env')
+            self.assertEqual(private.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(private.read_text().splitlines(), self.environment)
+            self.assertEqual(spec['command'], ['places', 'import', '--file', '/input/places.ndjson',
+                                               '--sha256', self.sha256])
+            self.assertIn(f'type=bind,source={self.source},target=/input/places.ndjson,readonly', spec['args'])
+            for value in self.environment:
+                self.assertNotIn(value, path.read_text())
+            GIS.guard.save(job / 'logs/places-import.log', self.result)
+
+        with patch.object(GIS, 'execute', return_value=json.dumps([self.app])) as execute, \
+                patch.object(GIS, 'guarded_job', self.guarded), patch.object(GIS.guard, 'stage', side_effect=stage), \
+                patch.object(GIS.sys, 'stdout', io.StringIO()):
+            GIS.import_places(self.runtime, self.dataset, app_runtime=self.app_runtime)
+        execute.assert_called_once_with(['docker', 'inspect', 'bikerskz-app-1'])
+        self.assertFalse((self.job / 'inputs/app.env').exists())
+        receipt = json.loads((self.dataset / 'last-import.json').read_text())
+        self.assertEqual(receipt['revision'], self.release['revision'])
+        self.assertEqual(receipt['dataset_sha256'], self.sha256)
+        self.assertEqual(receipt['result'], self.result)
+        self.assertNotIn('secret', (self.dataset / 'last-import.json').read_text())
+
+    def test_import_rejects_receipt_image_or_health_drift_before_starting_job(self):
+        for change in ('image_id', 'image_tag', 'revision', 'health'):
+            with self.subTest(change=change):
+                app = json.loads(json.dumps(self.app))
+                if change == 'image_id': app['Image'] = 'sha256:' + 'c' * 64
+                elif change == 'image_tag': app['Config']['Image'] = 'bikerskz:other'
+                elif change == 'revision': app['Config']['Labels']['org.opencontainers.image.revision'] = 'c' * 40
+                else: app['State']['Health']['Status'] = 'unhealthy'
+                with patch.object(GIS, 'execute', return_value=json.dumps([app])), \
+                        patch.object(GIS, 'guarded_job') as guarded:
+                    with self.assertRaisesRegex(RuntimeError, 'receipt-matching'):
+                        GIS.import_places(self.runtime, self.dataset, app_runtime=self.app_runtime)
+                guarded.assert_not_called()
+        self.assertFalse((self.dataset / 'last-import.json').exists())
+
+    def test_failed_import_stage_removes_environment_and_never_publishes_success_receipt(self):
+        def fail_stage(job, _path):
+            self.assertTrue((job / 'inputs/app.env').exists())
+            raise RuntimeError('fixture import failed before commit')
+        with patch.object(GIS, 'execute', return_value=json.dumps([self.app])), \
+                patch.object(GIS, 'guarded_job', self.guarded), patch.object(GIS.guard, 'stage', side_effect=fail_stage):
+            with self.assertRaisesRegex(RuntimeError, 'fixture import failed'):
+                GIS.import_places(self.runtime, self.dataset, app_runtime=self.app_runtime)
+        self.assertFalse((self.job / 'inputs/app.env').exists())
+        self.assertFalse((self.dataset / 'last-import.json').exists())
+
+    def test_private_cleanup_removes_only_the_stopped_exact_name_and_job_label(self):
+        GIS.guard.save(self.job / 'specs/places-import.json', {})
+        private = self.job / 'inputs/app.env'; private.write_text('PRIVATE_FIXTURE=secret\n')
+        name = self.job.name + '-places-import'
+        info = {'Name': '/' + name, 'Config': {'Labels': {GIS.guard.LABEL: self.job.name}},
+                'State': {'Running': False}}
+        with patch.object(GIS, 'execute', side_effect=['owned-id', json.dumps([info]), '']) as execute:
+            GIS.cleanup_private_job_inputs(self.job)
+        self.assertFalse(private.exists())
+        self.assertEqual(execute.call_args_list[0].args[0], ['docker', 'ps', '-aq', '--filter',
+                         f'name=^{name}$', '--filter', f'label={GIS.guard.LABEL}={self.job.name}'])
+        self.assertEqual(execute.call_args_list[-1].args[0], ['docker', 'rm', 'owned-id'])
+
+    def test_private_cleanup_refuses_foreign_or_running_containers_but_still_deletes_env(self):
+        GIS.guard.save(self.job / 'specs/places-import.json', {})
+        name = self.job.name + '-places-import'
+        for change in ('name', 'label', 'running'):
+            with self.subTest(change=change):
+                private = self.job / 'inputs/app.env'; private.write_text('PRIVATE_FIXTURE=secret\n')
+                info = {'Name': '/' + name, 'Config': {'Labels': {GIS.guard.LABEL: self.job.name}},
+                        'State': {'Running': False}}
+                if change == 'name': info['Name'] = '/bikerskz-app-1'
+                elif change == 'label': info['Config']['Labels'][GIS.guard.LABEL] = 'another-job'
+                else: info['State']['Running'] = True
+                with patch.object(GIS, 'execute', side_effect=['owned-id', json.dumps([info])]) as execute:
+                    with self.assertRaisesRegex(RuntimeError, 'Cannot safely remove'):
+                        GIS.cleanup_private_job_inputs(self.job)
+                self.assertFalse(private.exists())
+                self.assertFalse(any(call.args[0][:2] == ['docker', 'rm'] for call in execute.call_args_list))
+
+    def test_guard_failure_after_extraction_never_publishes_the_candidate_dataset(self):
+        country = self.root / 'country.osm.pbf'; country.write_bytes(b'bounded fixture PBF')
+        original_stat = Path.stat
+
+        def owned_stat(path, *args, **kwargs):
+            result = original_stat(path, *args, **kwargs)
+            if path == country:
+                values = list(result); values[4] = 1000
+                return os.stat_result(values)
+            return result
+
+        @contextmanager
+        def unsafe_guard(runtime, **kwargs):
+            self.assertEqual(runtime, self.runtime)
+            self.assertEqual(kwargs['seconds'], 1800)
+            yield self.job
+            raise RuntimeError('fixture final readiness failed')
+
+        def stage(job, name, *_args, **_kwargs):
+            if name == 'places-extract':
+                (job / 'data/places.ndjson').write_text('{"source_ref":"node/10"}\n')
+            elif name == 'places-output':
+                output = job / 'data/places.ndjson'
+                GIS.guard.save(job / 'logs/places-output.log', {'sha256': GIS.digest(output),
+                               'bytes': output.stat().st_size, 'records': 1})
+
+        with patch.object(Path, 'stat', owned_stat), patch.object(GIS, 'guarded_job', unsafe_guard), \
+                patch.object(GIS.places_osm, 'wheel_manifest', return_value=[]), patch.object(GIS, 'stage', side_effect=stage):
+            with self.assertRaisesRegex(RuntimeError, 'final readiness failed'):
+                GIS.extract_places(self.runtime, country, 'a' * 64, '2026-11-03', 'failed-export')
+        self.assertFalse((self.runtime / 'places-datasets/failed-export').exists())
+        self.assertTrue((self.job / 'data/places.ndjson').is_file())
+
 
 class SelectionTests(unittest.TestCase):
     def test_copied_input_is_hashed_and_growth_is_bounded(self):
@@ -554,6 +732,7 @@ class SourceCheckoutTests(unittest.TestCase):
             tools = scripts / 'osm-benchmark'
             tools.mkdir(parents=True)
             shutil.copyfile(GIS.TOOLS / 'gis.py', scripts / 'gis.py')
+            shutil.copyfile(GIS.TOOLS / 'places_osm.py', scripts / 'places_osm.py')
             for filename in ('run.py', 'valhalla.py', 'photon.py'):
                 shutil.copyfile(GIS.TOOLS / 'osm-benchmark' / filename, tools / filename)
             environment = dict(os.environ)

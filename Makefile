@@ -11,7 +11,7 @@ help:
 	@echo "down                Stop services; preserve database and media volumes"
 	@echo "logs                Follow application logs"
 	@echo "gis-network         Create/validate the private shared GIS network for local Compose"
-	@echo "deploy-jarvis       Build on Jarvis; DEPLOY_ARGS='--migrate-to 10 --configure-gis' opts into reviewed GIS rollout"
+	@echo "deploy-jarvis       Build on Jarvis; DEPLOY_ARGS='--migrate-to 11' opts into reviewed places schema rollout"
 	@echo "check-web           Typecheck, lint, test and build the web app"
 	@echo "check-architecture  Check all backend internal package imports"
 	@echo "check-backend       Run Go unit tests and vet"

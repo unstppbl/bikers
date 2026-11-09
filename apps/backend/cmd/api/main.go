@@ -45,8 +45,8 @@ func run() error {
 		}
 		return nil
 	}
-	if command != "serve" && command != "migrate" && command != "admin" && command != "push-test" {
-		return errors.New("usage: api serve|migrate|healthcheck|admin|push-keys|push-test")
+	if command != "serve" && command != "migrate" && command != "admin" && command != "push-test" && command != "places" {
+		return errors.New("usage: api serve|migrate|healthcheck|admin|push-keys|push-test|places")
 	}
 	cfg, e := config.Load()
 	if e != nil {
@@ -67,6 +67,9 @@ func run() error {
 	}
 	if command == "push-test" {
 		return runPushTest(ctx, runtime.Notifications, os.Args[2:])
+	}
+	if command == "places" {
+		return runPlaces(ctx, runtime.Places, os.Args[2:])
 	}
 	if command == "migrate" {
 		if e = runtime.System.Migrate(ctx); e != nil {

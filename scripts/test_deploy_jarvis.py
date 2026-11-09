@@ -35,7 +35,7 @@ class DockerFixture:
     def __init__(self, checkout, runtime):
         self.checkout, self.runtime = checkout, runtime
         self.target = DEPLOY.migration_checksums(checkout)
-        self.schema = {version: checksum for version, checksum in self.target.items() if version <= 9}
+        self.schema = {version: checksum for version, checksum in self.target.items() if version <= 10}
         self.old = container(OLD_IMAGE, 'old-image-id', 'old-app-id')
         self.current = copy.deepcopy(self.old)
         self.database = container('postgres:18.6-alpine3.24', 'database-image-id', 'db-id')
@@ -56,7 +56,7 @@ class DockerFixture:
         self.migrator_cleanup_fails = False
         self.migrator_lookup_fails = False
         self.migration_commits_when_stopped = False
-        self.new_state = {'rides_with_map_plan': 0}
+        self.new_state = {'places': 0, 'place_submissions': 0}
         self.new_state_unreadable = False
         self.resolved = {'services': {'app': {'image': OLD_IMAGE,
                          'environment': {'PORT': '8080', 'KEY': 'private-test-value'}}}}
@@ -147,7 +147,7 @@ class DockerFixture:
                 if self.migration_commits:
                     self.schema = dict(self.target)
                 if self.unknown_schema:
-                    self.schema = {10: 'unexpected'}
+                    self.schema = {11: 'unexpected'}
                 if self.migration_fails:
                     raise RuntimeError('isolated migration command failure')
                 return ''
@@ -185,7 +185,7 @@ class DeploymentTests(unittest.TestCase):
         (self.runtime / '.deploy/automatic-paused').touch()
         for version, filename in enumerate(DEPLOY.MIGRATION_FILES, 1):
             (directory / filename).write_text(f'-- migration {version}\n')
-        manifest = ','.join(f'{{{version}, schema{version}}}' for version in range(1, 11))
+        manifest = ','.join(f'{{{version}, schema{version}}}' for version in range(1, 12))
         (directory / 'migrations.go').write_text('func migrations() []migration { return []migration{' + manifest + '} }\n')
         self.original = ('APP_IMAGE=' + OLD_IMAGE + '\nPRIVATE_SETTING=private-test-value\n').encode()
         (self.runtime / '.env').write_bytes(self.original)
@@ -194,7 +194,7 @@ class DeploymentTests(unittest.TestCase):
         self.addCleanup(patch.stopall)
         patch.object(DEPLOY, 'run', self.docker.run).start()
 
-    def deploy(self, migrate_to=10, configure_gis=False):
+    def deploy(self, migrate_to=11, configure_gis=False):
         previous_umask = os.umask(0o077)
         try:
             DEPLOY.deploy(self.checkout, self.runtime, migrate_to, configure_gis)
@@ -211,8 +211,8 @@ class DeploymentTests(unittest.TestCase):
         self.assertLess(max(i for i, value in enumerate(events) if value == 'snapshot'), events.index('activate'))
         self.assertNotIn('restore', events)
         receipt = json.loads((self.runtime / '.deploy/current-git-release.json').read_text())
-        self.assertEqual((receipt['migration_from'], receipt['migration_to']), (9, 10))
-        self.assertEqual(receipt['migration_checksum'], self.docker.target[10])
+        self.assertEqual((receipt['migration_from'], receipt['migration_to']), (10, 11))
+        self.assertEqual(receipt['migration_checksum'], self.docker.target[11])
         self.assertTrue(receipt['retained_state_unchanged'])
         self.assertEqual(receipt['quiesced_retained_state']['tables'][0]['rows'], 3)
         self.assertEqual(receipt['image'], NEW_IMAGE)
@@ -253,11 +253,11 @@ class DeploymentTests(unittest.TestCase):
 
     def test_schema_drift_or_future_source_is_rejected_before_build(self):
         self.docker.schema[3] = 'changed'
-        with self.assertRaisesRegex(RuntimeError, 'schema-9 receipts'):
+        with self.assertRaisesRegex(RuntimeError, 'schema-10 receipts'):
             self.deploy()
         self.assertNotIn('build', self.docker.events)
         source = self.checkout / 'apps/backend/internal/database/postgres/migrations.go'
-        source.write_text(source.read_text().replace('{10, schema10}', '{10, schema10},{11, schema11}'))
+        source.write_text(source.read_text().replace('{11, schema11}', '{11, schema11},{12, schema12}'))
         with self.assertRaisesRegex(RuntimeError, 'exactly source migrations'):
             self.deploy()
         self.assertNotIn('stop', self.docker.events)
@@ -271,7 +271,7 @@ class DeploymentTests(unittest.TestCase):
     def test_uncommitted_migration_failure_restores_only_old_image(self):
         self.docker.migration_fails = True
         self.docker.migration_commits = False
-        with self.assertRaisesRegex(RuntimeError, 'schema 9 remains intact'):
+        with self.assertRaisesRegex(RuntimeError, 'schema 10 remains intact'):
             self.deploy()
         self.assertIn('restore', self.docker.events)
         self.assertNotIn('activate', self.docker.events)
@@ -288,7 +288,7 @@ class DeploymentTests(unittest.TestCase):
         self.docker.migration_fails = True
         self.docker.migration_commits = False
         self.docker.migrator_lingers = True
-        with self.assertRaisesRegex(RuntimeError, 'schema 9 remains intact'):
+        with self.assertRaisesRegex(RuntimeError, 'schema 10 remains intact'):
             self.deploy()
         events = self.docker.events
         self.assertLess(events.index('migrator-stop'), events.index('migrator-remove'))
@@ -360,18 +360,18 @@ class DeploymentTests(unittest.TestCase):
         self.assertNotIn('restore', self.docker.events)
 
     def test_old_migration_target_is_rejected_without_touching_runtime(self):
-        with self.assertRaisesRegex(RuntimeError, 'migration target 10'):
-            self.deploy(migrate_to=8)
+        with self.assertRaisesRegex(RuntimeError, 'migration target 11'):
+            self.deploy(migrate_to=10)
         self.assertEqual(self.docker.events, [])
         self.assertEqual((self.runtime / '.env').read_bytes(), self.original)
 
     def test_nonempty_new_work_or_changed_default_consent_stops_after_commit(self):
-        for field in ('rides_with_map_plan',):
+        for field in ('places', 'place_submissions'):
             with self.subTest(field=field):
                 self.docker = DockerFixture(self.checkout, self.runtime)
                 DEPLOY.run = self.docker.run
                 self.docker.new_state[field] = 1
-                with self.assertRaisesRegex(RuntimeError, 'Migration-10 additions'):
+                with self.assertRaisesRegex(RuntimeError, 'Migration-11 additions'):
                     self.deploy()
                 self.assertEqual(self.docker.schema, self.docker.target)
                 self.assertNotIn('activate', self.docker.events)

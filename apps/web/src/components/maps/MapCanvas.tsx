@@ -1,12 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowsOutSimpleIcon, MinusIcon, PlusIcon } from '@phosphor-icons/react'
-import { addProtocol, AttributionControl, LngLatBounds, Map as LibreMap, Marker, setWorkerUrl } from 'maplibre-gl'
+import { AttributionControl, LngLatBounds, Map as LibreMap, Marker } from 'maplibre-gl'
 import type { GeoJSONSource } from 'maplibre-gl'
-import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
-import { Protocol } from 'pmtiles'
 import type { Locale, MapGeometry, MapPoint } from '../../types'
 import { mapStyle } from './map-style'
-import { resetMapArchive } from './map-runtime'
+import { initializeMapRuntime, retryMapArchive } from './map-browser-runtime'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import './map-canvas.css'
 
@@ -23,15 +21,6 @@ const copy = {
   en: { label: 'Ride map', loading: 'Loading map…', error: 'The map could not be loaded.', retry: 'Try again', pick: 'Click the map to choose a point.', zoomIn: 'Zoom in', zoomOut: 'Zoom out', fit: 'Show all stops' },
   ru: { label: 'Карта поездки', loading: 'Загрузка карты…', error: 'Не удалось загрузить карту.', retry: 'Повторить', pick: 'Нажмите на карту, чтобы выбрать точку.', zoomIn: 'Приблизить', zoomOut: 'Отдалить', fit: 'Показать все остановки' },
   kk: { label: 'Сапар картасы', loading: 'Карта жүктелуде…', error: 'Картаны жүктеу мүмкін болмады.', retry: 'Қайталау', pick: 'Нүктені таңдау үшін картаны басыңыз.', zoomIn: 'Жақындату', zoomOut: 'Алыстату', fit: 'Барлық аялдамаларды көрсету' },
-}
-
-let protocol: Protocol | undefined
-function initializeRuntime() {
-  setWorkerUrl(workerUrl)
-  if (!protocol) {
-    protocol = new Protocol()
-    addProtocol('pmtiles', protocol.tile)
-  }
 }
 
 function validCoordinate(lon: number, lat: number) {
@@ -62,7 +51,7 @@ function MapSurface({ points, geometry, archiveUrl, locale, onPick, disabled, re
     let active = true
     let map: LibreMap | undefined
     try {
-      initializeRuntime()
+      initializeMapRuntime()
       map = new LibreMap({
         container: element,
         style: mapStyle(archiveUrl, locale, window.location.origin),
@@ -169,7 +158,7 @@ export default function MapCanvas(props: MapCanvasProps) {
   const [attempt, setAttempt] = useState(0)
   const retry = () => {
     try {
-      if (protocol) resetMapArchive(protocol, props.archiveUrl, window.location.origin)
+      retryMapArchive(props.archiveUrl)
     } catch {
       return
     }

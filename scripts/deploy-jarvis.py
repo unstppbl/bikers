@@ -24,6 +24,7 @@ MIGRATION_FILES = (
     'schema_008_club_notifications.sql',
     'schema_009_notification_preferences_reminders.sql',
     'schema_010_ride_maps.sql',
+    'schema_011_places.sql',
 )
 
 GIS_ENVIRONMENT = {'PHOTON_BASE_URL': 'http://photon:2322',
@@ -46,11 +47,10 @@ SET LOCAL bytea_output = 'hex';
 SELECT format(
  'SELECT json_build_object(''table'',%L,''rows'',count(*),''sha256'',encode(sha256(convert_to(COALESCE(string_agg(row_hash, '''' ORDER BY row_hash COLLATE "C"), ''''),''UTF8'')),''hex''))::text FROM (SELECT encode(sha256(convert_to(%s,''UTF8'')),''hex'') AS row_hash FROM %I.%I t%s) hashed;',
  tablename,
- CASE WHEN tablename='rides' THEN '(to_jsonb(t)-''map_plan'')::text'
- ELSE 'to_jsonb(t)::text' END,
+ 'to_jsonb(t)::text',
  schemaname,tablename,
- CASE WHEN tablename='schema_migrations' THEN ' WHERE version<=9' ELSE '' END)
-FROM pg_tables WHERE schemaname='public'
+ CASE WHEN tablename='schema_migrations' THEN ' WHERE version<=10' ELSE '' END)
+FROM pg_tables WHERE schemaname='public' AND tablename NOT IN ('places','place_submissions')
  ORDER BY tablename
 \gexec
 SELECT json_build_object('sequences',COALESCE(json_agg(to_jsonb(s) ORDER BY sequencename),'[]'::json))::text
@@ -60,10 +60,11 @@ COMMIT;
 """
 
 
-MIGRATION_ADDITIONS_SQL = '''-- bikerskz schema-10 additions
+MIGRATION_ADDITIONS_SQL = '''-- bikerskz schema-11 additions
 BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
 SELECT json_build_object(
- 'rides_with_map_plan',(SELECT count(*) FROM rides WHERE map_plan IS NOT NULL))::text;
+ 'places',(SELECT count(*) FROM places),
+ 'place_submissions',(SELECT count(*) FROM place_submissions))::text;
 COMMIT;
 '''
 
@@ -95,11 +96,11 @@ def atomic_write(path, content):
 def migration_checksums(checkout):
     directory = checkout / 'apps/backend/internal/database/postgres'
     source = (directory / 'migrations.go').read_text()
-    # This opt-in is deliberately limited to the reviewed 9 -> 10 transition.
+    # This opt-in is deliberately limited to the reviewed 10 -> 11 transition.
     # A future registered migration must not be applied by this mode silently.
     registered = [int(value) for value in re.findall(r'\{(\d+),\s*\w+\}', source)]
-    if registered != list(range(1, 11)):
-        raise RuntimeError('Migration-10 mode requires exactly source migrations 1 through 10')
+    if registered != list(range(1, 12)):
+        raise RuntimeError('Migration-11 mode requires exactly source migrations 1 through 11')
     return {version: hashlib.sha256((directory / name).read_bytes()).hexdigest()
             for version, name in enumerate(MIGRATION_FILES, 1)}
 
@@ -127,8 +128,8 @@ def retained_state(checkout, database_id):
 
 def migration_additions(checkout, database_id):
     state = json.loads(query_database(checkout, database_id, MIGRATION_ADDITIONS_SQL))
-    if state != {'rides_with_map_plan': 0}:
-        raise RuntimeError('Migration-10 additions must leave all existing ride map plans NULL')
+    if state != {'places': 0, 'place_submissions': 0}:
+        raise RuntimeError('Migration-11 additions must create empty places and submission tables')
     return state
 
 
@@ -220,8 +221,8 @@ def deploy(checkout, runtime, migrate_to=None, configure_gis=False):
 
 
 def _deploy(checkout, runtime, migrate_to=None, configure_gis=False):
-    if migrate_to not in (None, 10):
-        raise RuntimeError('Only the explicitly reviewed migration target 10 is supported')
+    if migrate_to not in (None, 11):
+        raise RuntimeError('Only the explicitly reviewed migration target 11 is supported')
     if (migrate_to or configure_gis) and not (runtime / '.deploy/automatic-paused').is_file():
         raise RuntimeError('Pause automatic deployment on Jarvis before the reviewed schema/configuration rollout')
     env_file = runtime / '.env'
@@ -258,8 +259,8 @@ def _deploy(checkout, runtime, migrate_to=None, configure_gis=False):
     target_receipts = migration_checksums(checkout) if migrate_to else None
     previous_receipts = schema_receipts(checkout, db_id) if migrate_to else None
     if migrate_to and previous_receipts != {version: checksum for version, checksum in
-                                           target_receipts.items() if version <= 9}:
-        raise RuntimeError('Migration-10 mode requires exact source-matching schema-9 receipts')
+                                           target_receipts.items() if version <= 10}:
+        raise RuntimeError('Migration-11 mode requires exact source-matching schema-10 receipts')
     original_env = env_file.read_bytes()
     original_compose = json.loads(run(compose + ['config', '--format', 'json'], cwd=checkout))
     if original_compose['services']['app']['image'] != previous['Config']['Image']:
@@ -291,11 +292,11 @@ def _deploy(checkout, runtime, migrate_to=None, configure_gis=False):
     new_migration_state = None
     try:
         if migrate_to:
-            print('Stopping only the app before the schema-10 upgrade.', flush=True)
+            print('Stopping only the app before the schema-11 upgrade.', flush=True)
             run(compose + ['stop', '--timeout', '30', 'app'], cwd=checkout)
             migration_started = True
-            # Fingerprint while all app writers/workers are stopped. Only the
-            # intentional nullable ride map column and receipt are excluded.
+            # Preserve every old row, including existing private ride map plans.
+            # Only the two newly added tables and migration 11 are excluded.
             quiesced_state = retained_state(checkout, db_id)
         atomic_write(env_file, updated_env)
         run(compose + ['config', '--quiet'], cwd=checkout)
@@ -306,7 +307,7 @@ def _deploy(checkout, runtime, migrate_to=None, configure_gis=False):
             try:
                 # compose run has no --no-build flag. Omitting --build and
                 # forbidding pulls consumes the already verified local image.
-                print('Applying the explicit schema-10 upgrade with the verified image.', flush=True)
+                print('Applying the explicit schema-11 upgrade with the verified image.', flush=True)
                 run(compose + ['run', '-T', '--name', migrator_name, '--no-deps', '--pull', 'never',
                                'app', 'migrate'], cwd=checkout)
             except (OSError, RuntimeError) as error:
@@ -317,10 +318,10 @@ def _deploy(checkout, runtime, migrate_to=None, configure_gis=False):
             if observed == target_receipts:
                 migration_applied = True
                 if migration_error:
-                    print('Migration command failed, but exact schema-10 receipts confirm commit; continuing activation.',
+                    print('Migration command failed, but exact schema-11 receipts confirm commit; continuing activation.',
                           file=sys.stderr, flush=True)
             elif observed == previous_receipts:
-                raise RuntimeError('Migration did not commit; schema 9 remains intact') from migration_error
+                raise RuntimeError('Migration did not commit; schema 10 remains intact') from migration_error
             else:
                 raise RuntimeError('Unexpected migration receipts; app remains stopped for explicit recovery')
             if retained_state(checkout, db_id) != quiesced_state:
@@ -348,7 +349,7 @@ def _deploy(checkout, runtime, migrate_to=None, configure_gis=False):
         safe_old_image = not migration_started
         if migration_started:
             # CLI exit status cannot determine whether COMMIT succeeded.
-            # Never put the old executable back against schema 10 or an
+            # Never put the old executable back against schema 11 or an
             # unknown/unreadable receipt state, and never erase new data.
             try:
                 safe_old_image = (migrator_settled and
@@ -370,7 +371,7 @@ def _deploy(checkout, runtime, migrate_to=None, configure_gis=False):
                 print('Could not confirm the target app stopped; inspect it before recovery.',
                       file=sys.stderr, flush=True)
             print('Schema changed or cannot be verified. Keeping the target image selected; '
-                  'do not restore the schema-9 image. Explicit roll-forward recovery is required.',
+                  'do not restore the schema-10 image. Explicit roll-forward recovery is required.',
                   file=sys.stderr, flush=True)
         raise
 
@@ -385,7 +386,7 @@ def _deploy(checkout, runtime, migrate_to=None, configure_gis=False):
     }
     if migrate_to:
         receipt.update({
-            'migration_from': 9, 'migration_to': migrate_to,
+            'migration_from': 10, 'migration_to': migrate_to,
             'migration_checksum': target_receipts[migrate_to],
             'migration_applied': migration_applied,
             'retained_state_unchanged': True,
@@ -403,8 +404,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--runtime-dir', type=Path,
                         default=Path(os.environ.get('BIKERSKZ_DEPLOY_RUNTIME_DIR', '/home/user/apps/bikerskz')))
-    parser.add_argument('--migrate-to', type=int, choices=(10,),
-                        help='Explicitly coordinate the reviewed schema 9 to 10 upgrade')
+    parser.add_argument('--migrate-to', type=int, choices=(11,),
+                        help='Explicitly coordinate the reviewed schema 10 to 11 upgrade')
     parser.add_argument('--configure-gis', action='store_true',
                         help='Allow only the reviewed GIS URLs and added private network')
     args = parser.parse_args()
