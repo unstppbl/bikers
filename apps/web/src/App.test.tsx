@@ -269,6 +269,9 @@ describe('ride privacy and localization', () => {
     expect(composer).toHaveValue('Uncertain send')
     await actor.click(screen.getByRole('button', { name: 'Send message' }))
     await screen.findByText('Uncertain send')
+    const message = screen.getByText('Uncertain send').closest<HTMLElement>('.message')!
+    expect(within(message).getByRole('button', { name: 'Message actions for Test Rider' })).toBeInTheDocument()
+    expect(within(message).queryByRole('button', { name: 'Report' })).not.toBeInTheDocument()
     expect(commands).toHaveLength(2)
     expect(commands[1].client_message_id).toBe(commands[0].client_message_id)
     expect(composer).toHaveValue('')
