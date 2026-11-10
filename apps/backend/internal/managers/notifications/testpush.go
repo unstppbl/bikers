@@ -23,11 +23,12 @@ func (m *Manager) TestPush(ctx context.Context, accountID, subscriptionID string
 	defer cancel()
 	var selected models.PushSubscriptionRecord
 	var locale string
+	at := m.now().UTC()
 	err := m.repo.WithNotifications(ctx, account.String(), func(tx database.NotificationTransaction) error {
 		if tx.Account().ID != account.String() || tx.Account().Status != "active" {
 			return database.ErrNotFound
 		}
-		rows, err := tx.Subscriptions()
+		rows, err := tx.Subscriptions(at)
 		if err != nil {
 			return err
 		}

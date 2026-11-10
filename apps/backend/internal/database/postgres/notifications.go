@@ -78,15 +78,15 @@ func (t *notificationTransaction) MarkAllRead(at time.Time) error {
 	return repositoryError(err)
 }
 
-const subscriptionColumns = "p.id::text,p.user_id::text,p.endpoint,p.p256dh,p.auth,p.session_digest,p.created_at,(s.revoked_at IS NULL AND s.expires_at>now() AND s.last_seen_at>now()-interval '7 days' AND u.status='active')"
+const subscriptionColumns = "p.id::text,p.user_id::text,p.endpoint,p.p256dh,p.auth,p.session_digest,p.created_at,(s.revoked_at IS NULL AND s.expires_at>$2::timestamptz AND s.last_seen_at>$2::timestamptz-interval '7 days' AND u.status='active')"
 
 func scanSubscription(row pgx.Row) (models.PushSubscriptionRecord, error) {
 	var p models.PushSubscriptionRecord
 	err := row.Scan(&p.ID, &p.UserID, &p.Endpoint, &p.P256dh, &p.Auth, &p.SessionDigest, &p.CreatedAt, &p.BindingActive)
 	return p, repositoryError(err)
 }
-func (t *notificationTransaction) Subscriptions() ([]models.PushSubscriptionRecord, error) {
-	rows, err := t.tx.Query(t.ctx, "SELECT "+subscriptionColumns+" FROM push_subscriptions p JOIN sessions s ON s.token_digest=p.session_digest JOIN users u ON u.id=p.user_id WHERE p.user_id=$1 ORDER BY p.created_at,p.id", t.account.ID)
+func (t *notificationTransaction) Subscriptions(at time.Time) ([]models.PushSubscriptionRecord, error) {
+	rows, err := t.tx.Query(t.ctx, "SELECT "+subscriptionColumns+" FROM push_subscriptions p JOIN sessions s ON s.token_digest=p.session_digest JOIN users u ON u.id=p.user_id WHERE p.user_id=$1 ORDER BY p.created_at,p.id", t.account.ID, at)
 	if err != nil {
 		return nil, repositoryError(err)
 	}
@@ -101,8 +101,8 @@ func (t *notificationTransaction) Subscriptions() ([]models.PushSubscriptionReco
 	}
 	return out, repositoryError(rows.Err())
 }
-func (t *notificationTransaction) SubscriptionByEndpoint(endpoint string) (models.PushSubscriptionRecord, error) {
-	return scanSubscription(t.tx.QueryRow(t.ctx, "SELECT "+subscriptionColumns+" FROM push_subscriptions p JOIN sessions s ON s.token_digest=p.session_digest JOIN users u ON u.id=p.user_id WHERE p.endpoint=$1", endpoint))
+func (t *notificationTransaction) SubscriptionByEndpoint(endpoint string, at time.Time) (models.PushSubscriptionRecord, error) {
+	return scanSubscription(t.tx.QueryRow(t.ctx, "SELECT "+subscriptionColumns+" FROM push_subscriptions p JOIN sessions s ON s.token_digest=p.session_digest JOIN users u ON u.id=p.user_id WHERE p.endpoint=$1", endpoint, at))
 }
 func (t *notificationTransaction) PutSubscription(p models.PushSubscriptionRecord) (models.PushSubscriptionRecord, error) {
 	if _, err := t.tx.Exec(t.ctx, "DELETE FROM push_deliveries d USING push_subscriptions p WHERE d.subscription_id=p.id AND p.endpoint=$1 AND p.session_digest<>$2", p.Endpoint, p.SessionDigest); err != nil {
@@ -117,7 +117,7 @@ func (t *notificationTransaction) PutSubscription(p models.PushSubscriptionRecor
 	if result.RowsAffected() == 0 {
 		return p, database.ErrNotFound
 	}
-	return t.SubscriptionByEndpoint(p.Endpoint)
+	return t.SubscriptionByEndpoint(p.Endpoint, p.CreatedAt)
 }
 func (t *notificationTransaction) DeleteSubscription(id string) error {
 	_, err := t.tx.Exec(t.ctx, "DELETE FROM push_subscriptions WHERE user_id=$1 AND id=$2", t.account.ID, id)

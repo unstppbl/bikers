@@ -168,11 +168,12 @@ func (m *Manager) ReadAll(ctx context.Context, actor models.User) error {
 }
 func (m *Manager) Subscriptions(ctx context.Context, actor models.User) ([]models.PushSubscription, error) {
 	out := []models.PushSubscription{}
+	at := m.now().UTC()
 	err := m.repo.WithNotifications(ctx, actor.ID, func(tx database.NotificationTransaction) error {
 		if err := active(tx); err != nil {
 			return err
 		}
-		records, err := tx.Subscriptions()
+		records, err := tx.Subscriptions(at)
 		if err != nil {
 			return err
 		}
@@ -208,25 +209,26 @@ func (m *Manager) Subscribe(ctx context.Context, session models.Session, input m
 		return models.PushSubscription{}, err
 	}
 	var out models.PushSubscription
+	at := m.now().UTC()
 	err := m.repo.WithNotifications(ctx, session.User.ID, func(tx database.NotificationTransaction) error {
 		if err := active(tx); err != nil {
 			return err
 		}
-		existing, err := tx.SubscriptionByEndpoint(input.Endpoint)
+		existing, err := tx.SubscriptionByEndpoint(input.Endpoint, at)
 		if err != nil && !errors.Is(err, database.ErrNotFound) {
 			return err
 		}
 		if err == nil && existing.UserID != session.User.ID && existing.BindingActive {
 			return models.Fail("push_subscription_in_use", "This browser is still linked to another signed-in account")
 		}
-		all, err := tx.Subscriptions()
+		all, err := tx.Subscriptions(at)
 		if err != nil {
 			return err
 		}
 		if len(all) >= 5 && existing.UserID != session.User.ID {
 			return models.Fail("push_subscription_limit", "Remove a device before adding another")
 		}
-		record := models.PushSubscriptionRecord{PushSubscription: models.PushSubscription{ID: uuid.NewString(), CreatedAt: m.now().UTC()}, UserID: session.User.ID, Endpoint: input.Endpoint, P256dh: input.Keys.P256dh, Auth: input.Keys.Auth, SessionDigest: session.Digest}
+		record := models.PushSubscriptionRecord{PushSubscription: models.PushSubscription{ID: uuid.NewString(), CreatedAt: at}, UserID: session.User.ID, Endpoint: input.Endpoint, P256dh: input.Keys.P256dh, Auth: input.Keys.Auth, SessionDigest: session.Digest}
 		stored, err := tx.PutSubscription(record)
 		out = stored.PushSubscription
 		return err
