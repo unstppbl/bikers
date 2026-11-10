@@ -40,6 +40,8 @@ type diagnosticTransaction struct {
 	rows                          []models.PushSubscriptionRecord
 	preferenceWrites, unreadCount int
 	err                           error
+	bindingTimes                  []time.Time
+	writtenSubscriptions          []models.PushSubscriptionRecord
 }
 
 func (t *diagnosticTransaction) SetPreferences(p models.Preferences) error {
@@ -49,8 +51,17 @@ func (t *diagnosticTransaction) SetPreferences(p models.Preferences) error {
 }
 func (t *diagnosticTransaction) UnreadCount() (int, error)   { return t.unreadCount, t.err }
 func (t *diagnosticTransaction) Account() models.PushAccount { return t.account }
-func (t *diagnosticTransaction) Subscriptions() ([]models.PushSubscriptionRecord, error) {
+func (t *diagnosticTransaction) Subscriptions(at time.Time) ([]models.PushSubscriptionRecord, error) {
+	t.bindingTimes = append(t.bindingTimes, at)
 	return t.rows, t.err
+}
+func (t *diagnosticTransaction) SubscriptionByEndpoint(_ string, at time.Time) (models.PushSubscriptionRecord, error) {
+	t.bindingTimes = append(t.bindingTimes, at)
+	return models.PushSubscriptionRecord{}, database.ErrNotFound
+}
+func (t *diagnosticTransaction) PutSubscription(record models.PushSubscriptionRecord) (models.PushSubscriptionRecord, error) {
+	t.writtenSubscriptions = append(t.writtenSubscriptions, record)
+	return record, nil
 }
 
 type diagnosticGateway struct {

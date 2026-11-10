@@ -20,8 +20,10 @@ type NotificationTransaction interface {
 	UnreadCount() (int, error)
 	MarkRead(string, time.Time) (models.Notification, error)
 	MarkAllRead(time.Time) error
-	Subscriptions() ([]models.PushSubscriptionRecord, error)
-	SubscriptionByEndpoint(string) (models.PushSubscriptionRecord, error)
+	// Binding reads use the manager's captured operation time. PutSubscription
+	// uses its record's CreatedAt for both persistence and binding readback.
+	Subscriptions(time.Time) ([]models.PushSubscriptionRecord, error)
+	SubscriptionByEndpoint(string, time.Time) (models.PushSubscriptionRecord, error)
 	PutSubscription(models.PushSubscriptionRecord) (models.PushSubscriptionRecord, error)
 	DeleteSubscription(string) error
 }
