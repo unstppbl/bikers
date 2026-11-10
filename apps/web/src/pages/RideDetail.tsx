@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Dispatch, FormEvent, SetStateAction } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeftIcon as ArrowLeft, ArrowRightIcon as ArrowRight, ArrowUpRightIcon as ArrowUpRight, CalendarDotsIcon as CalendarDays, CheckIcon as Check, CaretRightIcon as ChevronRight, ClockIcon as Clock3, DoorOpenIcon as DoorOpen, LockKeyIcon as LockKeyhole, MapPinIcon as MapPin, ChatCircleIcon as MessageCircle, NavigationArrowIcon as Navigation, PencilSimpleIcon as Pencil, PaperPlaneTiltIcon as Send, ShieldCheckIcon as ShieldCheck, UsersThreeIcon as Users, XIcon as X } from '@phosphor-icons/react'
+import { ArrowLeftIcon as ArrowLeft, ArrowRightIcon as ArrowRight, ArrowUpRightIcon as ArrowUpRight, CalendarDotsIcon as CalendarDays, CaretRightIcon as ChevronRight, ClockIcon as Clock3, DoorOpenIcon as DoorOpen, LockKeyIcon as LockKeyhole, MapPinIcon as MapPin, ChatCircleIcon as MessageCircle, NavigationArrowIcon as Navigation, PencilSimpleIcon as Pencil, PaperPlaneTiltIcon as Send, ShieldCheckIcon as ShieldCheck, UsersThreeIcon as Users, XIcon as X } from '@phosphor-icons/react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ApiError, mutation, publicRide, request, safeExternalUrl } from '../api'
 import { useI18n } from '../i18n'
 import { useSession, useSessionGuard } from '../session'
 import { ErrorNotice, Loading, PrivacyNote, dateParts, formatRideDateTime, ShareLink, useConfirmation, useOnline } from '../ui'
+import { ParticipantsPanel } from '../components/ParticipantsPanel'
 import { Avatar } from '../components/Avatar'
 import { Announcements } from '../components/Announcements'
 import type { AnnouncementDraft } from '../components/Announcements'
@@ -14,9 +15,9 @@ import { RideMedia } from '../components/RideMedia'
 import { RideSchedule } from '../components/RideSchedule'
 import { SavedRideMap } from '../components/maps/MapPlanEditor'
 import { MessageActions } from '../components/MessageActions'
-import { CommunityBadge, ReportButton, UserSafety } from '../components/Trust'
+import { CommunityBadge, ReportButton } from '../components/Trust'
 import { resetTrustQueries } from '../trust-cache'
-import type { Message, MessagesResponse, Participant, Ride } from '../types'
+import type { Message, MessagesResponse, Ride } from '../types'
 
 interface RoomDraft {
   actor: string
@@ -136,41 +137,6 @@ export function RideDetailPage() {
       <div className="ride-lower-actions">{ride.can_manage ? ride.status !== 'cancelled' && <button className="text-button danger-text" disabled={working || !online} onClick={() => void cancelRide()}>{t('cancelRide')}</button> : <button className="text-button" disabled={working || !online} onClick={() => void participate(true)}><DoorOpen size={17} />{t('leaveRide')}</button>}</div>
     </> : <div className="preview-grid"><section className="surface access-card"><div className="access-icon">{status === 'requested' ? <Clock3 size={30} strokeWidth={1.5} /> : <LockKeyhole size={30} strokeWidth={1.5} />}</div><h2>{status === 'requested' ? t('pendingTitle') : status === 'rejected' ? t('rejectedTitle') : status === 'removed' ? t('removedTitle') : t('exactDetails')}</h2><p>{status === 'requested' ? t('pendingText') : t('previewText')}</p>{ride.status !== 'cancelled' && (status === 'requested' ? <button className="button button-outline" disabled={working || !online} onClick={() => void participate(true)}>{t('leaveRide')}</button> : <button className="button button-primary" disabled={working || !online} onClick={() => void participate()}>{user ? t(status === 'rejected' || status === 'left' ? 'requestAgain' : 'requestJoin') : t('signInJoin')}<ArrowRight size={18} /></button>)}<span className="access-footnote"><ShieldCheck size={15} />{t('organizerApproval')}</span></section><PrivacyNote /></div>}
   </div>
-}
-
-function ParticipantsPanel({ ride, onAccessLost }: { ride: Ride; onAccessLost: () => void }) {
-  const { user } = useSession()
-  const { t } = useI18n()
-  const queryClient = useQueryClient()
-  const online = useOnline()
-  const captureSession = useSessionGuard()
-  const { confirm, dialog } = useConfirmation()
-  const [working, setWorking] = useState('')
-  const [actionError, setActionError] = useState<unknown>()
-  const query = useQuery({ queryKey: ['participants', ride.id, user?.id], queryFn: ({ signal }) => request<{ participants: Participant[] }>(`/rides/${ride.id}/participants`, { signal }) })
-  useEffect(() => { if (query.error instanceof ApiError && [401, 403].includes(query.error.status)) onAccessLost() }, [query.error, onAccessLost])
-  const participants = query.data?.participants ?? []
-  const requested = participants.filter((person) => person.state === 'requested')
-  const approved = participants.filter((person) => person.state === 'approved')
-  async function decide(person: Participant, decision: 'approve' | 'reject' | 'remove') {
-    const currentSession = captureSession()
-    if (decision === 'remove' && !await confirm({ message: t('removeConfirm'), action: t('remove'), destructive: true })) return
-    setWorking(person.user_id); setActionError(undefined)
-    try {
-      await mutation(`/rides/${ride.id}/participants/${person.user_id}/decision`, 'POST', { decision })
-      if (!currentSession()) return
-      await queryClient.invalidateQueries({ queryKey: ['participants', ride.id] })
-      await queryClient.invalidateQueries({ queryKey: ['ride', ride.id] })
-    } catch (error) {
-      setActionError(error)
-      if (error instanceof ApiError && error.code === 'participation_changed') void queryClient.invalidateQueries({ queryKey: ['participants', ride.id] })
-    }
-    finally { setWorking('') }
-  }
-  return <section className="surface participants-card">{dialog}<div className="panel-title"><span className="panel-icon"><Users size={20} /></span><h2>{t('participants')}</h2>{query.data && <span className="count-pill">{approved.length}</span>}</div>{query.isPending ? <Loading /> : query.isError ? <ErrorNotice error={query.error} retry={() => void query.refetch()} /> : <>
-    {ride.can_manage && <div className="request-list"><h3>{t('joinRequests')}<span>{requested.length}</span></h3>{requested.length ? requested.map((person) => <div className="participant request-participant" key={person.user_id}><span className="avatar">{person.display_name.trim().slice(0, 1)}</span><div className="participant-name"><strong>{person.display_name}</strong><span>{t('requested')}</span></div><div className="decision-buttons"><button className="icon-button approve-button" aria-label={`${t('approve')} ${person.display_name}`} disabled={!!working || !online || ride.status === 'cancelled'} onClick={() => void decide(person, 'approve')}><Check size={18} /></button><button className="icon-button" aria-label={`${t('reject')} ${person.display_name}`} disabled={!!working || !online || ride.status === 'cancelled'} onClick={() => void decide(person, 'reject')}><X size={18} /></button></div></div>) : <p className="small-empty">{t('noRequests')}</p>}</div>}
-    <div className="approved-list">{approved.length ? approved.map((person) => <div className="participant" key={person.user_id}><Avatar userId={person.user_id} name={person.display_name} scope={{ kind: 'ride', id: ride.id }} className={person.user_id === ride.organizer_id ? 'avatar-orange' : ''} /><div className="participant-name"><strong>{person.display_name}{person.user_id === user?.id && <span className="self-label"> · {t('you')}</span>}</strong><CommunityBadge userId={person.user_id} /><UserSafety userId={person.user_id} name={person.display_name} scope={{ kind: 'ride', id: ride.id }} /><span>{person.user_id === ride.organizer_id ? t('organizer') : t('approved')}</span></div>{ride.can_manage && person.user_id !== user?.id && <button className="icon-button remove-button" title={t('remove')} aria-label={`${t('remove')} ${person.display_name}`} disabled={!!working || !online} onClick={() => void decide(person, 'remove')}><X size={15} /></button>}</div>) : <p className="small-empty">{t('noParticipants')}</p>}</div>
-  </>}{actionError != null && <ErrorNotice error={actionError} />}</section>
 }
 
 interface RoomHistory extends MessagesResponse { more: boolean }

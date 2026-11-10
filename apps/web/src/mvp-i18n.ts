@@ -1,4 +1,7 @@
 const phrases = {
+  participantActions: ['Rider actions for {name}', 'Действия с участником: {name}', '{name} қатысушысының әрекеттері'],
+  participantActionsMenu: ['Rider actions', 'Действия с участником', 'Қатысушы әрекеттері'],
+  participantDecisionGroup: ['Participation', 'Участие', 'Қатысу'],
   messageActions: ['Message actions for {name}', 'Действия с сообщением: {name}', '{name} хабарламасының әрекеттері'],
   messageActionsMenu: ['Message actions', 'Действия с сообщением', 'Хабарлама әрекеттері'],
   messageActionMessageGroup: ['Message', 'Сообщение', 'Хабарлама'],

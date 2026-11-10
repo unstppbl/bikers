@@ -14,6 +14,8 @@ import (
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // TestBrowserHarness is an explicitly requested local UI verification seam. It is
@@ -24,6 +26,40 @@ func TestBrowserHarness(t *testing.T) {
 		t.Skip("opt-in local browser harness")
 	}
 	f := newFixture(t)
+	if os.Getenv("BROWSER_HARNESS_RIDE_MENUS") == "1" {
+		f.now = time.Now().UTC()
+		owner := f.login("+77011239928", "QA Organizer")
+		member := f.login("+77011239929", "QA Member")
+		other := f.login("+77011239930", "QA Other Rider")
+		pending := f.login("+77011239931", "QA Applicant")
+		grantTestAdmin(t, f, owner)
+		for _, title := range []string{"QA participant menus", "QA second ride"} {
+			created := f.request("POST", "/api/v1/rides", map[string]any{
+				"city": "Almaty", "description": "Isolated browser fixture only", "title": title,
+				"starts_at": f.now.Add(24 * time.Hour).Format(time.RFC3339), "timezone": "Asia/Almaty",
+				"meeting_point": "QA meeting point", "destination": "QA destination", "capacity": 10,
+			}, owner)
+			expect(t, created, 201)
+			id := created.body["ride"].(map[string]any)["id"].(string)
+			for _, rider := range []*actor{member, other, pending} {
+				f.join(id, rider)
+				if rider != pending {
+					expect(t, f.decision(id, owner, rider, "approve"), 200)
+				}
+			}
+			for i := range 18 {
+				sender := []*actor{owner, member, other}[i%3]
+				expect(t, f.request("POST", "/api/v1/rides/"+id+"/messages", map[string]any{
+					"client_message_id": uuid.NewString(), "body": "QA conversation message " + strconv.Itoa(i+1) + ". This is an isolated fixture for menu and scroll checks.",
+				}, sender), 201)
+			}
+			expect(t, f.request("POST", "/api/v1/rides/"+id+"/announcements", map[string]any{
+				"client_announcement_id": uuid.NewString(), "body": "QA announcement for isolated browser checks. Meet at the test point before departure.",
+			}, owner), 201)
+			t.Logf("TEST-ONLY ride menu fixture: %s; ride=%s", title, id)
+		}
+		t.Log("TEST-ONLY organizer/admin phone=+77011239928; member=+77011239929; other=+77011239930; applicant=+77011239931; OTP=123456")
+	}
 	if os.Getenv("BROWSER_HARNESS_ADMIN") == "1" {
 		admin := f.login("+77011239901", "Test Administrator")
 		grantTestAdmin(t, f, admin)
