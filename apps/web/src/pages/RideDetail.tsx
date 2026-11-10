@@ -132,7 +132,7 @@ export function RideDetailPage() {
       {ride.map_plan && <SavedRideMap key={`map:${ride.id}:${user?.id}:${ride.plan_version}`} plan={ride.map_plan} />}
       <RideSchedule key={`schedule:${ride.id}:${user?.id}`} ride={ride} onAccessLost={recheckAccess} />
       <Announcements key={`announcements:${ride.id}:${user?.id}`} ride={ride} draft={announcementDraft} setDraft={setAnnouncementDraft} onAccessLost={recheckAccess} />
-      <RideRoom ride={ride} draft={roomDraft} setDraft={setRoomDraft} onAccessLost={recheckAccess} onConnected={markConnected} />
+      <RideRoom key={`room:${ride.id}:${user?.id}`} ride={ride} draft={roomDraft} setDraft={setRoomDraft} onAccessLost={recheckAccess} onConnected={markConnected} />
       <RideMedia key={`media:${ride.id}:${user?.id}`} ride={ride} onAccessLost={recheckAccess} />
       <div className="ride-lower-actions">{ride.can_manage ? ride.status !== 'cancelled' && <button className="text-button danger-text" disabled={working || !online} onClick={() => void cancelRide()}>{t('cancelRide')}</button> : <button className="text-button" disabled={working || !online} onClick={() => void participate(true)}><DoorOpen size={17} />{t('leaveRide')}</button>}</div>
     </> : <div className="preview-grid"><section className="surface access-card"><div className="access-icon">{status === 'requested' ? <Clock3 size={30} strokeWidth={1.5} /> : <LockKeyhole size={30} strokeWidth={1.5} />}</div><h2>{status === 'requested' ? t('pendingTitle') : status === 'rejected' ? t('rejectedTitle') : status === 'removed' ? t('removedTitle') : t('exactDetails')}</h2><p>{status === 'requested' ? t('pendingText') : t('previewText')}</p>{ride.status !== 'cancelled' && (status === 'requested' ? <button className="button button-outline" disabled={working || !online} onClick={() => void participate(true)}>{t('leaveRide')}</button> : <button className="button button-primary" disabled={working || !online} onClick={() => void participate()}>{user ? t(status === 'rejected' || status === 'left' ? 'requestAgain' : 'requestJoin') : t('signInJoin')}<ArrowRight size={18} /></button>)}<span className="access-footnote"><ShieldCheck size={15} />{t('organizerApproval')}</span></section><PrivacyNote /></div>}
@@ -154,7 +154,8 @@ function RideRoom({ ride, draft, setDraft, onAccessLost, onConnected }: { ride: 
   const [sending, setSending] = useState(false)
   const [sendError, setSendError] = useState<unknown>()
   const [connection, setConnection] = useState<'connecting' | 'connected'>('connecting')
-  const conversationEnd = useRef<HTMLDivElement>(null)
+  const messagesViewport = useRef<HTMLDivElement>(null)
+  const followMessages = useRef(true)
   const key = ['messages', ride.id, user?.id]
   const query = useQuery({
     queryKey: key,
@@ -210,7 +211,15 @@ function RideRoom({ ride, draft, setDraft, onAccessLost, onConnected }: { ride: 
     socket.onclose = () => { if (!disposed) onAccessLost() }
     return () => { disposed = true; socket.close() }
   }, [ride.id, user?.id, queryClient, onAccessLost, onConnected])
-  useEffect(() => { conversationEnd.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' }) }, [query.data?.next_sequence])
+  const nextSequence = query.data?.next_sequence
+  useEffect(() => {
+    const viewport = messagesViewport.current
+    if (viewport && nextSequence !== undefined && followMessages.current) {
+      // scrollIntoView also moves outer ancestors, pulling the ride page down.
+      // The chat owns its scrolling; history readers keep their position.
+      viewport.scrollTop = viewport.scrollHeight
+    }
+  }, [nextSequence])
 
   async function send(event?: FormEvent) {
     const currentSession = captureSession()
@@ -231,7 +240,7 @@ function RideRoom({ ride, draft, setDraft, onAccessLost, onConnected }: { ride: 
   const messages = query.data?.messages ?? []
   function changeBody(value: string) { setDraft((current) => ({ ...current, body: value })) }
   return <section className="surface room-card" aria-labelledby="room-heading"><div className="room-heading"><div className="panel-title"><span className="panel-icon room-panel-icon"><MessageCircle size={22} /></span><div><h2 id="room-heading">{t('rideRoom')}</h2><p>{t('roomText')}</p></div></div><span className={`room-connection ${connection === 'connected' ? 'is-connected' : ''}`} title={t(connection === 'connected' ? 'connected' : 'connecting')}><span className="status-dot" /><span>{t(connection === 'connected' ? 'connected' : 'connecting')}</span></span></div>
-    <div className="messages" aria-live="polite" aria-relevant="additions text">{query.isPending ? <Loading /> : query.isError ? <ErrorNotice error={query.error} retry={() => void query.refetch()} /> : !messages.length ? <div className="chat-empty"><MessageCircle size={28} strokeWidth={1.4} /><h3>{t('messagesEmpty')}</h3><p>{t('messagesEmptyText')}</p></div> : messages.map((message) => <div key={message.sequence} className={`message message-with-actions ${message.sender_id === user?.id ? 'own-message' : ''}`}><Avatar userId={message.sender_id} name={message.sender_name} scope={{ kind: 'ride', id: ride.id }} /><div className="message-content"><div className="message-meta"><strong>{message.sender_name}</strong><time dateTime={message.created_at}>{formatRideDateTime(message.created_at, ride.timezone ?? 'Asia/Almaty', locale, true)}</time></div><p>{message.body}</p><CommunityBadge userId={message.sender_id} /></div><MessageActions message={message} rideId={ride.id} /></div>)}<div ref={conversationEnd} /></div>
+    <div className="messages" ref={messagesViewport} onScroll={(event) => { const viewport = event.currentTarget; followMessages.current = viewport.scrollHeight - viewport.clientHeight - viewport.scrollTop <= 64 }} aria-live="polite" aria-relevant="additions text">{query.isPending ? <Loading /> : query.isError ? <ErrorNotice error={query.error} retry={() => void query.refetch()} /> : !messages.length ? <div className="chat-empty"><MessageCircle size={28} strokeWidth={1.4} /><h3>{t('messagesEmpty')}</h3><p>{t('messagesEmptyText')}</p></div> : messages.map((message) => <div key={message.sequence} className={`message message-with-actions ${message.sender_id === user?.id ? 'own-message' : ''}`}><Avatar userId={message.sender_id} name={message.sender_name} scope={{ kind: 'ride', id: ride.id }} /><div className="message-content"><div className="message-meta"><strong>{message.sender_name}</strong><time dateTime={message.created_at}>{formatRideDateTime(message.created_at, ride.timezone ?? 'Asia/Almaty', locale, true)}</time></div><p>{message.body}</p><CommunityBadge userId={message.sender_id} /></div><MessageActions message={message} rideId={ride.id} /></div>)}</div>
     {query.data?.more && <button className="text-button" onClick={() => void query.refetch()} disabled={query.isFetching}>{t('retry')}<ChevronRight size={16} /></button>}
     {sendError != null && <ErrorNotice error={sendError} />}
     {ride.status === 'cancelled' ? <div className="room-read-only"><LockKeyhole size={16} />{t('roomReadOnly')}</div> : <form className="message-composer" onSubmit={(event) => void send(event)}><label className="sr-only" htmlFor="message-body">{t('messageLabel')}</label><textarea id="message-body" placeholder={t('messagePlaceholder')} value={draft.body} maxLength={2000} rows={2} disabled={sending || !online} onChange={(event) => changeBody(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send() } }} /><button className="button button-primary send-button" aria-label={sending ? t('sendingMessage') : t('send')} disabled={sending || !draft.body.trim() || !online} type="submit"><Send size={20} /></button></form>}
