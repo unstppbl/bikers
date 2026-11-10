@@ -1,0 +1,16 @@
+.participant.participant-with-actions {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 44px;
+  column-gap: 12px;
+  row-gap: 0;
+  align-items: start;
+}
+.participant-with-actions > .participant-name { min-width: 0; }
+.participant-action-owner { grid-column: 3; grid-row: 1; }
+.participant-action-feedback { grid-column: 2 / -1; min-width: 0; }
+.participant-action-feedback .report-form { padding: 16px; margin: 12px 0 0; }
+.participant-action-feedback .report-form .form-actions { flex-wrap: wrap; }
+.participant-action-feedback > .success-message { display: block; margin-top: 8px; }
+@media (max-width: 520px) {
+  .participant.participant-with-actions { column-gap: 8px; }
+}
