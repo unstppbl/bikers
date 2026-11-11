@@ -75,10 +75,10 @@ Activation atomically changes only `APP_IMAGE` in the private runtime file and
 runs Compose with an explicit environment path, checkout directory and project
 name. The default app-only mode replaces the app with `--no-deps --no-build --wait`
 and never runs migrations or starts/recreates the database. The explicit
-[schema-9 mode](#community-follow-up-schema-9) coordinates its schema cutover. It verifies retained environment,
+[schema-11 places mode](#useful-places-schema-and-data) coordinates its schema cutover. It verifies retained environment,
 ports and media mounts, an unchanged database container/start time, and a
 healthy non-root/read-only app. App-only failures, or migration failures with
-confirmed unchanged schema 8, restore the previous environment bytes and app
+confirmed unchanged schema 10, restore the previous environment bytes and app
 image using the resolved configuration held in memory. A committed or unknown
 schema upgrade keeps the app stopped for roll-forward recovery. It does
 not create environment copies, database dumps or backups.
@@ -113,50 +113,12 @@ stay outside the checkout.
 
 ### Club notification schema upgrade
 
-The completed club-notification release upgraded schema 7 to 8 with a
-coordinated app pause. It preserved existing ride notices/read state, push
-subscriptions/jobs and membership data without backfilling alerts. That release
-is the source generation immediately before the current schema-9 upgrade.
-The current helper supports the explicit 8-to-9 transition below.
-
-### Community follow-up schema 9
-
-Club discovery/My clubs, unread badges, push categories and explicit ride
-reminders/private calendar downloads require migration 9. Use the clean pushed
-checkout on Jarvis:
-
-```sh
-cd /home/user/apps/bikerskz/repo
-git pull --ff-only
-make deploy-jarvis DEPLOY_ARGS='--migrate-to 9'
-```
-
-This mode accepts only source migrations 1–9 and exact matching existing
-receipts 1–8. It builds before stopping only the app, runs the verified image's
-`migrate` command without HTTP/push/reminder workers, confirms receipt 9, then
-activates and waits for health. PostgreSQL and persistent volumes stay running.
-A deployment lock prevents concurrent releases. A uniquely named migrator is
-confirmed terminated before an uncertain exit can be classified as uncommitted.
-
-Migration 9 retains existing inbox/read state, sessions, subscriptions, queued
-push work and prior receipts. With app writes paused, the helper verifies all
-28 prior tables and both sequences, excluding only the four new users preference
-columns, the two new nullable notification reminder fields and receipt 9.
-Existing `club_id` values are retained in the comparison. It separately requires
-both new reminder tables to be empty and every existing push category enabled;
-no rider is automatically enrolled. Safe proof is saved in the release receipt.
-
-Explicit per-ride consent stores independent enabled-at timestamps for 24-hour
-and 1-hour choices, so changing one cannot suppress the other. Removing and
-reapproving a rider requires new consent. The reminder worker polls every
-30 seconds, with a ten-minute grace window and durable occurrence receipts.
-
-If migration or activation fails, the old image is restored only after schema 8
-is confirmed unchanged and the migrator is settled. Committed or unreadable
-schema 9 keeps the app stopped and the target selected for roll-forward recovery;
-schema-8 code is never silently restored against schema 9. The default helper
-remains app-only. No mode creates dumps/backups, copies private environment
-files, regenerates credentials or sends diagnostic notifications/OTPs.
+The completed club-notification release upgraded schema 7 to 8. The subsequent
+community follow-up upgraded schema 8 to 9, adding preferences, reminders and
+calendar behavior while preserving all prior data. These transitions are
+historical; the current deployment helper supports only the reviewed 10-to-11
+places transition described below. It never silently applies an older or future
+migration.
 
 ## Configure and start
 
@@ -169,7 +131,304 @@ make migrate
 make up
 ```
 
-Migrations are explicit. Version 5 adds avatars and ride media, version 6 adds moderation, blocks, roles and badges, version 7 adds preferences, announcements, inboxes and push delivery, version 8 adds club membership notification targets, and version 9 adds push categories and explicit ride reminders. All nine receipts and their checksums are checked by readiness. Previously applied SQL is immutable. Unknown versions and mismatched checksums fail closed.
+`make up` and `make migrate` create or validate the internal `bikerskz_gis`
+network used by the app. This does not start GIS services or enable map APIs.
+
+Migrations are explicit. Version 5 adds avatars and ride media, version 6 adds moderation, blocks, roles and badges, version 7 adds preferences, announcements, inboxes and push delivery, version 8 adds club membership notification targets, version 9 adds push categories and explicit ride reminders, version 10 adds nullable typed ride map plans, and version 11 adds useful places and moderated submissions. All eleven receipts and their checksums are checked by readiness. Previously applied SQL is immutable. Unknown versions and mismatched checksums fail closed.
+
+## GIS serving and data refresh
+
+The GIS rollout uses the completed [Kazakhstan component benchmark](osm-kazakhstan-benchmark.md).
+The following commands are the reviewed deployment procedure, not evidence that
+the rollout has already happened. First acceptance must include simultaneous
+map/search/route requests and public/browser checks; the benchmark did not test
+combined production traffic or certify motorcycle route safety.
+
+Keep GIS state under `/home/user/apps/bikerskz-gis`, outside the checkout. The
+separate Compose project is `bkgis`, configured by
+[`deploy/gis/compose.yml`](../deploy/gis/compose.yml). Its private internal network
+is `bikerskz_gis`; the app joins it alongside its existing default network.
+Photon and Valhalla publish no host ports. Only the static Nginx service uses
+the separate `bkgis_ingress` bridge and binds **`10.0.0.2:3052`**, reachable by
+the existing VPS over WireGuard. Port 3051 belongs to another application.
+
+| Service | Hard memory / CPU limit | Persistent access |
+| --- | --- | --- |
+| Valhalla 3.9.1, one service worker | 1 GiB / 1.5 CPU | Versioned graph read-only |
+| Photon 1.3.0, Java heap 512 MiB–2 GiB | 3 GiB / 2 CPU | Its selected index writable; JRE/JAR read-only |
+| Nginx static maps | 128 MiB / 0.5 CPU | Public map/glyph/sprite tree read-only |
+
+All three use UID/GID 1000, read-only root filesystems, dropped capabilities,
+no privilege escalation, bounded temporary storage/processes, and rotating
+logs. The read allowance is 5 MiB/s per service on `/dev/sda`; Photon also has
+a 5 MiB/s write allowance. Memory plus swap is capped at the same amount.
+**Valhalla's 1 GiB serving cap is a new tuning choice:** the component queries
+used a 3 GiB cap. Validate it under the guarded combined pilot; any increase
+requires a reviewed Compose change and new headroom check. The 4.125 GiB sum
+of hard caps does not establish a measured combined working set.
+
+### Adopt completed data and start without another import
+
+The first bulk-copy setup attempt failed the strict application-readiness guard
+and was stopped. The app recovered, original benchmark data stayed intact,
+and that job's partial copy/receipts remain for review. The bulk-copy command
+has been removed. Initial setup now uses same-filesystem atomic adoption.
+
+Pause automatic deployment using **both controls** in
+[GitHub Actions deployments](github-actions-deployment.md#pause-retry-and-recovery)
+before changing the app's runtime configuration or schema. Use the clean pushed
+`main` checkout on Jarvis. The pinned third-party images must already be local;
+GIS stages and activation forbid implicit pulls.
+
+```sh
+cd /home/user/apps/bikerskz/repo
+python3 scripts/gis.py adopt \
+  --benchmark /home/user/benchmarks/bikers-osm-kz-20261105-16 \
+  --id kz-20261105
+python3 scripts/gis.py activate
+python3 scripts/gis.py verify
+```
+
+`verify` is the combined serving acceptance step before enabling the core app
+integration. It discovers the running private container IPs from Docker and
+requires the actual **1 GiB Valhalla memory/swap cap**. It sends 96 fixed mixed
+requests: 32 road-motorcycle routes in OSRM/GeoJSON format without directions,
+32 Kazakh/Russian/English Almaty/Astana searches with Kazakhstan filtering,
+and 32 map-header/random 64 KiB range checks against the selected local archive.
+Concurrency is bounded at one route, two searches and two map requests, five
+workers total. Each request has at most an eight-second timeout; the query
+window is 85 seconds, its worker is forcibly bounded at 90 seconds, and an
+independent 120-second lease covers the guarded phase. Preflight and cleanup
+add wall time. This is a small mixed pilot, not a stress or capacity test.
+
+Every response must have the expected type, coordinates/country, plausible
+fixture distance, and exact range status/length/Content-Range/local bytes.
+Any provider/guard error stops the three GIS services. The private
+`/home/user/apps/bikerskz-gis/verification.json` records per-provider latencies,
+counts/errors, before/after cgroup memory/CPU/I/O, container identity/OOM checks,
+and references to the core-app guard receipts. Cgroup peaks include file cache
+and earlier activity; no caches are evicted. After publishing a future map
+candidate, explicitly select its version for this check with
+`python3 scripts/gis.py verify --archive-url /map-data/CONTENT_HASH/kazakhstan.pmtiles`;
+file sizes and range checks come from that archive, rather than initial benchmark
+metadata. The default uses the GIS selected URL or its adoption receipt.
+
+Adoption validates completed benchmark receipts, original cgroup exit counters,
+source ownership/device and every source tree entry. It refuses running
+benchmark-labelled or GIS containers and rechecks quiescence before and after
+the moves. A read-only, I/O-capped preparation job verifies the immutable
+archive/JAR hashes and prepares only the small font/sprite/license tree. To
+reuse verified downloads from the retained failed job, add
+`--assets-from /absolute/retained-job/inputs`; size/SHA256 checks still run.
+Without that option, acquisition is serial with pinned URLs/hashes, size/time
+limits and curl's 3 MiB/s cap. Extraction rejects traversal/symlinks and resolves
+validated tar hardlinks into regular glyph files. New assets are flushed inside
+the capped job before publication.
+
+Completed `data/valhalla3`, `data/photon-stream4`, the PMTiles file, JRE, Photon
+JAR and PMTiles CLI are then **renamed**, not bulk-copied, into the new release
+on the same filesystem. No hardlink aliases into the writable Photon index are
+created. Original cgroup-counter bytes stay available at the old paths, with
+small `PROMOTED.json` references in the old data/runtime locations and parents
+of moved files. Those references contain paths, not symlinks to mutable live
+data. The benchmark's logs, receipts and retained failure evidence remain.
+
+Each rename has an fsynced intent/identity record under
+`/home/user/apps/bikerskz-gis/adoptions/<id>.json`. Source/target directory
+entries are flushed around the rename. This includes the final release,
+promotion references and the last publication of `adoption.json` and `.env`.
+The environment appears only after the full strict guard succeeds. Caught
+failures reverse completed or interrupted renames without overwriting existing
+data. A launcher/power interruption leaves a recoverable journal; with source
+and GIS containers stopped, restore the original paths using:
+
+```sh
+python3 scripts/gis.py recover-adoption --id kz-20261105
+```
+
+Recovery reconciles source/target identities when a rename completed before its
+journal update and is idempotent after rollback. It refuses conflicting data
+and committed journals. After rollback, use a new adoption ID for a retry.
+Activation and later GIS mutations require a committed adoption journal, so a
+partly published environment cannot start Photon before recovery. No PBF map
+generation, graph build, search import or deletion of original data is part of
+adoption. Retained partial-copy jobs are never removed automatically.
+
+The private GIS `.env` contains only explicit selected release paths.
+`releases/<id>/public/map-data/2583113c45ca/kazakhstan.pmtiles` is the initial
+archive; fonts are under `map-data/fonts/noto_sans_regular`, matching sprites
+under `map-data/sprites/base*`, and notices under `map-data/licenses`.
+Changing a host symlink alone does not retarget an existing Docker bind mount.
+
+### Guard and cleanup semantics
+
+Every adoption/recovery/build/start/switch/restart runs under the GIS `.refresh.lock` and
+the existing application's `.deploy.lock`, so imports cannot overlap each
+other or an app build/release. A fresh job requires twelve app readiness
+responses within 250 ms, at least **8 GiB available RAM** and **25 GiB free
+filesystem space**. The running guard aborts immediately on a failed/slow
+readiness probe or an original container identity/health regression; it also
+stops after sustained RAM below 3 GiB, free disk below 20 GiB, swap growth over
+256 MiB, unavailable telemetry or a 12 GiB job-directory budget breach.
+
+Watchdog/lease records and samples use tmpfs during work, then are retained
+privately under `jobs/bikers-osm-kz-<id>`. The independent lease detects a dead
+launcher and stops only the job's labelled build containers. Failed initial
+activation stops the three GIS services; a failed component cutover stops
+only its named GIS service and restores the previous selected path. It does
+not restart a heavy service while the main application is regressing. After
+recovery, retry the selected dataset with `python3 scripts/gis.py restart
+--component photon` (or `valhalla`/`maps`) under a new guard.
+
+There is no continuous global watchdog, automatic import schedule or rebuild
+on service startup. Per-job guards end before the separate schema/app cutover;
+normal serving uses Docker healthchecks and resource caps. Those guards must
+not mistake an authorized app replacement or migration pause for interference.
+App readiness remains independent of optional GIS availability.
+
+### Public map prefix and app schema/configuration
+
+The existing VPS `/etc/nginx/sites-available/bikers.kz` keeps its normal app
+route to `10.0.0.2:3050`. Add only the candidate
+[`hoster-location.conf`](../deploy/gis/hoster-location.conf) inside its HTTPS
+server, exposing `/map-data/` through `10.0.0.2:3052`. This preserves Range,
+If-Range and validators and leaves API caching disabled. No new domain or
+certificate is required. The static service serves only the explicit archive,
+glyph, sprite and license paths; it exposes neither Photon nor OpenSearch.
+
+Before the edge write, record all nginx configuration fingerprints, preserve
+the original site bytes privately, and compare the intended single-file diff.
+The 5 November read-only baseline site SHA256 was
+`a1c994d93ad57df5df5bf94f6a0d17e875367a8ea35567771b99d9829a6158a3`;
+recheck it immediately before applying. Run `nginx -t` before reload; restore
+the original site if validation fails. After reload, verify every unrelated
+configuration fingerprint, app readiness and HTTPS map/glyph/sprite requests.
+Require exact HTTP 206/Content-Range/bytes for sample archive ranges, including
+a later offset; verify 416 and HEAD/validators as well. Recheck that Jarvis port
+3052 remains free before initial activation; the helper refuses a listener.
+
+Set only the three reviewed additions in the private app environment:
+
+```dotenv
+PHOTON_BASE_URL=http://photon:2322
+VALHALLA_BASE_URL=http://valhalla:8002
+MAPS_ARCHIVE_URL=/map-data/2583113c45ca/kazakhstan.pmtiles
+```
+
+The initial schema-9 to schema-10 GIS cutover completed on 5 November with the
+reviewed source at `13774c43f276f74a964e08a422e1069f0d24159e`. Its exact receipts,
+retained-state parity and mixed-service/browser acceptance are recorded in
+[#18](https://github.com/unstppbl/bikers/issues/18). Current source no longer
+offers that historical migration mode; the supported upgrade is schema 10 to
+11 below. An archive URL change at the current schema still uses the explicit
+`--configure-gis` flag after both automatic-deployment controls are paused.
+
+The GIS flag permits only the two exact private service URLs, a versioned
+same-origin `/map-data/<hash>/kazakhstan.pmtiles` path, and addition of the
+`bikerskz_gis` network. Every other environment value, port, mount, network,
+database identity/start and non-root/read-only condition stays checked. Without
+the flag, configuration changes remain forbidden. The automatic gate still
+refuses Compose/schema changes. Install the reviewed `deploy-tested-main.py`
+and `deploy-jarvis.py` together in the host's existing `bin` directory after
+this rollout; an older helper cannot validate a newer source migration.
+Verify main CI, private deployment status, live revision/receipts and public
+readiness before resuming both automatic-deployment controls.
+
+### Explicit serial refresh and rollback
+
+Acquire a new country-scoped input with a recorded timestamp and checksum;
+the helper never follows a mutable `latest` URL automatically. Build one
+component at a time from a local, bounded, explicitly supplied source:
+
+```sh
+python3 scripts/gis.py refresh --component photon \
+  --source /private/path/new-photon.jsonl.zst --sha256 FULL_INPUT_SHA256 \
+  --id photon-YYYYMMDD
+python3 scripts/gis.py switch --component photon \
+  --candidate /home/user/apps/bikerskz-gis/releases/photon-YYYYMMDD
+```
+
+Use `valhalla` for a country PBF or `maps` for prebuilt Shortbread MBTiles. All
+build containers are offline with no restart policy, at most 2 CPU/5 GiB RAM,
+5/5 MiB/s I/O and explicit timeboxes. Photon streams at most 16 GiB expanded
+bytes, filters Kazakhstan, and requires verified stream EOF plus successful
+import completion. PMTiles conversion uses disk-backed temporary space, verifies
+the archive and records its digest. A successful build publishes a new candidate
+by directory rename; it never overwrites the active dataset.
+
+Switching Photon/Valhalla atomically updates the selected path and recreates
+only that component, with a short feature outage and retained prior data.
+There is no claim of a zero-downtime blue/green cutover. A map switch publishes
+an immutable content-hash directory first and prints its new URL; activate that
+URL through a separately reviewed app `--configure-gis` rollout. Retain old map
+versions for existing clients: reusing a map URL for different bytes can mix
+PMTiles directories and tile ranges. Never delete the previous index/graph or
+archive before successful acceptance and the agreed retention period.
+
+Keep at least 10 GiB of data working headroom plus images/backups. If the
+preflight fails, recover capacity or schedule the build elsewhere; do not
+weaken thresholds or allocate the host's unused LVM space implicitly. Retain
+the original readiness-impact incident and every later abort receipt when
+reporting acceptance; a healthy final check does not erase earlier impact.
+
+## Useful places schema and data
+
+Current population policy is **Map / Карта**, curated through reviewed user
+contributions ([#24](https://github.com/unstppbl/bikers/issues/24)). The initial
+OSM place seed is withdrawn. Fresh directories start empty; do not run place
+extraction/import to repopulate them without a new owner instruction. The
+self-hosted OSM basemap, address search and routing are separate and remain in
+use. The schema rollout and initial seed procedure below record the historical
+#22 release; retain its dataset and receipts as recovery evidence.
+
+[#22](https://github.com/unstppbl/bikers/issues/22) adds public useful-place
+discovery and private moderated submissions. Schema 11 creates only `places`
+and `place_submissions`; existing SQL migrations are immutable. Suggestions
+are not published until an active administrator approves them. Approval checks
+the current source version, administrator role and submitter status under the
+repository locks. Public responses never include pending proposals or review
+identities. Imported OSM entries retain their source IDs/date and are not
+community verification; later OSM imports preserve community corrections and
+closures.
+
+For the existing schema-10 production database, pause **both** automatic release
+controls, preserve a private `.env`/database/image backup, and validate the dump
+before this explicit clean-main rollout:
+
+```sh
+make deploy-jarvis DEPLOY_ARGS='--migrate-to 11'
+```
+
+The helper requires exact source-matching receipts 1–10 before building. It
+builds before stopping only the app, then fingerprints every retained table
+row and sequence, **including existing ride map plans**. Only the two new tables
+and receipt 11 are excluded from parity, and the new tables must initially be
+empty. A confirmed unchanged schema 10 permits old-image recovery; a committed
+or unknown schema-11 outcome keeps the target selected for explicit roll-forward
+recovery. Do not restore a schema-10 binary against schema 11.
+
+Install `deploy-tested-main.py` and `deploy-jarvis.py` together in the existing
+host `bin` directory after the reviewed rollout. Verify public readiness,
+retained data/container state, main CI and the private deployment check before
+resuming both automatic controls. No GIS environment, network, edge or service
+restart is needed for this feature.
+
+The historical initial country data was extracted from the retained verified PBF, using pinned
+Python wheels in the existing parser image. The explicit `extract-places` and
+`import-places` commands share the existing serial locks, health guard and
+independent lease. They use at most 512 MiB/1 CPU and 5 MiB/s disk I/O. No PBF is
+copied, no new image is pulled, and no public Overpass/geocoding service is
+bulk-queried. Extraction is offline after the small verified wheels are staged.
+See [Places data](places-data.md) for the pins, category mapping and invocation.
+
+The retained artifact is `places-datasets/<id>/places.ndjson`, with its digest,
+record count and source date in `dataset.json`. Import validates the whole
+bounded file before one transaction. A successful guarded import records
+`last-import.json`; failures retain their private job receipts and can be
+retried with the same artifact. The one-off worker uses the exact healthy live
+app image, private environment and database network. Its temporary environment
+file and stopped import container are removed on normal/lease cleanup. Preserve
+the job directory as private if host Docker failures prevent full cleanup.
 
 ## Administrator access
 

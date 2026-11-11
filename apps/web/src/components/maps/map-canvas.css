@@ -1,0 +1,121 @@
+.map-canvas {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+}
+
+.map-canvas-surface {
+  width: 100%;
+  height: clamp(288px, 50vh, 400px);
+}
+
+.map-canvas .maplibregl-map {
+  font: var(--type-caption-5);
+}
+
+.map-canvas-controls {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.map-canvas-controls button {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.map-canvas-controls button:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.map-canvas-controls button:active:not(:disabled) {
+  transform: scale(.98);
+}
+
+.map-stop-marker {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  font: var(--type-body-4);
+  box-shadow: 0 2px 8px #0004;
+  user-select: none;
+}
+
+.map-canvas-status {
+  position: absolute;
+  right: 12px;
+  bottom: 40px;
+  left: 12px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: var(--type-body-6);
+}
+
+.map-canvas-loading-bar {
+  width: 32px;
+  height: 8px;
+  border-radius: var(--radius-sm);
+  background: var(--border-strong);
+}
+
+.map-canvas-error {
+  border-color: var(--danger-border);
+  background: var(--danger-surface);
+  color: var(--danger);
+}
+
+.map-canvas-status .text-button {
+  margin-left: auto;
+}
+
+.map-canvas-pick-hint {
+  padding: 8px 12px;
+  color: var(--text-muted);
+  font: var(--type-caption-5);
+}
+
+.map-canvas .maplibregl-ctrl-attrib {
+  max-width: calc(100% - 24px);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-muted);
+  font: var(--type-caption-5);
+}
+
+.map-canvas .maplibregl-ctrl-attrib a {
+  color: inherit;
+  text-decoration: underline;
+}
+
+.map-canvas .maplibregl-canvas:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: -3px;
+}

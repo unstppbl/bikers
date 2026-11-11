@@ -25,6 +25,12 @@ export interface Challenge {
   resend_after: string
 }
 
+export interface MapPoint { label: string; lat: number; lon: number }
+export interface MapGeometry { type: 'LineString'; coordinates: [number, number][] }
+export interface MapPlan { points: MapPoint[]; geometry?: MapGeometry; distance_meters: number; duration_seconds: number }
+export interface MapPlace extends MapPoint { id: string; kind: string }
+export interface MapConfig { enabled: boolean; archive_url: string }
+
 export interface Ride {
   id: string
   city: string
@@ -43,6 +49,7 @@ export interface Ride {
   capacity?: number
   plan_version?: number
   organizer_id?: string
+  map_plan?: MapPlan
 }
 
 export interface RidePage { rides: Ride[]; next_cursor: string }
@@ -59,6 +66,7 @@ export interface RideInput {
   expectations: string
   capacity: number
   plan_version?: number
+  map_points?: MapPoint[]
 }
 
 export interface Participant {
@@ -115,3 +123,15 @@ export type ReportTarget = 'user' | 'ride' | 'club' | 'message' | 'bike' | 'bike
 
 export interface PushCategories { ride_updates: boolean; participation: boolean; club_membership: boolean; ride_reminders: boolean }
 export interface RideReminders { day_before: boolean; hour_before: boolean }
+
+export type PlaceCategory = 'fuel' | 'workshop' | 'tires' | 'motorcycle_shop' | 'parking' | 'meeting_spot'
+export interface PlaceInput {
+  name: string; category: PlaceCategory; lat: number; lon: number; city: string; address: string; description: string; website: string; phone: string; opening_hours: string
+}
+export interface Place extends PlaceInput {
+  id: string; source: 'osm' | 'community'; source_ref?: string; source_url: string; source_date?: string; updated_at: string; version: number; status: 'published'
+}
+export interface PlaceBounds { west: number; south: number; east: number; north: number }
+export type PlaceSubmissionKind = 'new' | 'correction' | 'closed'
+export interface PlaceSubmissionInput { kind: PlaceSubmissionKind; place_id?: string; base_version?: number; place?: PlaceInput; reason: string }
+export interface PlaceSubmission extends PlaceSubmissionInput { id: string; status: 'pending' | 'approved' | 'rejected'; version: number; created_at: string; updated_at: string; review_reason?: string; submitter_id?: string; reviewer_id?: string }

@@ -1,0 +1,749 @@
+"""Test staging, archive boundaries and cleanup without Docker or host access."""
+from contextlib import contextmanager
+import importlib.util
+import io
+import json
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+import tarfile
+import tempfile
+import threading
+import unittest
+from unittest.mock import Mock, patch
+
+SPEC = importlib.util.spec_from_file_location('gis_operations', Path(__file__).with_name('gis.py'))
+GIS = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(GIS)
+
+
+class AssetsTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+
+    def archive(self, name, entries):
+        path = self.root / name
+        with tarfile.open(path, 'w:gz') as output:
+            for filename, content, kind in entries:
+                member = tarfile.TarInfo(filename)
+                if kind == 'file':
+                    member.size = len(content)
+                    output.addfile(member, io.BytesIO(content))
+                else:
+                    member.type = tarfile.LNKTYPE if kind == 'hardlink' else tarfile.SYMTYPE
+                    member.linkname = content
+                    output.addfile(member)
+        return path
+
+    def valid_archives(self, extra=()):
+        fonts = self.archive('fonts.tar.gz', [
+            ('./noto_sans_regular/0-255.pbf', b'glyph data', 'file'),
+            ('./noto_sans_regular/1024-1279.pbf', './noto_sans_regular/0-255.pbf', 'hardlink'),
+            *extra])
+        sprites = self.archive('sprites.tar.gz', [
+            ('sprites/' + name, b'{}' if name.endswith('.json') else b'\x89PNG\r\n\x1a\ndata', 'file')
+            for name in ('base.json', 'base.png', 'base@2x.json', 'base@2x.png')])
+        return fonts, sprites
+
+    def test_extracts_expected_faces_and_materializes_validated_hardlinks(self):
+        fonts, sprites = self.valid_archives()
+        target = self.root / 'public'
+        manifest = GIS.extract_assets(fonts, sprites, target)
+        first = target / 'fonts/noto_sans_regular/0-255.pbf'
+        second = target / 'fonts/noto_sans_regular/1024-1279.pbf'
+        self.assertEqual(first.read_bytes(), second.read_bytes())
+        self.assertFalse(second.is_symlink())
+        self.assertNotEqual(first.stat().st_ino, second.stat().st_ino)
+        self.assertEqual(len(manifest), 6)
+        self.assertTrue(all(len(item['sha256']) == 64 for item in manifest))
+
+    def test_rejects_traversal_absolute_paths_and_symlinks_even_when_not_selected(self):
+        for name, content, kind in [('../escape', b'a', 'file'), ('/escape', b'a', 'file'),
+                                     ('unrelated-link', '/etc/passwd', 'symlink')]:
+            with self.subTest(name=name):
+                fonts, sprites = self.valid_archives([(name, content, kind)])
+                with self.assertRaises(ValueError):
+                    GIS.extract_assets(fonts, sprites, self.root / ('out-' + str(len(name))))
+                self.assertFalse((self.root / 'escape').exists())
+
+    def test_rejects_hardlink_escape_in_selected_glyph(self):
+        fonts = self.archive('bad-fonts.tar.gz', [
+            ('noto_sans_regular/0-255.pbf', '../outside', 'hardlink')])
+        _, sprites = self.valid_archives()
+        with self.assertRaisesRegex(ValueError, 'unsafe path'):
+            GIS.extract_assets(fonts, sprites, self.root / 'out')
+
+    def test_missing_high_dpi_sprites_or_cyrillic_block_fails_staging(self):
+        fonts, _ = self.valid_archives()
+        sprites = self.archive('incomplete.tar.gz', [('base.json', b'{}', 'file')])
+        with self.assertRaisesRegex(ValueError, 'missing'):
+            GIS.extract_assets(fonts, sprites, self.root / 'out')
+
+    def test_asset_downloads_are_pinned_and_bounded(self):
+        self.assertEqual(GIS.ASSETS['fonts.tar.gz']['bytes'], 31304823)
+        self.assertTrue(all(len(value['sha256']) == 64 and value['url'].startswith('https://')
+                            for value in GIS.ASSETS.values()))
+
+
+class GuardTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.runtime = Path(self.tmp.name) / 'runtime'; self.runtime.mkdir()
+        self.control = Path(self.tmp.name) / 'control'; self.control.mkdir()
+        self.stopped = Mock()
+        self.addCleanup(patch.stopall)
+        patch.object(GIS.guard, 'stop_owned', self.stopped).start()
+        patch.object(GIS.guard, 'probe', return_value={'okay': True, 'seconds': .003}).start()
+        patch.object(GIS.guard, 'host', return_value={'available': 9 * GIS.guard.GIB,
+            'disk_free': 30 * GIS.guard.GIB, 'swap_used': 0}).start()
+        patch.object(GIS.guard, 'containers', return_value={}).start()
+        patch.object(GIS, 'parent_identity', return_value='parent-start').start()
+        patch.object(GIS.time, 'sleep').start()
+        patch.object(GIS.tempfile, 'mkdtemp', return_value=str(self.control)).start()
+        self.stop_gis = patch.object(GIS, 'stop_gis').start()
+        self.processes = []
+
+        def launch(args, **_kwargs):
+            process = Mock()
+            process.poll.return_value = None
+            process.wait.return_value = 0
+            self.processes.append(process)
+            if args[2] == '_watch':
+                GIS.guard.save(Path(args[3]) / 'watch.json', {'time': GIS.time.time()})
+            return process
+        patch.object(GIS.subprocess, 'Popen', side_effect=launch).start()
+
+        def finish(job):
+            GIS.guard.save(job / 'finished.json', {'existing_container_changes': [], 'complete_snapshot': True})
+        patch.object(GIS.guard, 'finish', side_effect=finish).start()
+
+    def test_success_preserves_full_finish_evidence_and_archives_tmpfs_controls(self):
+        with GIS.guarded_job(self.runtime) as job:
+            self.assertTrue((job / 'watch.json').is_symlink())
+            self.assertEqual(json.loads((job / 'baseline.json').read_text())['readiness_limit'], .25)
+        self.assertFalse((job / 'watch.json').is_symlink())
+        self.assertTrue(json.loads((job / 'finished.json').read_text())['complete_snapshot'])
+        self.assertFalse(self.control.exists())
+        self.assertIs(GIS.guard.stop_owned, self.stopped)
+        self.stop_gis.assert_not_called()
+        self.assertTrue(all(process.wait.called for process in self.processes))
+
+    def test_failed_body_stops_only_explicit_startup_services_and_preserves_abort(self):
+        with self.assertRaisesRegex(RuntimeError, 'fixture failure'):
+            with GIS.guarded_job(self.runtime, abort_services=('photon',)) as job:
+                raise RuntimeError('fixture failure')
+        self.assertEqual(json.loads((job / 'abort.json').read_text())['reason'], 'fixture failure')
+        self.stop_gis.assert_called_with(self.runtime, ['photon'])
+        self.assertIs(GIS.guard.stop_owned, self.stopped)
+        self.assertFalse(self.control.exists())
+
+    def test_failed_docker_cleanup_still_joins_children_and_restores_cleanup_function(self):
+        self.stopped.side_effect = RuntimeError('Docker cleanup failed')
+        with self.assertRaisesRegex(RuntimeError, 'Docker cleanup failed'):
+            with GIS.guarded_job(self.runtime) as job:
+                pass
+        self.assertTrue(all(process.wait.called for process in self.processes))
+        self.assertIs(GIS.guard.stop_owned, self.stopped)
+        self.assertIn('Docker cleanup failed', (job / 'abort.json').read_text())
+
+    def test_abort_arriving_during_finish_cannot_be_reported_as_success(self):
+        def finish(job):
+            GIS.guard.save(job / 'abort.json', {'reason': 'simultaneous readiness failure'})
+            GIS.guard.save(job / 'finished.json', {'complete_snapshot': True})
+        GIS.guard.finish.side_effect = finish
+        with self.assertRaisesRegex(RuntimeError, 'aborted before completion'):
+            with GIS.guarded_job(self.runtime) as job:
+                pass
+        self.assertEqual(json.loads((job / 'abort.json').read_text())['reason'], 'simultaneous readiness failure')
+
+    def test_preflight_rejects_slow_ready_before_starting_any_child(self):
+        GIS.guard.probe.return_value = {'okay': True, 'seconds': .251}
+        with self.assertRaisesRegex(RuntimeError, '250 ms'):
+            with GIS.guarded_job(self.runtime):
+                self.fail('Unsafe job entered')
+        self.assertEqual(self.processes, [])
+
+    def test_lease_parent_death_stops_jobs_and_retains_first_abort_reason(self):
+        job = self.runtime / 'job'; job.mkdir()
+        GIS.guard.save(job / 'guard-plan.json', {'runtime': str(self.runtime), 'abort_services': ['photon']})
+        GIS.guard.save(job / 'abort.json', {'reason': 'first guard reason'})
+        with patch.object(GIS.guard, 'ensure_watch'), patch.object(GIS, 'parent_identity', side_effect=FileNotFoundError):
+            with self.assertRaises(FileNotFoundError):
+                GIS.child_lease(job, 60, 12345, 'parent-start')
+        self.assertEqual(json.loads((job / 'abort.json').read_text())['reason'], 'first guard reason')
+        self.stop_gis.assert_called_with(self.runtime, ['photon'])
+        self.assertTrue(json.loads((job / 'finished.json').read_text())['failed'])
+
+    def test_lease_removes_private_environment_even_when_docker_stop_fails(self):
+        job = self.runtime / 'private-lease'; job.mkdir()
+        (job / 'inputs').mkdir()
+        private = job / 'inputs/app.env'; private.write_text('PRIVATE_FIXTURE=secret\n')
+        GIS.guard.save(job / 'guard-plan.json', {'runtime': str(self.runtime), 'abort_services': []})
+        self.stopped.side_effect = RuntimeError('Docker cleanup failed')
+        with patch.object(GIS.guard, 'ensure_watch', side_effect=RuntimeError('launcher disappeared')):
+            with self.assertRaisesRegex(RuntimeError, 'Docker cleanup failed'):
+                GIS.child_lease(job, 60, 12345, 'parent-start')
+        self.assertFalse(private.exists())
+        self.assertEqual(json.loads((job / 'abort.json').read_text())['reason'], 'launcher disappeared')
+
+
+class PlacesOperationsTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        self.runtime = self.root / 'gis'; self.runtime.mkdir()
+        self.app_runtime = self.root / 'app'; (self.app_runtime / '.deploy').mkdir(parents=True)
+        self.dataset = self.runtime / 'places-datasets/initial'; self.dataset.mkdir(parents=True)
+        self.source = self.dataset / 'places.ndjson'
+        self.source.write_text('{"source_ref":"node/1","name":"Public fuel"}\n')
+        self.source.chmod(0o644)
+        self.sha256 = GIS.digest(self.source)
+        GIS.guard.save(self.dataset / 'dataset.json', {'sha256': self.sha256, 'bytes': self.source.stat().st_size, 'records': 1})
+        self.release = {'revision': 'a' * 40, 'image': 'bikerskz:git-' + 'a' * 40,
+                        'image_id': 'sha256:' + 'b' * 64, 'healthy': True}
+        GIS.guard.save(self.app_runtime / '.deploy/current-git-release.json', self.release)
+        self.environment = ['DATABASE_URL=postgres://fixture:secret@db/fixture',
+                            'BASE_URL=https://bikers.kz', 'TELEGRAM_GATEWAY_TOKEN=fixture-token']
+        self.app = {'State': {'Health': {'Status': 'healthy'}}, 'Image': self.release['image_id'],
+                    'Config': {'Image': self.release['image'], 'Env': self.environment,
+                               'Labels': {'org.opencontainers.image.revision': self.release['revision']}}}
+        self.job = self.runtime / 'jobs/bikers-osm-kz-placesfixture'
+        for folder in ('inputs', 'specs', 'logs', 'data'):
+            (self.job / folder).mkdir(parents=True)
+        self.result = {'total': 1, 'inserted': 1, 'updated': 0, 'unchanged': 0, 'preserved': 0}
+
+    @contextmanager
+    def guarded(self, runtime, **kwargs):
+        self.assertEqual(runtime, self.runtime)
+        self.assertEqual(kwargs['seconds'], 300)
+        yield self.job
+
+    def test_import_count_mismatch_never_publishes_a_success_receipt(self):
+        wrong = {**self.result, 'total': 2, 'inserted': 2}
+        with patch.object(GIS, 'execute', return_value=json.dumps([self.app])), \
+                patch.object(GIS, 'guarded_job', self.guarded), \
+                patch.object(GIS.guard, 'stage', side_effect=lambda job, _path: GIS.guard.save(job / 'logs/places-import.log', wrong)):
+            with self.assertRaisesRegex(RuntimeError, 'reconcile before retrying'):
+                GIS.import_places(self.runtime, self.dataset, app_runtime=self.app_runtime)
+        self.assertFalse((self.dataset / 'last-import.json').exists())
+        self.assertFalse((self.job / 'inputs/app.env').exists())
+
+    def test_import_uses_exact_live_image_and_private_environment_without_secret_spec_values(self):
+        def stage(job, path):
+            self.assertEqual(job, self.job)
+            spec = json.loads(path.read_text())
+            self.assertEqual(spec['image'], self.release['image_id'])
+            self.assertEqual((spec['memory'], spec['cpus'], spec['timeout']), ('512m', '1.0', 180))
+            self.assertEqual((spec['read_bps'], spec['write_bps']), ('5mb', '5mb'))
+            self.assertEqual(spec['network'], 'bikerskz_default')
+            self.assertIn('--pull=never', spec['args'])
+            self.assertIn('--read-only', spec['args'])
+            self.assertEqual(spec['args'][spec['args'].index('--user') + 1], '10001:10001')
+            private = Path(spec['args'][spec['args'].index('--env-file') + 1])
+            self.assertEqual(private, self.job / 'inputs/app.env')
+            self.assertEqual(private.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(private.read_text().splitlines(), self.environment)
+            self.assertEqual(spec['command'], ['places', 'import', '--file', '/input/places.ndjson',
+                                               '--sha256', self.sha256])
+            self.assertIn(f'type=bind,source={self.source},target=/input/places.ndjson,readonly', spec['args'])
+            for value in self.environment:
+                self.assertNotIn(value, path.read_text())
+            GIS.guard.save(job / 'logs/places-import.log', self.result)
+
+        with patch.object(GIS, 'execute', return_value=json.dumps([self.app])) as execute, \
+                patch.object(GIS, 'guarded_job', self.guarded), patch.object(GIS.guard, 'stage', side_effect=stage), \
+                patch.object(GIS.sys, 'stdout', io.StringIO()):
+            GIS.import_places(self.runtime, self.dataset, app_runtime=self.app_runtime)
+        execute.assert_called_once_with(['docker', 'inspect', 'bikerskz-app-1'])
+        self.assertFalse((self.job / 'inputs/app.env').exists())
+        receipt = json.loads((self.dataset / 'last-import.json').read_text())
+        self.assertEqual(receipt['revision'], self.release['revision'])
+        self.assertEqual(receipt['dataset_sha256'], self.sha256)
+        self.assertEqual(receipt['result'], self.result)
+        self.assertNotIn('secret', (self.dataset / 'last-import.json').read_text())
+
+    def test_import_rejects_receipt_image_or_health_drift_before_starting_job(self):
+        for change in ('image_id', 'image_tag', 'revision', 'health'):
+            with self.subTest(change=change):
+                app = json.loads(json.dumps(self.app))
+                if change == 'image_id': app['Image'] = 'sha256:' + 'c' * 64
+                elif change == 'image_tag': app['Config']['Image'] = 'bikerskz:other'
+                elif change == 'revision': app['Config']['Labels']['org.opencontainers.image.revision'] = 'c' * 40
+                else: app['State']['Health']['Status'] = 'unhealthy'
+                with patch.object(GIS, 'execute', return_value=json.dumps([app])), \
+                        patch.object(GIS, 'guarded_job') as guarded:
+                    with self.assertRaisesRegex(RuntimeError, 'receipt-matching'):
+                        GIS.import_places(self.runtime, self.dataset, app_runtime=self.app_runtime)
+                guarded.assert_not_called()
+        self.assertFalse((self.dataset / 'last-import.json').exists())
+
+    def test_failed_import_stage_removes_environment_and_never_publishes_success_receipt(self):
+        def fail_stage(job, _path):
+            self.assertTrue((job / 'inputs/app.env').exists())
+            raise RuntimeError('fixture import failed before commit')
+        with patch.object(GIS, 'execute', return_value=json.dumps([self.app])), \
+                patch.object(GIS, 'guarded_job', self.guarded), patch.object(GIS.guard, 'stage', side_effect=fail_stage):
+            with self.assertRaisesRegex(RuntimeError, 'fixture import failed'):
+                GIS.import_places(self.runtime, self.dataset, app_runtime=self.app_runtime)
+        self.assertFalse((self.job / 'inputs/app.env').exists())
+        self.assertFalse((self.dataset / 'last-import.json').exists())
+
+    def test_private_cleanup_removes_only_the_stopped_exact_name_and_job_label(self):
+        GIS.guard.save(self.job / 'specs/places-import.json', {})
+        private = self.job / 'inputs/app.env'; private.write_text('PRIVATE_FIXTURE=secret\n')
+        name = self.job.name + '-places-import'
+        info = {'Name': '/' + name, 'Config': {'Labels': {GIS.guard.LABEL: self.job.name}},
+                'State': {'Running': False}}
+        with patch.object(GIS, 'execute', side_effect=['owned-id', json.dumps([info]), '']) as execute:
+            GIS.cleanup_private_job_inputs(self.job)
+        self.assertFalse(private.exists())
+        self.assertEqual(execute.call_args_list[0].args[0], ['docker', 'ps', '-aq', '--filter',
+                         f'name=^{name}$', '--filter', f'label={GIS.guard.LABEL}={self.job.name}'])
+        self.assertEqual(execute.call_args_list[-1].args[0], ['docker', 'rm', 'owned-id'])
+
+    def test_private_cleanup_refuses_foreign_or_running_containers_but_still_deletes_env(self):
+        GIS.guard.save(self.job / 'specs/places-import.json', {})
+        name = self.job.name + '-places-import'
+        for change in ('name', 'label', 'running'):
+            with self.subTest(change=change):
+                private = self.job / 'inputs/app.env'; private.write_text('PRIVATE_FIXTURE=secret\n')
+                info = {'Name': '/' + name, 'Config': {'Labels': {GIS.guard.LABEL: self.job.name}},
+                        'State': {'Running': False}}
+                if change == 'name': info['Name'] = '/bikerskz-app-1'
+                elif change == 'label': info['Config']['Labels'][GIS.guard.LABEL] = 'another-job'
+                else: info['State']['Running'] = True
+                with patch.object(GIS, 'execute', side_effect=['owned-id', json.dumps([info])]) as execute:
+                    with self.assertRaisesRegex(RuntimeError, 'Cannot safely remove'):
+                        GIS.cleanup_private_job_inputs(self.job)
+                self.assertFalse(private.exists())
+                self.assertFalse(any(call.args[0][:2] == ['docker', 'rm'] for call in execute.call_args_list))
+
+    def test_guard_failure_after_extraction_never_publishes_the_candidate_dataset(self):
+        country = self.root / 'country.osm.pbf'; country.write_bytes(b'bounded fixture PBF')
+        original_stat = Path.stat
+
+        def owned_stat(path, *args, **kwargs):
+            result = original_stat(path, *args, **kwargs)
+            if path == country:
+                values = list(result); values[4] = 1000
+                return os.stat_result(values)
+            return result
+
+        @contextmanager
+        def unsafe_guard(runtime, **kwargs):
+            self.assertEqual(runtime, self.runtime)
+            self.assertEqual(kwargs['seconds'], 1800)
+            yield self.job
+            raise RuntimeError('fixture final readiness failed')
+
+        def stage(job, name, *_args, **_kwargs):
+            if name == 'places-extract':
+                (job / 'data/places.ndjson').write_text('{"source_ref":"node/10"}\n')
+            elif name == 'places-output':
+                output = job / 'data/places.ndjson'
+                GIS.guard.save(job / 'logs/places-output.log', {'sha256': GIS.digest(output),
+                               'bytes': output.stat().st_size, 'records': 1})
+
+        with patch.object(Path, 'stat', owned_stat), patch.object(GIS, 'guarded_job', unsafe_guard), \
+                patch.object(GIS.places_osm, 'wheel_manifest', return_value=[]), patch.object(GIS, 'stage', side_effect=stage):
+            with self.assertRaisesRegex(RuntimeError, 'final readiness failed'):
+                GIS.extract_places(self.runtime, country, 'a' * 64, '2026-11-03', 'failed-export')
+        self.assertFalse((self.runtime / 'places-datasets/failed-export').exists())
+        self.assertTrue((self.job / 'data/places.ndjson').is_file())
+
+
+class SelectionTests(unittest.TestCase):
+    def test_copied_input_is_hashed_and_growth_is_bounded(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / 'source'; source.write_bytes(b'verified input')
+            target = Path(tmp) / 'target'
+            GIS.copy_verified(source, target, GIS.digest(source))
+            self.assertEqual(target.read_bytes(), source.read_bytes())
+            with self.assertRaisesRegex(ValueError, 'checksum mismatch'):
+                GIS.copy_verified(source, Path(tmp) / 'wrong-hash', '0' * 64)
+            with self.assertRaisesRegex(ValueError, 'beyond'):
+                GIS.copy_verified(source, Path(tmp) / 'oversized', GIS.digest(source), max_bytes=3)
+
+    def test_environment_write_is_private_atomic_and_rejects_embedded_lines(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / '.env'
+            GIS.atomic_env(path, {'PHOTON_DATA_DIR': '/a/dataset'})
+            self.assertEqual(GIS.read_env(path), {'PHOTON_DATA_DIR': '/a/dataset'})
+            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+            with self.assertRaises(ValueError):
+                GIS.atomic_env(path, {'PHOTON_DATA_DIR': '/a\nEVIL=value'})
+            self.assertEqual(GIS.read_env(path), {'PHOTON_DATA_DIR': '/a/dataset'})
+
+    def test_failed_component_switch_restores_previous_selection(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = Path(tmp)
+            candidate = runtime / 'releases/new'; candidate.mkdir(parents=True)
+            (candidate / 'candidate.json').write_text(json.dumps({'component': 'photon'}))
+            old = {'PHOTON_DATA_DIR': '/old/index'}
+            GIS.atomic_env(runtime / '.env', old)
+
+            @contextmanager
+            def job(*_args, **_kwargs):
+                yield runtime
+
+            with patch.object(GIS, 'guarded_job', job), patch.object(GIS.guard, 'execute', side_effect=RuntimeError('failed canary')):
+                with self.assertRaisesRegex(RuntimeError, 'failed canary'):
+                    GIS.switch(runtime, 'photon', candidate)
+            self.assertEqual(GIS.read_env(runtime / '.env'), old)
+
+    def test_initial_activation_refuses_occupied_port(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = Path(tmp)
+            GIS.atomic_env(runtime / '.env', {'GIS_PUBLIC_DIR': '/data'})
+            with patch.object(GIS, 'execute', side_effect=['', 'LISTEN unrelated']), patch.object(GIS, 'guarded_job') as guard:
+                with self.assertRaisesRegex(RuntimeError, 'already in use'):
+                    GIS.activate(runtime)
+            guard.assert_not_called()
+
+
+class VerificationTests(unittest.TestCase):
+    @staticmethod
+    def search(city='almaty'):
+        point = [76.95, 43.24] if city == 'almaty' else [71.43, 51.13]
+        return {'type': 'FeatureCollection', 'features': [{'type': 'Feature',
+            'geometry': {'type': 'Point', 'coordinates': point},
+            'properties': {'countrycode': 'KZ', 'name': city}}]}
+
+    def test_search_rejects_empty_foreign_or_wrong_city_data(self):
+        self.assertEqual(GIS.validate_search(self.search(), 'almaty')['features'], 1)
+        for body in ({'type': 'FeatureCollection', 'features': []}, self.search('astana'),
+                     {'type': 'FeatureCollection', 'features': [{'type': 'Feature',
+                      'geometry': {'type': 'Point', 'coordinates': [76.95, 43.24]},
+                      'properties': {'countrycode': 'RU', 'name': 'Almaty'}}]}):
+            with self.assertRaises(ValueError):
+                GIS.validate_search(body, 'almaty')
+
+    def test_route_requires_actual_osrm_geojson_and_fixture_endpoints(self):
+        _, points = GIS.valhalla.FIXTURES[0]
+        body = {'code': 'Ok', 'routes': [{'distance': 4498, 'duration': 600,
+            'geometry': {'type': 'LineString', 'coordinates': [[lon, lat] for lat, lon in points]}}]}
+        self.assertEqual(GIS.validate_route(body, points, (100, 50000))['distance_meters'], 4498)
+        request = GIS.road_request(points)
+        self.assertEqual((request['format'], request['shape_format'], request['directions_type']), ('osrm', 'geojson', 'none'))
+        self.assertEqual(request['costing_options']['motorcycle'], {'use_tracks': 0, 'use_trails': 0})
+        for wrong in ({'trip': {'status': 0}}, {'code': 'Ok', 'routes': []}):
+            with self.assertRaises(ValueError):
+                GIS.validate_route(wrong, points, (100, 50000))
+        body['routes'][0]['geometry']['coordinates'][0] = [71.43, 51.13]
+        with self.assertRaisesRegex(ValueError, 'endpoints'):
+            GIS.validate_route(body, points, (100, 50000))
+
+    def test_archive_selection_uses_current_path_size_and_magic_without_fixed_metadata(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = Path(tmp)
+            relative = '/map-data/' + 'b' * 16 + '/kazakhstan.pmtiles'
+            archive = runtime / relative.lstrip('/'); archive.parent.mkdir(parents=True)
+            archive.write_bytes(b'PMTiles\x03' + bytes(70001))
+            selected, url = GIS.verification_archive(runtime, {'GIS_PUBLIC_DIR': str(runtime)}, relative)
+            self.assertEqual(selected.stat().st_size, 70009)
+            self.assertEqual(url, relative)
+            with self.assertRaises(ValueError):
+                GIS.verification_archive(runtime, {'GIS_PUBLIC_DIR': str(runtime)}, '/map-data/current.pmtiles')
+
+    def test_fixed_mixed_pilot_checks_all_bytes_and_bounds_concurrency(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            archive = Path(tmp) / 'map.pmtiles'
+            data = b'PMTiles\x03' + bytes(range(256)) * 400
+            archive.write_bytes(data)
+            lock = threading.Lock()
+            active = {'route': 0, 'search': 0, 'map': 0}
+            peaks = dict(active)
+            calls = []
+            outer = self
+
+            class Response(io.BytesIO):
+                def __init__(self, body, kind, status=200, headers=None):
+                    super().__init__(body)
+                    self.kind, self.status, self.headers = kind, status, headers or {}
+                def __exit__(self, *_args):
+                    with lock:
+                        active[self.kind] -= 1
+                    self.close()
+
+            class Opener:
+                def open(self, request, timeout):
+                    path = GIS.urllib.parse.urlsplit(request.full_url)
+                    kind = 'route' if path.path == '/route' else 'search' if path.path == '/api/' else 'map'
+                    with lock:
+                        active[kind] += 1
+                        peaks[kind] = max(peaks[kind], active[kind])
+                        calls.append((kind, timeout))
+                    if kind == 'search':
+                        query = GIS.urllib.parse.parse_qs(path.query)
+                        outer.assertEqual(query['countrycode'], ['KZ'])
+                        outer.assertEqual(query['bbox'], ['46,40.5,87.5,55.5'])
+                        city = 'astana' if query['q'][0] in ('Astana', 'Астана') else 'almaty'
+                        return Response(json.dumps(outer.search(city)).encode(), kind)
+                    if kind == 'route':
+                        payload = json.loads(request.data)
+                        points = payload['locations']
+                        coordinates = [[point['lon'], point['lat']] for point in points]
+                        distance = 1227275 if points[-1]['lat'] > 50 else 24022 if points[0]['lon'] > 77 else 4498
+                        return Response(json.dumps({'code': 'Ok', 'routes': [{'distance': distance,
+                            'duration': 1000, 'geometry': {'type': 'LineString', 'coordinates': coordinates}}]}).encode(), kind)
+                    start, end = map(int, request.get_header('Range').split('=')[1].split('-'))
+                    return Response(data[start:end + 1], kind, 206,
+                                    {'Content-Range': f'bytes {start}-{end}/{len(data)}', 'Content-Length': str(end - start + 1)})
+
+            with patch.object(GIS.urllib.request, 'build_opener', return_value=Opener()):
+                report = GIS.verify_requests({'archive': str(archive), 'photon': 'http://photon',
+                    'valhalla': 'http://valhalla', 'maps': 'http://maps/map-data/other/kazakhstan.pmtiles'})
+            self.assertEqual(report['planned'], 96)
+            self.assertEqual(report['error_count'], 0)
+            self.assertEqual({name: row['successful'] for name, row in report['summaries'].items()},
+                             {'route': 32, 'search': 32, 'map': 32})
+            self.assertTrue(all(timeout <= 8 for _, timeout in calls))
+            self.assertTrue(peaks['route'] <= 1 and peaks['search'] <= 2 and peaks['map'] <= 2)
+
+    def test_verification_failure_retains_receipt_and_requests_all_gis_abort_cleanup(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            runtime = Path(tmp)
+            job = runtime / 'job'; (job / 'logs').mkdir(parents=True); (job / 'specs').mkdir()
+            GIS.atomic_env(runtime / '.env', {'GIS_PUBLIC_DIR': str(runtime)})
+            archive = runtime / 'map.pmtiles'; archive.write_bytes(b'PMTiles\x03' + bytes(70000))
+            seen = {}
+
+            @contextmanager
+            def guarded(_runtime, **kwargs):
+                seen.update(kwargs)
+                yield job
+
+            def failed_query(*_args):
+                (job / 'logs/verification.log').write_text(json.dumps({'error_count': 1, 'requests': []}))
+                raise RuntimeError('provider fixture failure')
+
+            before = {'valhalla': {'memory_limit': GIS.guard.GIB, 'memory_swap_limit': GIS.guard.GIB, 'ip': '172.25.0.2'},
+                      'photon': {'ip': '172.25.0.3'}}
+            with patch.object(GIS, 'guarded_job', guarded), patch.object(GIS, 'serving_snapshot', return_value=before), \
+                    patch.object(GIS, 'verification_archive', return_value=(archive, '/map-data/' + 'b' * 12 + '/kazakhstan.pmtiles')), \
+                    patch.object(GIS.guard, 'execute', side_effect=failed_query):
+                with self.assertRaisesRegex(RuntimeError, 'provider fixture failure'):
+                    GIS.verify(runtime)
+            receipt = json.loads((runtime / 'verification.json').read_text())
+            self.assertFalse(receipt['ok'])
+            self.assertEqual(receipt['queries']['error_count'], 1)
+            self.assertEqual(seen['abort_services'], ('valhalla', 'photon', 'maps'))
+            self.assertEqual(seen['seconds'], 120)
+
+
+class AdoptionTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name)
+        self.runtime = self.root / 'runtime'; self.runtime.mkdir()
+        self.benchmark = self.root / 'bikers-osm-kz-source'; self.benchmark.mkdir()
+        self.job = self.runtime / 'jobs/bikers-osm-kz-adopt'
+        for folder in ('data', 'inputs', 'logs', 'results', 'specs'):
+            (self.job / folder).mkdir(parents=True, exist_ok=True)
+        for relative, _ in GIS.ADOPT_SOURCES:
+            path = self.benchmark / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            if relative in ('data/valhalla3', 'data/photon-stream4', 'tools/jre'):
+                path.mkdir(); (path / 'original').write_text(relative)
+            else:
+                path.write_text(relative)
+        self.counter = b'workload_exit_status=0\n[memory.peak]\n123456\n'
+        for relative in ('data/valhalla3/import-cgroup-final.txt', 'data/photon-stream4/import-cgroup-final.txt', 'data/maps/convert-cgroup-final.txt'):
+            (self.benchmark / relative).write_bytes(self.counter)
+        (self.benchmark / 'finished.json').write_text(json.dumps({'existing_container_changes': [],
+            'benchmark_running': [], 'readiness': {'okay': True}}))
+        (self.benchmark / 'results').mkdir()
+        receipt = {'valhalla': {'import': {'exit_code': 0, 'oom_killed': False}},
+                   'photon': {'import': {'exit_code': 0, 'oom_killed': False},
+                              'stream_completion': {'ok': True}, 'status': {'status': 'Ok'}},
+                   'maps': {'conversion': {'exit_code': 0, 'oom_killed': False}}}
+        (self.benchmark / 'results/published-results.json').write_text(json.dumps(receipt))
+        self.source_identity = {relative: GIS.object_identity(self.benchmark / relative) for relative, _ in GIS.ADOPT_SOURCES}
+        self.addCleanup(patch.stopall)
+        patch.object(GIS, 'ADOPTION_UID', os.getuid()).start()
+        patch.object(GIS, 'execute', return_value='').start()
+        patch.object(GIS.guard, 'ensure_watch').start()
+
+        @contextmanager
+        def job(*_args, **_kwargs):
+            yield self.job
+            self.assertFalse((self.runtime / '.env').exists(), 'Environment published before final guard completed')
+        patch.object(GIS, 'guarded_job', job).start()
+
+        def prepare(_job, name, *_args, **_kwargs):
+            self.assertEqual(name, 'adopt-prepare')
+            output = self.job / 'data/adopting'
+            (output / 'runtime').mkdir(parents=True)
+            (output / 'public/map-data' / GIS.MAP_SHA256[:12]).mkdir(parents=True)
+            inventory = GIS.validate_adoption_tree(self.benchmark, self.runtime.stat().st_dev)
+            (self.job / 'logs/adopt-prepare.log').write_text(json.dumps({'source_inventory': inventory}))
+        patch.object(GIS, 'stage', side_effect=prepare).start()
+
+    def adopt(self):
+        GIS.adopt(self.runtime, self.benchmark, 'adopted', self.job / 'inputs')
+
+    def assert_sources_restored(self):
+        for relative, _ in GIS.ADOPT_SOURCES:
+            self.assertEqual(GIS.object_identity(self.benchmark / relative), self.source_identity[relative])
+        self.assertFalse((self.runtime / '.env').exists())
+        self.assertFalse((self.runtime / 'adoption.json').exists())
+
+    def test_adoption_moves_original_inodes_and_preserves_counter_evidence(self):
+        self.adopt()
+        release = self.runtime / 'releases/adopted'
+        for relative, target in GIS.ADOPT_SOURCES:
+            self.assertEqual(GIS.object_identity(release / target), self.source_identity[relative])
+        for relative in ('data/valhalla3', 'data/photon-stream4'):
+            old = self.benchmark / relative
+            self.assertEqual((old / 'import-cgroup-final.txt').read_bytes(), self.counter)
+            self.assertFalse((old / 'original').exists())
+            self.assertFalse(old.is_symlink())
+            self.assertEqual(json.loads((old / 'PROMOTED.json').read_text())['adoption_id'], 'adopted')
+        self.assertTrue((self.benchmark / 'data/maps/convert-cgroup-final.txt').exists())
+        self.assertEqual((release / 'photon/original').stat().st_nlink, 1)
+        GIS.require_committed_adoption(self.runtime)
+
+    def test_caught_failure_before_or_after_final_or_environment_rename_restores_every_source(self):
+        # Each test fixture is independent so all failure positions are real renames.
+        real = GIS.checked_rename
+        destination = self.runtime / '.env'
+
+        def fail_after_environment(source, target):
+            real(source, target)
+            if target == destination:
+                raise OSError('interrupted after environment rename')
+        with patch.object(GIS, 'checked_rename', side_effect=fail_after_environment):
+            with self.assertRaisesRegex(OSError, 'after environment'):
+                self.adopt()
+        self.assert_sources_restored()
+        journal = json.loads((self.runtime / 'adoptions/adopted.json').read_text())
+        self.assertEqual(journal['state'], 'rolled-back')
+        self.assertTrue(all(step['state'] == 'restored' for step in journal['steps']))
+
+    def test_failure_before_a_data_rename_restores_prior_moves(self):
+        real = GIS.checked_rename
+        def fail(source, target):
+            if source == self.benchmark / 'inputs/photon.jar':
+                raise OSError('before jar move')
+            real(source, target)
+        with patch.object(GIS, 'checked_rename', side_effect=fail):
+            with self.assertRaisesRegex(OSError, 'before jar'):
+                self.adopt()
+        self.assert_sources_restored()
+
+    def test_failure_after_final_rename_is_reconciled_even_without_moved_state(self):
+        real = GIS.checked_rename
+        def fail(source, target):
+            real(source, target)
+            if target == self.runtime / 'releases/adopted':
+                raise OSError('after final directory rename')
+        with patch.object(GIS, 'checked_rename', side_effect=fail):
+            with self.assertRaisesRegex(OSError, 'after final'):
+                self.adopt()
+        self.assert_sources_restored()
+
+    def test_recovery_accepts_pre_yield_zero_step_journal_and_is_idempotent(self):
+        path = self.runtime / 'adoptions/early.json'; path.parent.mkdir()
+        GIS.durable_json(path, {'version': 1, 'id': 'early', 'state': 'preparing', 'steps': [],
+            'benchmark': str(self.benchmark), 'release': str(self.runtime / 'releases/early')})
+        GIS.recover_adoption(self.runtime, 'early')
+        GIS.recover_adoption(self.runtime, 'early')
+        self.assertEqual(json.loads(path.read_text())['state'], 'rolled-back')
+        self.assert_sources_restored()
+
+    def test_recovery_reconciles_rename_completed_before_journal_update(self):
+        source = self.benchmark / 'data/photon-stream4'
+        target = self.job / 'data/photon'
+        path = self.runtime / 'adoptions/crashed.json'; path.parent.mkdir()
+        journal = {'version': 1, 'id': 'crashed', 'state': 'moving', 'benchmark': str(self.benchmark),
+            'release': str(self.runtime / 'releases/crashed'), 'job': str(self.job),
+            'steps': [{'source': str(source), 'target': str(target), 'identity': GIS.object_identity(source), 'state': 'planned'}]}
+        GIS.durable_json(path, journal)
+        GIS.checked_rename(source, target)  # launcher died before marking this step moved
+        GIS.recover_adoption(self.runtime, 'crashed')
+        GIS.recover_adoption(self.runtime, 'crashed')
+        self.assert_sources_restored()
+
+    def test_recovery_never_overwrites_a_conflicting_source(self):
+        source = self.benchmark / 'data/photon-stream4'
+        target = self.job / 'data/photon'
+        path = self.runtime / 'adoptions/conflict.json'; path.parent.mkdir()
+        journal = {'version': 1, 'id': 'conflict', 'state': 'moving', 'benchmark': str(self.benchmark),
+            'release': str(self.runtime / 'releases/conflict'), 'job': str(self.job),
+            'steps': [{'source': str(source), 'target': str(target), 'identity': GIS.object_identity(source), 'state': 'moved'}]}
+        GIS.checked_rename(source, target); source.mkdir(); (source / 'unrelated').write_text('keep')
+        GIS.durable_json(path, journal)
+        with self.assertRaisesRegex(RuntimeError, 'Ambiguous'):
+            GIS.recover_adoption(self.runtime, 'conflict')
+        self.assertEqual((source / 'unrelated').read_text(), 'keep')
+        self.assertTrue((target / 'original').exists())
+        self.assertEqual(json.loads(path.read_text())['state'], 'recovery-required')
+
+    def test_pending_environment_cannot_activate_and_journal_paths_are_confined(self):
+        self.adopt()
+        path = self.runtime / 'adoptions/adopted.json'
+        journal = json.loads(path.read_text()); journal['state'] = 'publishing'; GIS.durable_json(path, journal)
+        with self.assertRaisesRegex(RuntimeError, 'not committed'):
+            GIS.require_committed_adoption(self.runtime)
+        journal['steps'][0]['target'] = str(self.root / 'another-app')
+        with self.assertRaisesRegex(ValueError, 'outside'):
+            GIS.validate_adoption_journal(self.runtime, journal)
+
+    def test_source_tree_rejects_wrong_owner_device_photon_links_and_external_symlinks(self):
+        device = self.runtime.stat().st_dev
+        with self.assertRaisesRegex(ValueError, 'filesystem'):
+            GIS.validate_adoption_tree(self.benchmark, device + 1)
+        with patch.object(GIS, 'ADOPTION_UID', os.getuid() + 1):
+            with self.assertRaisesRegex(ValueError, 'UID'):
+                GIS.validate_adoption_tree(self.benchmark, device)
+        alias = self.benchmark / 'data/photon-stream4/alias'
+        os.link(self.benchmark / 'data/photon-stream4/original', alias)
+        with self.assertRaisesRegex(ValueError, 'independently owned'):
+            GIS.validate_adoption_tree(self.benchmark, device)
+        alias.unlink()
+        alias.symlink_to(self.root / 'another-app')
+        with self.assertRaisesRegex(ValueError, 'symlinks'):
+            GIS.validate_adoption_tree(self.benchmark, device)
+
+    def test_failed_component_or_running_source_is_rejected_before_any_move(self):
+        GIS.execute.return_value = 'running-container'
+        with self.assertRaisesRegex(RuntimeError, 'running source'):
+            self.adopt()
+        self.assert_sources_restored()
+        GIS.execute.return_value = ''
+        path = self.benchmark / 'results/published-results.json'
+        receipt = json.loads(path.read_text()); receipt['photon']['import']['exit_code'] = 1
+        path.write_text(json.dumps(receipt))
+        with self.assertRaisesRegex(ValueError, 'completed component'):
+            self.adopt()
+        self.assert_sources_restored()
+
+class SourceCheckoutTests(unittest.TestCase):
+    def test_cli_does_not_create_bytecode_that_invalidates_its_clean_source_check(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            scripts = Path(tmp) / 'scripts'
+            tools = scripts / 'osm-benchmark'
+            tools.mkdir(parents=True)
+            shutil.copyfile(GIS.TOOLS / 'gis.py', scripts / 'gis.py')
+            shutil.copyfile(GIS.TOOLS / 'places_osm.py', scripts / 'places_osm.py')
+            for filename in ('run.py', 'valhalla.py', 'photon.py'):
+                shutil.copyfile(GIS.TOOLS / 'osm-benchmark' / filename, tools / filename)
+            environment = dict(os.environ)
+            environment.pop('PYTHONDONTWRITEBYTECODE', None)
+            environment.pop('PYTHONPYCACHEPREFIX', None)
+            result = subprocess.run([sys.executable, str(scripts / 'gis.py'), '--help'],
+                                    capture_output=True, text=True, env=environment, timeout=10)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertFalse((tools / '__pycache__').exists())
+            self.assertFalse((scripts / '__pycache__').exists())
+
+
+if __name__ == '__main__':
+    unittest.main()

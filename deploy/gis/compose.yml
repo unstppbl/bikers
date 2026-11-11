@@ -1,0 +1,90 @@
+name: bkgis
+
+x-service: &service
+  restart: unless-stopped
+  user: "1000:1000"
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  pids_limit: 256
+  cpu_shares: 128
+  stop_grace_period: 30s
+  tmpfs: ["/tmp:rw,nosuid,nodev,size=512m,mode=1777"]
+  logging:
+    driver: json-file
+    options: {max-size: "10m", max-file: "3"}
+
+services:
+  valhalla:
+    <<: *service
+    image: ghcr.io/valhalla/valhalla-scripted:3.9.1-amd64@sha256:31d96eb75f73e5f5b3dc40702edfda16c4e1793a384a8235bcf00dd3eed1b9bc
+    entrypoint: [valhalla_service]
+    command: [/custom_files/valhalla.json, "1"]
+    environment: {HOME: /tmp}
+    mem_limit: 1g
+    memswap_limit: 1g
+    cpus: 1.5
+    volumes:
+      - ${VALHALLA_DATA_DIR:?Select a verified dataset}:/custom_files:ro
+    networks: [private]
+    blkio_config:
+      device_read_bps: [{path: /dev/sda, rate: 5mb}]
+    healthcheck:
+      test: [CMD, python3, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8002/status',timeout=3).read(4096)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
+  photon:
+    <<: *service
+    image: ghcr.io/valhalla/valhalla-scripted:3.9.1-amd64@sha256:31d96eb75f73e5f5b3dc40702edfda16c4e1793a384a8235bcf00dd3eed1b9bc
+    entrypoint: [/opt/java/openjdk/bin/java]
+    command: [-XX:ActiveProcessorCount=2, -Duser.home=/tmp, -Xms512m, -Xmx2g, -jar, /opt/photon.jar, serve, -data-dir, /data, -listen-ip, 0.0.0.0, -listen-port, "2322", -max-results, "5", -max-reverse-results, "5", -query-timeout, "3"]
+    environment: {HOME: /tmp, JAVA_HOME: /opt/java/openjdk}
+    mem_limit: 3g
+    memswap_limit: 3g
+    cpus: 2.0
+    volumes:
+      - ${GIS_RUNTIME_DIR:?Set GIS_RUNTIME_DIR}/photon.jar:/opt/photon.jar:ro
+      - ${GIS_RUNTIME_DIR:?Set GIS_RUNTIME_DIR}/jre:/opt/java/openjdk:ro
+      - ${PHOTON_DATA_DIR:?Select a verified dataset}:/data
+    networks: [private]
+    blkio_config:
+      device_read_bps: [{path: /dev/sda, rate: 5mb}]
+      device_write_bps: [{path: /dev/sda, rate: 5mb}]
+    healthcheck:
+      test: [CMD, python3, -c, "import json,urllib.request; d=json.load(urllib.request.urlopen('http://127.0.0.1:2322/status',timeout=3)); assert d.get('status')=='Ok' and d.get('import_date')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 120s
+      retries: 3
+
+  maps:
+    <<: *service
+    image: nginx@sha256:dede8895648b461178c3bc604f7eed4423efe5220b2c4d839f5eb3d34ac3f8f7
+    entrypoint: [nginx]
+    command: [-c, /etc/nginx/gis.conf, -g, "daemon off;"]
+    mem_limit: 128m
+    memswap_limit: 128m
+    cpus: 0.5
+    tmpfs: ["/tmp:rw,nosuid,nodev,size=16m,mode=1777"]
+    volumes:
+      - ${GIS_PUBLIC_DIR:?Set GIS_PUBLIC_DIR}:/srv:ro
+      - ./nginx.conf:/etc/nginx/gis.conf:ro
+    ports: ["10.0.0.2:3052:8080"]
+    networks: [ingress]
+    blkio_config:
+      device_read_bps: [{path: /dev/sda, rate: 5mb}]
+    healthcheck:
+      test: [CMD-SHELL, "kill -0 $$(cat /tmp/nginx.pid) && nginx -t -c /etc/nginx/gis.conf"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+networks:
+  private:
+    name: bikerskz_gis
+    internal: true
+  ingress:
+    name: bkgis_ingress

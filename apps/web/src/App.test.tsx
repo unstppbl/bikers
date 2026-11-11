@@ -65,6 +65,26 @@ describe('application navigation', () => {
     throw new Error(`Unexpected navigation API call ${url}`)
   }
 
+  it.each([
+    ['en', 'Map', 'Motorcycles', 'Navigation'],
+    ['ru', 'Карта', 'Мотоциклы', 'Навигация'],
+    ['kk', 'Карта', 'Мотоциклдер', 'Навигация'],
+  ])('keeps the localized map directly below motorcycles in shared desktop and mobile navigation (%s)', async (locale, mapLabel, bikesLabel, navigationLabel) => {
+    localStorage.setItem('bikerskz.locale', locale)
+    vi.stubGlobal('fetch', vi.fn(navigationReads))
+    mount()
+    const desktop = screen.getByRole('complementary', { name: navigationLabel })
+    const map = within(desktop).getByRole('link', { name: mapLabel })
+    const bikes = within(desktop).getByRole('link', { name: bikesLabel })
+    expect(map).toHaveAttribute('href', '/places')
+    expect(bikes).toHaveAttribute('href', '/bikes')
+    expect(bikes.nextElementSibling).toBe(map)
+    await userEvent.click(screen.getByRole('button', { name: navigationLabel }))
+    const mobile = screen.getByRole('dialog', { name: navigationLabel })
+    expect(within(mobile).getByRole('link', { name: mapLabel })).toBe(map)
+    expect(within(mobile).getByRole('link', { name: bikesLabel }).nextElementSibling).toBe(map)
+  })
+
   it('contains mobile-menu keyboard focus and restores it after Escape or a desktop resize', async () => {
     vi.stubGlobal('fetch', vi.fn(navigationReads))
     mount()
@@ -249,6 +269,9 @@ describe('ride privacy and localization', () => {
     expect(composer).toHaveValue('Uncertain send')
     await actor.click(screen.getByRole('button', { name: 'Send message' }))
     await screen.findByText('Uncertain send')
+    const message = screen.getByText('Uncertain send').closest<HTMLElement>('.message')!
+    expect(within(message).getByRole('button', { name: 'Message actions for Test Rider' })).toBeInTheDocument()
+    expect(within(message).queryByRole('button', { name: 'Report' })).not.toBeInTheDocument()
     expect(commands).toHaveLength(2)
     expect(commands[1].client_message_id).toBe(commands[0].client_message_id)
     expect(composer).toHaveValue('')

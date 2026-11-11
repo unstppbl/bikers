@@ -22,7 +22,7 @@ REVISION_PATTERN = re.compile(r'[0-9a-f]{40}', re.ASCII)
 SSH_COMMAND_PATTERN = re.compile(r'deploy ([0-9a-f]{40})( --retry)?', re.ASCII)
 CHECKOUT = Path('/home/user/apps/bikerskz/repo')
 RUNTIME = Path('/home/user/apps/bikerskz')
-PROTECTED_CONFIGURATION = ('docker-compose.yml',)
+PROTECTED_CONFIGURATION = ('docker-compose.yml', 'deploy/gis/compose.yml', 'deploy/gis/nginx.conf')
 MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 
 SPEC = importlib.util.spec_from_file_location('jarvis_deployment', Path(__file__).with_name('deploy-jarvis.py'))
@@ -185,7 +185,16 @@ def deploy_tested_main(checkout, runtime, revision, retry=False):
         try:
             live_revision = live_release(checkout, runtime)
             if live_revision == revision:
-                return {'status': 'already-deployed', 'revision': revision, 'ci_run_id': ci_run}
+                prepare_checkout(checkout, revision, live_revision)
+                require_current_schema(checkout)
+                require_current_main(revision)
+                result = {'status': 'already-deployed', 'revision': revision,
+                          'running_revision': live_revision, 'ci_run_id': ci_run,
+                          'checked_at': datetime.now(timezone.utc).isoformat()}
+                record(receipts / 'last-automatic-check.json', result)
+                if failure.exists():
+                    failure.unlink()
+                return result
             prepare_checkout(checkout, revision, live_revision)
             require_current_schema(checkout)
             require_current_main(revision)

@@ -4,8 +4,10 @@ import (
 	"bikers.kz/backend/internal/managers/accounts"
 	"bikers.kz/backend/internal/managers/clubs"
 	"bikers.kz/backend/internal/managers/garage"
+	"bikers.kz/backend/internal/managers/geo"
 	"bikers.kz/backend/internal/managers/media"
 	"bikers.kz/backend/internal/managers/notifications"
+	"bikers.kz/backend/internal/managers/places"
 	"bikers.kz/backend/internal/managers/reminders"
 	"bikers.kz/backend/internal/managers/rides"
 	"bikers.kz/backend/internal/managers/rooms"
@@ -42,11 +44,13 @@ type Managers struct {
 	System        *system.Manager
 	Events        *rooms.EventBus
 	Garage        *garage.Manager
+	Geo           *geo.Manager
 	Clubs         *clubs.Manager
 	Media         *media.Manager
 	Notifications *notifications.Manager
 	Reminders     *reminders.Manager
 	Trust         *trust.Manager
+	Places        *places.Manager
 }
 type Server struct {
 	settings       Settings
@@ -65,6 +69,17 @@ func New(settings Settings, managers Managers) *Server {
 		respond(w, 200, map[string]any{"cities": models.Cities()})
 	})
 	m.HandleFunc("GET /api/v1/session", s.getSession)
+	m.HandleFunc("GET /api/v1/geo/config", s.geoConfig)
+	m.HandleFunc("POST /api/v1/geo/search", s.geoSearch)
+	m.HandleFunc("POST /api/v1/geo/reverse", s.geoReverse)
+	m.HandleFunc("POST /api/v1/geo/route", s.geoRoute)
+	m.HandleFunc("GET /api/v1/places/config", s.placeConfig)
+	m.HandleFunc("GET /api/v1/places", s.listPlaces)
+	m.HandleFunc("GET /api/v1/places/{placeID}", s.getPlace)
+	m.HandleFunc("POST /api/v1/places/submissions", s.submitPlace)
+	m.HandleFunc("GET /api/v1/me/place-submissions", s.ownPlaceSubmissions)
+	m.HandleFunc("GET /api/v1/admin/place-submissions", s.adminPlaceSubmissions)
+	m.HandleFunc("POST /api/v1/admin/place-submissions/{submissionID}/review", s.reviewPlaceSubmission)
 	m.HandleFunc("DELETE /api/v1/session", s.logout)
 	m.HandleFunc("POST /api/v1/auth/challenges", s.challenge)
 	m.HandleFunc("POST /api/v1/auth/challenges/verify", s.verify)
@@ -256,13 +271,13 @@ func failure(w http.ResponseWriter, err error) {
 		status = 404
 	case "profile_required", "ride_cancelled", "ride_unavailable", "stale_plan", "capacity_too_small", "organizer_cannot_leave", "participation_changed", "ride_full", "message_id_conflict", "stale_version", "club_closed", "owner_transfer_required", "membership_changed", "invalid_owner", "photo_limit", "photo_storage_limit", "photo_upload_expired", "club_image_busy", "avatar_upload_busy", "album_photo_limit", "album_video_limit", "block_limit", "action_id_conflict", "announcement_id_conflict", "user_blocked", "push_subscription_limit", "push_subscription_in_use":
 		status = 409
-	case "invalid_phone", "invalid_profile", "invalid_ride", "invalid_decision", "invalid_message", "invalid_cursor", "invalid_bike", "invalid_maintenance", "invalid_query", "invalid_club", "invalid_photo", "invalid_photo_choice", "invalid_video_link", "invalid_report", "invalid_block", "invalid_admin_action", "invalid_announcement", "invalid_reminders", "invalid_preferences", "invalid_push_subscription":
+	case "invalid_phone", "invalid_profile", "invalid_ride", "invalid_decision", "invalid_message", "invalid_cursor", "invalid_bike", "invalid_maintenance", "invalid_query", "invalid_club", "invalid_photo", "invalid_photo_choice", "invalid_video_link", "invalid_report", "invalid_block", "invalid_admin_action", "invalid_announcement", "invalid_reminders", "invalid_preferences", "invalid_push_subscription", "invalid_map", "route_not_found", "invalid_place", "invalid_submission":
 		status = 422
 	case "photo_too_large":
 		status = 413
 	case "unsupported_photo":
 		status = 415
-	case "send_limited", "photo_upload_busy", "photo_rate_limited", "report_rate_limited":
+	case "send_limited", "photo_upload_busy", "photo_rate_limited", "report_rate_limited", "maps_busy", "submission_limited":
 		status = 429
 		w.Header().Set("Retry-After", "60")
 	case "delivery_unavailable", "verification_unavailable":

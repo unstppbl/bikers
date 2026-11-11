@@ -50,6 +50,9 @@ of the live image. The unchanged release receipts identify what is actually
 running; `.deploy/last-automatic-check.json` records the skipped candidate,
 running revision and successful CI run. A successful private run can mean
 either a deployment or an explicit `no-runtime-changes` result.
+After a reviewed manual rollout, an `already-deployed` check verifies the live
+release and schema against current main CI and records that evidence in
+`.deploy/last-automatic-check.json` without rebuilding or restarting the app.
 
 ## GitHub configuration
 

@@ -20,12 +20,16 @@ services:
       WEB_PUSH_PUBLIC_KEY: ${WEB_PUSH_PUBLIC_KEY:-}
       WEB_PUSH_PRIVATE_KEY: ${WEB_PUSH_PRIVATE_KEY:-}
       WEB_PUSH_SUBJECT: ${WEB_PUSH_SUBJECT:-}
+      PHOTON_BASE_URL: ${PHOTON_BASE_URL:-}
+      VALHALLA_BASE_URL: ${VALHALLA_BASE_URL:-}
+      MAPS_ARCHIVE_URL: ${MAPS_ARCHIVE_URL:-}
       PORT: "8080"
       WEB_DIST_DIR: /app/web
       MEDIA_DIR: /var/lib/bikerskz/media
       TZ: Asia/Almaty
     ports:
       - "0.0.0.0:${APP_PORT:-3042}:8080"
+    networks: [default, gis]
     volumes:
       - media:/var/lib/bikerskz/media
     read_only: true
@@ -75,3 +79,8 @@ services:
 volumes:
   postgres:
   media:
+
+networks:
+  gis:
+    name: bikerskz_gis
+    external: true

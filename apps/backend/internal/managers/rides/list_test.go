@@ -160,7 +160,7 @@ func TestListCursorAuthenticatesSnapshotQueryAndCaller(t *testing.T) {
 		requireFault(t, err, "invalid_cursor")
 	}
 	input.Cursor = page.NextCursor
-	restarted := New(repo, events, m.now)
+	restarted := New(repo, events, m.now, nil)
 	_, err = restarted.List(context.Background(), nil, input)
 	requireFault(t, err, "invalid_cursor")
 	// HTML-sensitive ASCII takes six JSON bytes per input byte. Valid maximum

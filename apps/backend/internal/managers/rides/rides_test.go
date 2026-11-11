@@ -24,6 +24,7 @@ type rideRepository struct {
 	createdState                      string
 	createdDate                       string
 	participants                      []models.Participant
+	notifications                     []models.NotificationIntent
 	includePending                    bool
 }
 
@@ -75,13 +76,15 @@ func (r *rideRepository) WithRide(_ context.Context, id string, decide database.
 		return r.commitErr
 	}
 	r.ride, r.states = tx.ride, tx.states
+	r.notifications = append(r.notifications, tx.notifications...)
 	return nil
 }
 
 type rideTransaction struct {
-	repo   *rideRepository
-	ride   models.Ride
-	states map[string]string
+	repo          *rideRepository
+	ride          models.Ride
+	states        map[string]string
+	notifications []models.NotificationIntent
 }
 
 func (tx *rideTransaction) Ride() models.Ride                         { return tx.ride }
@@ -133,7 +136,10 @@ func (tx *rideTransaction) ParticipationUsers() ([]models.Participant, error) {
 	}
 	return out, nil
 }
-func (*rideTransaction) Notify(models.NotificationIntent) error { return nil }
+func (tx *rideTransaction) Notify(intent models.NotificationIntent) error {
+	tx.notifications = append(tx.notifications, intent)
+	return nil
+}
 func (*rideTransaction) Announcement(string) (models.Announcement, error) {
 	return models.Announcement{}, database.ErrNotFound
 }
@@ -162,7 +168,7 @@ func rideFixture(t *testing.T) (*Manager, *rideRepository, *rideEvents, models.U
 	owner := models.User{ID: uuid.NewString(), OnboardingComplete: true}
 	repo := &rideRepository{ride: models.Ride{RideSummary: models.RideSummary{ID: uuid.NewString(), City: "Almaty", Date: "2026-11-05", Description: "Public preview", Status: "published"}, Title: "Private title", MeetingPoint: "Private place", StartsAt: time.Date(2026, 11, 5, 5, 0, 0, 0, time.UTC), Timezone: "Asia/Almaty", OrganizerID: owner.ID, Capacity: 2, PlanVersion: 1}, states: map[string]string{owner.ID: "approved"}}
 	events := &rideEvents{t: t, repo: repo}
-	return New(repo, events, func() time.Time { return time.Date(2026, 11, 3, 0, 0, 0, 0, time.UTC) }), repo, events, owner
+	return New(repo, events, func() time.Time { return time.Date(2026, 11, 3, 0, 0, 0, 0, time.UTC) }, nil), repo, events, owner
 }
 func requireFault(t *testing.T, err error, code string) {
 	t.Helper()

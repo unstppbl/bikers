@@ -1,4 +1,4 @@
-.PHONY: help config build db migrate up down logs deploy-jarvis check-web check-architecture check-backend check-integration
+.PHONY: help config build db migrate up down logs deploy-jarvis gis-network check-web check-architecture check-backend check-integration
 
 DEPLOY_ARGS ?=
 
@@ -10,7 +10,8 @@ help:
 	@echo "up                  Start the app and db; run migrate first"
 	@echo "down                Stop services; preserve database and media volumes"
 	@echo "logs                Follow application logs"
-	@echo "deploy-jarvis       Build on Jarvis; DEPLOY_ARGS='--migrate-to 9' opts into schema upgrade"
+	@echo "gis-network         Create/validate the private shared GIS network for local Compose"
+	@echo "deploy-jarvis       Build on Jarvis; DEPLOY_ARGS='--migrate-to 11' opts into reviewed places schema rollout"
 	@echo "check-web           Typecheck, lint, test and build the web app"
 	@echo "check-architecture  Check all backend internal package imports"
 	@echo "check-backend       Run Go unit tests and vet"
@@ -25,11 +26,20 @@ build:
 db:
 	docker compose up -d db
 
-migrate: db
+migrate: db gis-network
 	docker compose run --rm app migrate
 
-up:
+up: gis-network
 	docker compose up -d app
+
+gis-network:
+	@if docker network inspect bikerskz_gis >/dev/null 2>&1; then \
+		test "$$(docker network inspect --format '{{.Internal}}' bikerskz_gis)" = true || \
+		{ echo "bikerskz_gis must be an internal network" >&2; exit 1; }; \
+	else \
+		docker network create --internal --label com.docker.compose.project=bkgis \
+			--label com.docker.compose.network=private bikerskz_gis; \
+	fi
 
 down:
 	docker compose down

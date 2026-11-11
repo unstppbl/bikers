@@ -332,3 +332,47 @@ opt-out invalidate stale reminder delivery. Downloaded calendar files use stable
 UIDs and plan sequences, UTC departure, private classification and cancellation
 status, and remain snapshots. This development change does not perform a
 production migration, OTP request or live notification test.
+
+
+## Self-hosted maps
+
+`make up` creates the local internal `bikerskz_gis` network if needed. Leave
+`PHOTON_BASE_URL`, `VALHALLA_BASE_URL` and `MAPS_ARCHIVE_URL` empty to develop
+text-only rides. A map-enabled environment uses private Photon and Valhalla
+origins plus a versioned same-origin archive path such as
+`/map-data/2583113c45ca/kazakhstan.pmtiles`.
+
+The Vite development server forwards `/map-data/` to `BIKERSKZ_DEV_MAPS_TARGET`
+(or the API target by default). Address queries and route plans stay online-only
+and private; the service worker does not cache them. The test-only browser harness
+can opt into explicitly supplied GIS origins with `BROWSER_HARNESS_GIS=1`.
+
+See [GIS operations](operations.md) for the durable Jarvis services and guarded,
+serial data staging/refresh commands. Development must use disposable databases;
+production accounts and sessions are never copied into a local map fixture.
+
+## Map and user-curated places
+
+The public `/places` directory shares the self-hosted basemap and adds bounded
+category, text, city and viewport filters. The public map configuration is
+separate from authenticated address/route APIs. Precise ride plans are never
+used as directory data or copied into public caches. Opening the directory
+does not request device location.
+
+Schema 11 adds public places and private moderation submissions; versions 1–10
+are unchanged. Active signed-in riders submit additions, corrections or closure
+reports. Publication requires an active administrator and current place/submission
+versions under the transaction locks. A stale correction requires a fresh
+proposal. Contributor/reviewer identities and pending details are absent from
+public places. Contributor history and administrator queues use private queries.
+
+The directory starts empty and is populated through reviewed user suggestions
+([#24](https://github.com/unstppbl/bikers/issues/24)). No seed runs at startup or
+on a schedule. A future bulk import requires a new owner instruction.
+
+The historical CLI `api places import --file FILE --sha256 DIGEST` consumes a bounded,
+fully validated local NDJSON artifact atomically. Replays keep IDs stable;
+community edits and closures survive later OSM refreshes. There is no public
+bulk-import endpoint or network fetch inside the import transaction.
+See [Places data](places-data.md) and the
+[coordinated schema rollout](operations.md#useful-places-schema-and-data).

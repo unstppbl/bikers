@@ -2,6 +2,7 @@ package app
 
 import (
 	"bikers.kz/backend/internal/database/postgres"
+	"bikers.kz/backend/internal/models"
 	"context"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -13,6 +14,8 @@ import (
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // TestBrowserHarness is an explicitly requested local UI verification seam. It is
@@ -23,6 +26,40 @@ func TestBrowserHarness(t *testing.T) {
 		t.Skip("opt-in local browser harness")
 	}
 	f := newFixture(t)
+	if os.Getenv("BROWSER_HARNESS_RIDE_MENUS") == "1" {
+		f.now = time.Now().UTC()
+		owner := f.login("+77011239928", "QA Organizer")
+		member := f.login("+77011239929", "QA Member")
+		other := f.login("+77011239930", "QA Other Rider")
+		pending := f.login("+77011239931", "QA Applicant")
+		grantTestAdmin(t, f, owner)
+		for _, title := range []string{"QA participant menus", "QA second ride"} {
+			created := f.request("POST", "/api/v1/rides", map[string]any{
+				"city": "Almaty", "description": "Isolated browser fixture only", "title": title,
+				"starts_at": f.now.Add(24 * time.Hour).Format(time.RFC3339), "timezone": "Asia/Almaty",
+				"meeting_point": "QA meeting point", "destination": "QA destination", "capacity": 10,
+			}, owner)
+			expect(t, created, 201)
+			id := created.body["ride"].(map[string]any)["id"].(string)
+			for _, rider := range []*actor{member, other, pending} {
+				f.join(id, rider)
+				if rider != pending {
+					expect(t, f.decision(id, owner, rider, "approve"), 200)
+				}
+			}
+			for i := range 18 {
+				sender := []*actor{owner, member, other}[i%3]
+				expect(t, f.request("POST", "/api/v1/rides/"+id+"/messages", map[string]any{
+					"client_message_id": uuid.NewString(), "body": "QA conversation message " + strconv.Itoa(i+1) + ". This is an isolated fixture for menu and scroll checks.",
+				}, sender), 201)
+			}
+			expect(t, f.request("POST", "/api/v1/rides/"+id+"/announcements", map[string]any{
+				"client_announcement_id": uuid.NewString(), "body": "QA announcement for isolated browser checks. Meet at the test point before departure.",
+			}, owner), 201)
+			t.Logf("TEST-ONLY ride menu fixture: %s; ride=%s", title, id)
+		}
+		t.Log("TEST-ONLY organizer/admin phone=+77011239928; member=+77011239929; other=+77011239930; applicant=+77011239931; OTP=123456")
+	}
 	if os.Getenv("BROWSER_HARNESS_ADMIN") == "1" {
 		admin := f.login("+77011239901", "Test Administrator")
 		grantTestAdmin(t, f, admin)
@@ -53,6 +90,33 @@ func TestBrowserHarness(t *testing.T) {
 		}
 		t.Log("TEST-ONLY public catalogue fixture: three public reference-image bikes and one private bike; owner=+77011239904; OTP=123456")
 	}
+	if os.Getenv("BROWSER_HARNESS_PLACES") == "1" {
+		contributor := f.login("+77011239922", "QA Places Contributor")
+		admin := f.login("+77011239923", "QA Places Administrator")
+		grantTestAdmin(t, f, admin)
+		fixtures := []models.PlaceInput{
+			{Name: "QA fuel point", Category: "fuel", Lat: 43.24, Lon: 76.91, City: "Almaty", Description: "Test fixture only"},
+			{Name: "QA workshop", Category: "workshop", Lat: 43.243, Lon: 76.915, City: "Almaty", Description: "Test fixture only"},
+			{Name: "QA meeting point", Category: "meeting_spot", Lat: 43.237, Lon: 76.905, City: "Almaty", Description: "Test fixture only"},
+		}
+		firstID := ""
+		for i, place := range fixtures {
+			created := f.request("POST", "/api/v1/places/submissions", models.PlaceSubmissionInput{Kind: "new", Place: &place, Reason: "Test fixture only"}, contributor)
+			expect(t, created, 201)
+			submission := created.body["submission"].(map[string]any)
+			reviewed := f.request("POST", "/api/v1/admin/place-submissions/"+submission["id"].(string)+"/review", models.PlaceReviewInput{Version: 1, Status: "approved", Reason: "Test fixture only"}, admin)
+			expect(t, reviewed, 200)
+			if i == 0 {
+				firstID = reviewed.body["submission"].(map[string]any)["place_id"].(string)
+			}
+		}
+		correction := fixtures[0]
+		correction.Name = "QA fuel point correction"
+		expect(t, f.request("POST", "/api/v1/places/submissions", models.PlaceSubmissionInput{Kind: "correction", PlaceID: firstID, BaseVersion: 1, Place: &correction, Reason: "Test fixture only"}, contributor), 201)
+		pending := models.PlaceInput{Name: "QA pending meeting point", Category: "meeting_spot", Lat: 43.242, Lon: 76.912, City: "Almaty", Description: "Test fixture only"}
+		expect(t, f.request("POST", "/api/v1/places/submissions", models.PlaceSubmissionInput{Kind: "new", Place: &pending, Reason: "Test fixture only"}, contributor), 201)
+		t.Log("TEST-ONLY places fixture: contributor phone=+77011239922; administrator phone=+77011239923")
+	}
 	f.ts.Close()
 	port := os.Getenv("BROWSER_HARNESS_PORT")
 	if port == "" {
@@ -77,6 +141,15 @@ func TestBrowserHarness(t *testing.T) {
 	cfg := f.cfg
 	cfg.BaseURL = base
 	cfg.WebDistDir = web
+	if os.Getenv("BROWSER_HARNESS_GIS") == "1" {
+		cfg.PhotonBaseURL = os.Getenv("PHOTON_BASE_URL")
+		cfg.ValhallaBaseURL = os.Getenv("VALHALLA_BASE_URL")
+		cfg.MapsArchiveURL = os.Getenv("MAPS_ARCHIVE_URL")
+		if cfg.PhotonBaseURL == "" || cfg.ValhallaBaseURL == "" || cfg.MapsArchiveURL == "" {
+			t.Fatal("GIS harness requires explicit PHOTON_BASE_URL, VALHALLA_BASE_URL and MAPS_ARCHIVE_URL")
+		}
+		t.Log("TEST-ONLY GIS providers and same-origin archive enabled from explicit environment settings")
+	}
 	options := Options{Now: func() time.Time { return time.Now().UTC() }}
 	if os.Getenv("BROWSER_HARNESS_PUSH") == "1" {
 		private, x, y, err := elliptic.GenerateKey(elliptic.P256(), rand.Reader)

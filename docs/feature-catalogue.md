@@ -135,11 +135,15 @@ Keep a planned route separate from a recorded ride. A participant’s detour mus
 
 **MVP agreed — 2 November 2026:** Open a meeting point or destination in an external navigation app and support an organizer-supplied route link. Saved route collections, native navigation, offline maps, and advanced routing are deferred.
 
-Initially support saved routes and opening navigation in an external application. Native turn-by-turn navigation, offline maps, and advanced routing are later-stage candidates.
+**Scope added — 5 November 2026 ([#18](https://github.com/unstppbl/bikers/issues/18)):** Self-hosted Kazakhstan maps, address search and road-motorcycle route calculation belong in the private ride plan. Organizers can select a meeting point, destination and intermediate stops; only the organizer and approved participants receive the exact saved points and route. External navigation handoff remains available. This does not add a community route library, recorded tracks, native turn-by-turn navigation or offline maps. The issue records live rollout acceptance separately from source implementation.
 
-### EXPLORE-03 — Useful places
+### EXPLORE-03 — Map
 
 **MVP decision — 2 November 2026:** The useful-places map and directory are deferred beyond the MVP. The full proposal is retained below.
+
+**Scope added — 9 November 2026 ([#22](https://github.com/unstppbl/bikers/issues/22)):** The owner approved a public useful-places map and directory, initially covering fuel, workshops, tire services, motorcycle shops, parking and meeting spots. Public OSM records retain their source and snapshot date. Signed-in riders can propose additions, corrections or closures; administrators review them before publication. Imported records are not community verification. This approval supersedes the earlier useful-places deferral. Service booking, payments and provider inquiries remain separate deferred work.
+
+**Curation decision — 9 November 2026 ([#24](https://github.com/unstppbl/bikers/issues/24)):** Rename the feature **Map / Карта** and place it immediately after Motorcycles in navigation. Clear the initial place entries and build the directory through user suggestions and administrator review. OSM POI seeding is no longer the population policy; the self-hosted basemap, address search and routing remain. A future bulk import requires a new owner instruction.
 
 Map categories may include meeting spots, motorcycle parking, workshops, tire services, shops, riding schools, and seasonal storage providers.
 

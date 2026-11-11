@@ -33,7 +33,7 @@ export default defineConfig({
     }),
   ],
   server: {
-    proxy: { '/api': { target: process.env.BIKERSKZ_DEV_API_TARGET ?? 'http://127.0.0.1:8080', changeOrigin: Boolean(process.env.BIKERSKZ_DEV_API_TARGET), ws: true } },
+    proxy: { '/map-data': { target: process.env.BIKERSKZ_DEV_MAPS_TARGET ?? process.env.BIKERSKZ_DEV_API_TARGET ?? 'http://127.0.0.1:8080', changeOrigin: true }, '/api': { target: process.env.BIKERSKZ_DEV_API_TARGET ?? 'http://127.0.0.1:8080', changeOrigin: Boolean(process.env.BIKERSKZ_DEV_API_TARGET), ws: true } },
   },
   test: {
     environment: 'jsdom',
