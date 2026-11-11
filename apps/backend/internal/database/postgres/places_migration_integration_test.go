@@ -11,6 +11,7 @@ import (
 
 func removePlaces(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
+	removeCommunityRoutes(t, pool)
 	if _, err := pool.Exec(context.Background(), `DROP TABLE place_submissions,places; DELETE FROM schema_migrations WHERE version=11`); err != nil {
 		t.Fatal(err)
 	}
@@ -19,7 +20,7 @@ func removePlaces(t *testing.T, pool *pgxpool.Pool) {
 func oldPlaceMigrationRows(t *testing.T, pool *pgxpool.Pool) map[string]string {
 	t.Helper()
 	ctx := context.Background()
-	rows, err := pool.Query(ctx, `SELECT tablename FROM pg_tables WHERE schemaname=current_schema() AND tablename NOT IN ('places','place_submissions') ORDER BY tablename`)
+	rows, err := pool.Query(ctx, `SELECT tablename FROM pg_tables WHERE schemaname=current_schema() AND tablename NOT IN ('places','place_submissions','community_routes','route_tracks','route_collections','route_collection_items','route_conditions','route_daily_limits') ORDER BY tablename`)
 	if err != nil {
 		t.Fatal(err)
 	}

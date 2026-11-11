@@ -24,6 +24,19 @@ func (t *trustTransaction) Target(kind, id, viewer string, content bool) (models
 	case "bike":
 		err = t.tx.QueryRow(t.ctx, `SELECT owner_id::text,make||' '||model||' '||year::text,visibility FROM bikes WHERE id=$1`, id).Scan(&v.AuthorID, &v.Text, &out.Visibility)
 		out.OwnerID = v.AuthorID
+	case "route":
+		err = t.tx.QueryRow(t.ctx, `SELECT r.owner_id::text,r.title,r.city,r.description,u.status,
+ CASE WHEN r.published AND NOT r.hidden THEN 'public' ELSE 'private' END,
+ NOT EXISTS(SELECT 1 FROM moderation_hidden h WHERE h.target_type='user' AND h.target_id=r.owner_id)
+ FROM community_routes r JOIN users u ON u.id=r.owner_id WHERE r.id=$1`, id).Scan(&v.AuthorID, &v.DisplayName, &v.City, &v.Text, &out.AuthorStatus, &out.Visibility, &out.Current)
+		out.OwnerID = v.AuthorID
+	case "route_condition":
+		err = t.tx.QueryRow(t.ctx, `SELECT c.author_id::text,c.route_id::text,c.description,u.display_name,r.owner_id::text,u.status,
+ CASE WHEN r.published AND NOT r.hidden AND NOT c.hidden AND owner.status='active' THEN 'public' ELSE 'private' END,
+ owner.status='active'
+ AND NOT EXISTS(SELECT 1 FROM moderation_hidden h WHERE h.target_type='user' AND h.target_id IN (c.author_id,r.owner_id))
+ AND NOT EXISTS(SELECT 1 FROM user_blocks b WHERE (b.blocker_id=NULLIF($2,'')::uuid AND b.blocked_id=r.owner_id) OR (b.blocker_id=r.owner_id AND b.blocked_id=NULLIF($2,'')::uuid))
+ FROM route_conditions c JOIN community_routes r ON r.id=c.route_id JOIN users u ON u.id=c.author_id JOIN users owner ON owner.id=r.owner_id WHERE c.id=$1`, id, viewer).Scan(&v.AuthorID, &v.ScopeID, &v.Text, &v.DisplayName, &out.OwnerID, &out.AuthorStatus, &out.Visibility, &out.Current)
 	case "message":
 		err = t.tx.QueryRow(t.ctx, `SELECT m.sender_id::text,m.ride_id::text,m.body,u.display_name,r.organizer_id::text,COALESCE(p.state,'') FROM messages m JOIN users u ON u.id=m.sender_id JOIN rides r ON r.id=m.ride_id LEFT JOIN participation p ON p.ride_id=r.id AND p.user_id=NULLIF($2,'')::uuid WHERE m.id=$1`, id, viewer).Scan(&v.AuthorID, &v.ScopeID, &v.Text, &v.DisplayName, &out.OwnerID, &out.Participation)
 	case "announcement":

@@ -96,6 +96,12 @@ Kazakhstan cities and allows manual entry elsewhere, without location access.
 See the [API contract](development.md#ride-lists-and-cities) for exact defaults.
 This implementation follow-up does not change the separate deferred features.
 
+## Approved community Routes follow-up — 11 November 2026
+
+[#35](https://github.com/unstppbl/bikers/issues/35) approves a community route library, saved private collections, in-app GPS recording and dated road-condition reports. This supersedes the community-route, recorded-track and condition-report deferrals above for this task. The [feature backlog](feature-backlog.md) preserves all nine remaining areas and marks Routes in progress.
+
+Recording is private by default and runs in the foreground PWA with explicit start/pause/resume/finish controls. It requires location permission and does not guarantee background recording. There is no GPX import. Publishing requires explicit consent and creates a separate public route snapshot from the private track. Collections remain private. Public routes and condition reports follow the existing reporting/administrator moderation controls. Live group-location sharing, offline maps and native navigation retain their separate deferrals. Implementation and production acceptance are tracked in #35; approval does not establish a completed rollout.
+
 ## Early follow-on candidates
 
 These are not ordered commitments:
@@ -108,7 +114,7 @@ These are not ordered commitments:
 
 - More capable maintenance reminders and ownership records.
 
-- Community routes, useful places, and service-directory inquiries are deferred beyond the MVP.
+- Community routes are now approved under #35, and useful places under #22/#24. Service-directory inquiries remain deferred beyond the MVP.
 
 Live GPS tracking is deferred beyond the MVP. It was proposed as the next major capability after the core ride journey; its post-MVP timing remains undecided. Background behavior, battery use, permissions, freshness indicators, audience controls, and expiry require explicit testing before any future release.
 

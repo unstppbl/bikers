@@ -11,6 +11,7 @@ import (
 	"bikers.kz/backend/internal/managers/reminders"
 	"bikers.kz/backend/internal/managers/rides"
 	"bikers.kz/backend/internal/managers/rooms"
+	"bikers.kz/backend/internal/managers/routes"
 	"bikers.kz/backend/internal/managers/system"
 	"bikers.kz/backend/internal/managers/trust"
 	"bikers.kz/backend/internal/models"
@@ -51,6 +52,7 @@ type Managers struct {
 	Reminders     *reminders.Manager
 	Trust         *trust.Manager
 	Places        *places.Manager
+	Routes        *routes.Manager
 }
 type Server struct {
 	settings       Settings
@@ -80,6 +82,7 @@ func New(settings Settings, managers Managers) *Server {
 	m.HandleFunc("GET /api/v1/me/place-submissions", s.ownPlaceSubmissions)
 	m.HandleFunc("GET /api/v1/admin/place-submissions", s.adminPlaceSubmissions)
 	m.HandleFunc("POST /api/v1/admin/place-submissions/{submissionID}/review", s.reviewPlaceSubmission)
+	s.communityRouteEndpoints(m)
 	m.HandleFunc("DELETE /api/v1/session", s.logout)
 	m.HandleFunc("POST /api/v1/auth/challenges", s.challenge)
 	m.HandleFunc("POST /api/v1/auth/challenges/verify", s.verify)
@@ -223,14 +226,22 @@ func problem(w http.ResponseWriter, status int, code, message string) {
 	respond(w, status, map[string]any{"error": map[string]string{"code": code, "message": message}})
 }
 func decode(w http.ResponseWriter, r *http.Request, out any) bool {
+	return decodeBounded(w, r, out, 64<<10)
+}
+func decodeBounded(w http.ResponseWriter, r *http.Request, out any, limit int64) bool {
 	if ct := r.Header.Get("Content-Type"); !strings.HasPrefix(ct, "application/json") {
 		problem(w, 415, "json_required", "Use application/json")
 		return false
 	}
-	r.Body = http.MaxBytesReader(w, r.Body, 64<<10)
+	r.Body = http.MaxBytesReader(w, r.Body, limit)
 	d := json.NewDecoder(r.Body)
 	d.DisallowUnknownFields()
 	if e := d.Decode(out); e != nil {
+		var oversized *http.MaxBytesError
+		if errors.As(e, &oversized) {
+			problem(w, http.StatusRequestEntityTooLarge, "request_too_large", "Request exceeds the upload limit")
+			return false
+		}
 		problem(w, 400, "invalid_json", "Invalid JSON request")
 		return false
 	}
@@ -269,15 +280,17 @@ func failure(w http.ResponseWriter, err error) {
 		status = 403
 	case "not_found", "report_content_unavailable":
 		status = 404
+	case "route_limited", "track_limited", "collection_limited":
+		status = 409
 	case "profile_required", "ride_cancelled", "ride_unavailable", "stale_plan", "capacity_too_small", "organizer_cannot_leave", "participation_changed", "ride_full", "message_id_conflict", "stale_version", "club_closed", "owner_transfer_required", "membership_changed", "invalid_owner", "photo_limit", "photo_storage_limit", "photo_upload_expired", "club_image_busy", "avatar_upload_busy", "album_photo_limit", "album_video_limit", "block_limit", "action_id_conflict", "announcement_id_conflict", "user_blocked", "push_subscription_limit", "push_subscription_in_use":
 		status = 409
-	case "invalid_phone", "invalid_profile", "invalid_ride", "invalid_decision", "invalid_message", "invalid_cursor", "invalid_bike", "invalid_maintenance", "invalid_query", "invalid_club", "invalid_photo", "invalid_photo_choice", "invalid_video_link", "invalid_report", "invalid_block", "invalid_admin_action", "invalid_announcement", "invalid_reminders", "invalid_preferences", "invalid_push_subscription", "invalid_map", "route_not_found", "invalid_place", "invalid_submission":
+	case "invalid_phone", "invalid_profile", "invalid_ride", "invalid_decision", "invalid_message", "invalid_cursor", "invalid_bike", "invalid_maintenance", "invalid_query", "invalid_club", "invalid_photo", "invalid_photo_choice", "invalid_video_link", "invalid_report", "invalid_block", "invalid_admin_action", "invalid_announcement", "invalid_reminders", "invalid_preferences", "invalid_push_subscription", "invalid_map", "route_not_found", "invalid_place", "invalid_submission", "invalid_route", "invalid_track", "invalid_collection", "invalid_condition", "publication_consent_required":
 		status = 422
 	case "photo_too_large":
 		status = 413
 	case "unsupported_photo":
 		status = 415
-	case "send_limited", "photo_upload_busy", "photo_rate_limited", "report_rate_limited", "maps_busy", "submission_limited":
+	case "send_limited", "photo_upload_busy", "photo_rate_limited", "report_rate_limited", "maps_busy", "submission_limited", "condition_limited":
 		status = 429
 		w.Header().Set("Retry-After", "60")
 	case "delivery_unavailable", "verification_unavailable":

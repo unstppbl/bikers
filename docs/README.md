@@ -10,6 +10,8 @@ These editable Markdown copies mirror the native BIKERS.KZ Space pages. This sna
 | [Decisions & Open Questions](decisions-and-open-questions.md) | [Open in Space](https://chatgpt.com/space/page_5150f0f0e93c8191b6e26726a15379c1) |
 | [Draft Technical Design and Build Plan](technical-design-and-build-plan.md) | [Open in Space](https://chatgpt.com/space/page_0da7058a10148191a17f468709afbc18) |
 
+[Feature backlog](feature-backlog.md) preserves the nine remaining product areas and the approved Routes follow-up.
+
 [Local development and API](development.md) documents the repository implementation and operating contract. Run commands are in the [repository README](../README.md).
 
 [Backend architecture](backend-architecture.md) records the approved package map, transaction ownership, and automated dependency check for the implementation.

@@ -11,6 +11,7 @@ import './map-canvas.css'
 export interface MapCanvasProps {
   points: MapPoint[]
   geometry?: MapGeometry
+  segments?: [number, number][][]
   archiveUrl: string
   locale: Locale
   onPick?: (point: { lat: number; lon: number }) => void
@@ -27,18 +28,18 @@ function validCoordinate(lon: number, lat: number) {
   return Number.isFinite(lon) && Number.isFinite(lat) && Math.abs(lon) <= 180 && Math.abs(lat) <= 90
 }
 
-function fitStops(map: LibreMap, points: MapPoint[], geometry?: MapGeometry) {
+function fitStops(map: LibreMap, points: MapPoint[], geometry?: MapGeometry, segments?: [number, number][][]) {
   const bounds = new LngLatBounds()
   for (const point of points) {
     if (validCoordinate(point.lon, point.lat)) bounds.extend([point.lon, point.lat])
   }
-  for (const [lon, lat] of geometry?.coordinates ?? []) {
+  for (const [lon, lat] of [...(geometry?.coordinates ?? []), ...(segments?.flat() ?? [])]) {
     if (validCoordinate(lon, lat)) bounds.extend([lon, lat])
   }
   if (!bounds.isEmpty()) map.fitBounds(bounds, { padding: 40, maxZoom: 14, duration: 0 })
 }
 
-function MapSurface({ points, geometry, archiveUrl, locale, onPick, disabled, retry }: MapCanvasProps & { retry: () => void }) {
+function MapSurface({ points, geometry, segments, archiveUrl, locale, onPick, disabled, retry }: MapCanvasProps & { retry: () => void }) {
   const container = useRef<HTMLDivElement>(null)
   const mapRef = useRef<LibreMap | null>(null)
   const loaded = useRef(false)
@@ -96,8 +97,9 @@ function MapSurface({ points, geometry, archiveUrl, locale, onPick, disabled, re
     let active = true
     const update = () => {
       if (!active) return
-      const data = geometry
-        ? { type: 'Feature' as const, geometry, properties: {} }
+      const routeGeometry = segments?.length ? { type: 'MultiLineString' as const, coordinates: segments.filter((segment) => segment.length >= 2) } : geometry
+      const data = routeGeometry
+        ? { type: 'Feature' as const, geometry: routeGeometry, properties: {} }
         : { type: 'FeatureCollection' as const, features: [] }
       const source = map.getSource('ride-route') as GeoJSONSource | undefined
       if (source) source.setData(data)
@@ -118,7 +120,7 @@ function MapSurface({ points, geometry, archiveUrl, locale, onPick, disabled, re
         element.addEventListener('click', (event) => event.stopPropagation())
         markers.push(new Marker({ element }).setLngLat([point.lon, point.lat]).addTo(map))
       }
-      fitStops(map, points, geometry)
+      fitStops(map, points, geometry, segments)
     }
     if (loaded.current) update()
     else map.once('load', update)
@@ -127,7 +129,7 @@ function MapSurface({ points, geometry, archiveUrl, locale, onPick, disabled, re
       map.off('load', update)
       markers.forEach((marker) => marker.remove())
     }
-  }, [points, geometry])
+  }, [points, geometry, segments])
 
   useEffect(() => {
     const map = mapRef.current
@@ -146,7 +148,7 @@ function MapSurface({ points, geometry, archiveUrl, locale, onPick, disabled, re
     <div className="map-canvas-controls" role="group" aria-label={text.label}>
       <button type="button" aria-label={text.zoomIn} title={text.zoomIn} onClick={() => mapRef.current?.zoomIn({ duration: 0 })}><PlusIcon size={20} /></button>
       <button type="button" aria-label={text.zoomOut} title={text.zoomOut} onClick={() => mapRef.current?.zoomOut({ duration: 0 })}><MinusIcon size={20} /></button>
-      <button type="button" aria-label={text.fit} title={text.fit} disabled={!points.length && !geometry?.coordinates.length} onClick={() => { if (mapRef.current) fitStops(mapRef.current, points, geometry) }}><ArrowsOutSimpleIcon size={20} /></button>
+      <button type="button" aria-label={text.fit} title={text.fit} disabled={!points.length && !geometry?.coordinates.length && !segments?.some((segment) => segment.length)} onClick={() => { if (mapRef.current) fitStops(mapRef.current, points, geometry, segments) }}><ArrowsOutSimpleIcon size={20} /></button>
     </div>
     {status === 'loading' && <div className="map-canvas-status" role="status"><span className="map-canvas-loading-bar" aria-hidden="true" />{text.loading}</div>}
     {status === 'error' && <div className="map-canvas-status map-canvas-error" role="alert"><span>{text.error}</span><button type="button" className="text-button" onClick={retry}>{text.retry}</button></div>}

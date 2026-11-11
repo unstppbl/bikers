@@ -83,9 +83,9 @@ export function LocationField({ label, value, selected, bias, required = false, 
 export interface MapDraft { points: MapPoint[]; valid: boolean }
 interface Stop { key: number; text: string; point?: MapPoint }
 
-export function MapPlanEditor({ initialPlan, meeting, destination, onMeeting, onDestination, onChange, disabled, startWithMap = true }: {
+export function MapPlanEditor({ initialPlan, meeting, destination, onMeeting, onDestination, onChange, disabled, startWithMap = true, privacyNote }: {
   initialPlan?: MapPlan; meeting: string; destination: string; onMeeting: (value: string) => void; onDestination: (value: string) => void
-  onChange: (draft: MapDraft) => void; disabled: boolean; startWithMap?: boolean
+  onChange: (draft: MapDraft) => void; disabled: boolean; startWithMap?: boolean; privacyNote?: string
 }) {
   const { t, locale } = useI18n()
   const config = useMapConfig()
@@ -161,7 +161,7 @@ export function MapPlanEditor({ initialPlan, meeting, destination, onMeeting, on
       {routeError && <p className="error-notice" role="alert">{t('mapRouteUnavailable')}</p>}
       {preview && !activePlan && points.length >= 2 && <p className="field-hint" role="status">{t('mapRouteStale')}</p>}
       {points.length < 2 && <p className="field-hint">{t('mapRouteNoDestination')}</p>}
-      <p className="field-hint">{t('mapRoadsNote')}</p><p className="field-hint">{t('mapPrivate')}</p>
+      <p className="field-hint">{t('mapRoadsNote')}</p><p className="field-hint">{privacyNote ?? t('mapPrivate')}</p>
     </>}
   </div>
 }

@@ -43,7 +43,7 @@ class GateFixture:
         (self.runtime / '.deploy').mkdir(parents=True)
         for index, filename in enumerate(GATE.DEPLOY.MIGRATION_FILES, 1):
             (directory / filename).write_text(f'-- migration {index}\n')
-        (directory / 'migrations.go').write_text(','.join(f'{{{i}, schema{i}}}' for i in range(1, 12)))
+        (directory / 'migrations.go').write_text(','.join(f'{{{i}, schema{i}}}' for i in range(1, 13)))
         self.schema = GATE.DEPLOY.migration_checksums(self.checkout)
         self.main, self.live, self.head = REVISION, OLD, OLD
         self.run_value, self.jobs = ci_run(), ci_jobs()
@@ -178,7 +178,7 @@ class GateTests(unittest.TestCase):
     def test_manual_release_recheck_refuses_mismatched_schema_without_a_success_receipt(self):
         self.fixture.live = REVISION
         self.fixture.receipt()
-        self.fixture.schema.pop(11)
+        self.fixture.schema.pop(12)
         with self.assertRaisesRegex(RuntimeError, 'explicit reviewed migration'):
             self.deploy()
         self.assertFalse((self.fixture.runtime / '.deploy/last-automatic-check.json').exists())

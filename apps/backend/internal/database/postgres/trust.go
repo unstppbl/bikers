@@ -84,6 +84,19 @@ func (t *trustTransaction) Hidden(kind, id string) (bool, error) {
 	return trustContentHidden(t.ctx, t.tx, kind, id)
 }
 func (t *trustTransaction) SetHidden(kind, id string, on bool, at time.Time) error {
+	// The common trust lock is held before these writes, as it is for route
+	// mutations. Update the indexed visibility flag and moderation receipt in
+	// the same transaction; restoration cannot publish an owner's private route.
+	if kind == "route" {
+		if _, err := t.tx.Exec(t.ctx, `UPDATE community_routes SET hidden=$2 WHERE id=$1`, id, on); err != nil {
+			return repositoryError(err)
+		}
+	}
+	if kind == "route_condition" {
+		if _, err := t.tx.Exec(t.ctx, `UPDATE route_conditions SET hidden=$2 WHERE id=$1`, id, on); err != nil {
+			return repositoryError(err)
+		}
+	}
 	if on {
 		_, err := t.tx.Exec(t.ctx, `INSERT INTO moderation_hidden(target_type,target_id,hidden_at) VALUES($1,$2,$3) ON CONFLICT(target_type,target_id) DO NOTHING`, kind, id, at)
 		return repositoryError(err)

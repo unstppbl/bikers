@@ -31,6 +31,8 @@ The product scope and stack are confirmed in D-010–035. Organizer approval and
 
 Feeds, general posts, commerce, live tracking, route/place libraries, standalone events, native video/streaming, assistance, rewards, and advanced garage/club tools stay deferred. The complete catalogue remains the long-term record.
 
+**Subsequent scope decisions:** Private ride-plan maps/routing (#18) and curated useful places (#22/#24) supersede their original deferrals. On 11 November 2026, [#35](https://github.com/unstppbl/bikers/issues/35) approved community routes, private saved collections, foreground in-app GPS recording and dated condition reports. Tracks remain private until explicit consent publishes a separate public route snapshot; there is no GPX import or guaranteed background recording. Live group-location sharing remains deferred. See the [feature backlog](feature-backlog.md) for current scope and implementation status.
+
 ## Proposed runtime and modules
 
 Use one deployable Go application with domain modules and PostgreSQL. Bike photos, club images, avatars and ride photos store bounded processed JPEG bytes alongside their metadata, making image changes and database backups atomic. PostgreSQL also holds durable inbox/outbox, session-bound push subscriptions and audited moderation state. A push worker polls through a manager interface; there is no media worker or file/object-storage adapter. MEDIA_DIR remains reserved for future storage.
