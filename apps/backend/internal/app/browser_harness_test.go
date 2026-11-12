@@ -26,6 +26,31 @@ func TestBrowserHarness(t *testing.T) {
 		t.Skip("opt-in local browser harness")
 	}
 	f := newFixture(t)
+	if os.Getenv("BROWSER_HARNESS_ROUTES") == "1" {
+		f.now = time.Now().UTC()
+		owner := f.login("+77011239935", "QA Route Owner")
+		member := f.login("+77011239936", "QA Route Member")
+		grantTestAdmin(t, f, owner)
+		track := recordedFixture(t, f, owner)
+		route := routeFromTrack(t, f, owner, track)
+		id := route["id"].(string)
+		collection := f.request("POST", "/api/v1/route-collections", models.RouteCollectionInput{Name: "QA weekend routes"}, member)
+		expect(t, collection, 201)
+		collectionID := collection.body["collection"].(map[string]any)["id"].(string)
+		expect(t, f.request("PUT", "/api/v1/route-collections/"+collectionID+"/routes/"+id, nil, member), 200)
+		for _, observation := range []struct {
+			kind, description string
+			age               time.Duration
+			resolved          bool
+		}{
+			{"gravel", "QA recent gravel observation", time.Hour, false},
+			{"roadworks", "QA expired observation", 31 * 24 * time.Hour, false},
+			{"closure", "QA resolved observation", 24 * time.Hour, true},
+		} {
+			expect(t, f.request("POST", "/api/v1/routes/"+id+"/conditions", models.RouteConditionInput{Kind: observation.kind, Description: observation.description, ObservedAt: f.now.Add(-observation.age), Resolved: observation.resolved}, member), 201)
+		}
+		t.Logf("TEST-ONLY routes fixture: owner/admin=+77011239935; member=+77011239936; OTP=123456; route=%s", id)
+	}
 	if os.Getenv("BROWSER_HARNESS_RIDE_MENUS") == "1" {
 		f.now = time.Now().UTC()
 		owner := f.login("+77011239928", "QA Organizer")

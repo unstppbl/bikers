@@ -25,6 +25,7 @@ MIGRATION_FILES = (
     'schema_009_notification_preferences_reminders.sql',
     'schema_010_ride_maps.sql',
     'schema_011_places.sql',
+    'schema_012_routes.sql',
 )
 
 GIS_ENVIRONMENT = {'PHOTON_BASE_URL': 'http://photon:2322',
@@ -49,8 +50,8 @@ SELECT format(
  tablename,
  'to_jsonb(t)::text',
  schemaname,tablename,
- CASE WHEN tablename='schema_migrations' THEN ' WHERE version<=10' ELSE '' END)
-FROM pg_tables WHERE schemaname='public' AND tablename NOT IN ('places','place_submissions')
+ CASE WHEN tablename='schema_migrations' THEN ' WHERE version<=11' ELSE '' END)
+FROM pg_tables WHERE schemaname='public' AND tablename NOT IN ('community_routes','route_tracks','route_collections','route_collection_items','route_conditions','route_daily_limits')
  ORDER BY tablename
 \gexec
 SELECT json_build_object('sequences',COALESCE(json_agg(to_jsonb(s) ORDER BY sequencename),'[]'::json))::text
@@ -60,11 +61,15 @@ COMMIT;
 """
 
 
-MIGRATION_ADDITIONS_SQL = '''-- bikerskz schema-11 additions
+MIGRATION_ADDITIONS_SQL = '''-- bikerskz schema-12 additions
 BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
 SELECT json_build_object(
- 'places',(SELECT count(*) FROM places),
- 'place_submissions',(SELECT count(*) FROM place_submissions))::text;
+ 'community_routes',(SELECT count(*) FROM community_routes),
+ 'route_tracks',(SELECT count(*) FROM route_tracks),
+ 'route_collections',(SELECT count(*) FROM route_collections),
+ 'route_collection_items',(SELECT count(*) FROM route_collection_items),
+ 'route_conditions',(SELECT count(*) FROM route_conditions),
+ 'route_daily_limits',(SELECT count(*) FROM route_daily_limits))::text;
 COMMIT;
 '''
 
@@ -96,11 +101,11 @@ def atomic_write(path, content):
 def migration_checksums(checkout):
     directory = checkout / 'apps/backend/internal/database/postgres'
     source = (directory / 'migrations.go').read_text()
-    # This opt-in is deliberately limited to the reviewed 10 -> 11 transition.
+    # This opt-in is deliberately limited to the reviewed 11 -> 12 transition.
     # A future registered migration must not be applied by this mode silently.
     registered = [int(value) for value in re.findall(r'\{(\d+),\s*\w+\}', source)]
-    if registered != list(range(1, 12)):
-        raise RuntimeError('Migration-11 mode requires exactly source migrations 1 through 11')
+    if registered != list(range(1, 13)):
+        raise RuntimeError('Migration-12 mode requires exactly source migrations 1 through 12')
     return {version: hashlib.sha256((directory / name).read_bytes()).hexdigest()
             for version, name in enumerate(MIGRATION_FILES, 1)}
 
@@ -128,8 +133,10 @@ def retained_state(checkout, database_id):
 
 def migration_additions(checkout, database_id):
     state = json.loads(query_database(checkout, database_id, MIGRATION_ADDITIONS_SQL))
-    if state != {'places': 0, 'place_submissions': 0}:
-        raise RuntimeError('Migration-11 additions must create empty places and submission tables')
+    expected = {'community_routes': 0, 'route_tracks': 0, 'route_collections': 0,
+                'route_collection_items': 0, 'route_conditions': 0, 'route_daily_limits': 0}
+    if state != expected:
+        raise RuntimeError('Migration-12 additions must create empty route, track, collection, condition and daily-limit tables')
     return state
 
 
@@ -221,8 +228,8 @@ def deploy(checkout, runtime, migrate_to=None, configure_gis=False):
 
 
 def _deploy(checkout, runtime, migrate_to=None, configure_gis=False):
-    if migrate_to not in (None, 11):
-        raise RuntimeError('Only the explicitly reviewed migration target 11 is supported')
+    if migrate_to not in (None, 12):
+        raise RuntimeError('Only the explicitly reviewed migration target 12 is supported')
     if (migrate_to or configure_gis) and not (runtime / '.deploy/automatic-paused').is_file():
         raise RuntimeError('Pause automatic deployment on Jarvis before the reviewed schema/configuration rollout')
     env_file = runtime / '.env'
@@ -259,8 +266,8 @@ def _deploy(checkout, runtime, migrate_to=None, configure_gis=False):
     target_receipts = migration_checksums(checkout) if migrate_to else None
     previous_receipts = schema_receipts(checkout, db_id) if migrate_to else None
     if migrate_to and previous_receipts != {version: checksum for version, checksum in
-                                           target_receipts.items() if version <= 10}:
-        raise RuntimeError('Migration-11 mode requires exact source-matching schema-10 receipts')
+                                           target_receipts.items() if version <= 11}:
+        raise RuntimeError('Migration-12 mode requires exact source-matching schema-11 receipts')
     original_env = env_file.read_bytes()
     original_compose = json.loads(run(compose + ['config', '--format', 'json'], cwd=checkout))
     if original_compose['services']['app']['image'] != previous['Config']['Image']:
@@ -292,11 +299,11 @@ def _deploy(checkout, runtime, migrate_to=None, configure_gis=False):
     new_migration_state = None
     try:
         if migrate_to:
-            print('Stopping only the app before the schema-11 upgrade.', flush=True)
+            print('Stopping only the app before the schema-12 upgrade.', flush=True)
             run(compose + ['stop', '--timeout', '30', 'app'], cwd=checkout)
             migration_started = True
-            # Preserve every old row, including existing private ride map plans.
-            # Only the two newly added tables and migration 11 are excluded.
+            # Preserve every old row, including private ride map plans and places.
+            # Only the six newly added route tables and migration 12 are excluded.
             quiesced_state = retained_state(checkout, db_id)
         atomic_write(env_file, updated_env)
         run(compose + ['config', '--quiet'], cwd=checkout)
@@ -307,7 +314,7 @@ def _deploy(checkout, runtime, migrate_to=None, configure_gis=False):
             try:
                 # compose run has no --no-build flag. Omitting --build and
                 # forbidding pulls consumes the already verified local image.
-                print('Applying the explicit schema-11 upgrade with the verified image.', flush=True)
+                print('Applying the explicit schema-12 upgrade with the verified image.', flush=True)
                 run(compose + ['run', '-T', '--name', migrator_name, '--no-deps', '--pull', 'never',
                                'app', 'migrate'], cwd=checkout)
             except (OSError, RuntimeError) as error:
@@ -318,10 +325,10 @@ def _deploy(checkout, runtime, migrate_to=None, configure_gis=False):
             if observed == target_receipts:
                 migration_applied = True
                 if migration_error:
-                    print('Migration command failed, but exact schema-11 receipts confirm commit; continuing activation.',
+                    print('Migration command failed, but exact schema-12 receipts confirm commit; continuing activation.',
                           file=sys.stderr, flush=True)
             elif observed == previous_receipts:
-                raise RuntimeError('Migration did not commit; schema 10 remains intact') from migration_error
+                raise RuntimeError('Migration did not commit; schema 11 remains intact') from migration_error
             else:
                 raise RuntimeError('Unexpected migration receipts; app remains stopped for explicit recovery')
             if retained_state(checkout, db_id) != quiesced_state:
@@ -349,7 +356,7 @@ def _deploy(checkout, runtime, migrate_to=None, configure_gis=False):
         safe_old_image = not migration_started
         if migration_started:
             # CLI exit status cannot determine whether COMMIT succeeded.
-            # Never put the old executable back against schema 11 or an
+            # Never put the old executable back against schema 12 or an
             # unknown/unreadable receipt state, and never erase new data.
             try:
                 safe_old_image = (migrator_settled and
@@ -371,7 +378,7 @@ def _deploy(checkout, runtime, migrate_to=None, configure_gis=False):
                 print('Could not confirm the target app stopped; inspect it before recovery.',
                       file=sys.stderr, flush=True)
             print('Schema changed or cannot be verified. Keeping the target image selected; '
-                  'do not restore the schema-10 image. Explicit roll-forward recovery is required.',
+                  'do not restore the schema-11 image. Explicit roll-forward recovery is required.',
                   file=sys.stderr, flush=True)
         raise
 
@@ -386,7 +393,7 @@ def _deploy(checkout, runtime, migrate_to=None, configure_gis=False):
     }
     if migrate_to:
         receipt.update({
-            'migration_from': 10, 'migration_to': migrate_to,
+            'migration_from': 11, 'migration_to': migrate_to,
             'migration_checksum': target_receipts[migrate_to],
             'migration_applied': migration_applied,
             'retained_state_unchanged': True,
@@ -404,8 +411,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--runtime-dir', type=Path,
                         default=Path(os.environ.get('BIKERSKZ_DEPLOY_RUNTIME_DIR', '/home/user/apps/bikerskz')))
-    parser.add_argument('--migrate-to', type=int, choices=(11,),
-                        help='Explicitly coordinate the reviewed schema 10 to 11 upgrade')
+    parser.add_argument('--migrate-to', type=int, choices=(12,),
+                        help='Explicitly coordinate the reviewed schema 11 to 12 upgrade')
     parser.add_argument('--configure-gis', action='store_true',
                         help='Allow only the reviewed GIS URLs and added private network')
     args = parser.parse_args()

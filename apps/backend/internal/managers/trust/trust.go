@@ -77,7 +77,7 @@ func admin(tx database.TrustTransaction, id string) error {
 }
 func validKind(kind string) bool {
 	switch kind {
-	case "user", "ride", "message", "club", "bike", "bike_photo", "club_image", "avatar", "ride_photo", "ride_video", "announcement":
+	case "user", "ride", "message", "club", "bike", "bike_photo", "club_image", "avatar", "ride_photo", "ride_video", "announcement", "route", "route_condition":
 		return true
 	}
 	return false
@@ -247,6 +247,8 @@ func reportAllowed(r models.TrustTargetRecord, actor string) bool {
 		return true
 	case "bike":
 		return r.OwnerID == actor || r.Visibility == "public"
+	case "route", "route_condition":
+		return r.Current && r.AuthorStatus == "active" && (r.OwnerID == actor || r.Visibility == "public")
 	case "bike_photo":
 		return r.State == "ready" && (r.OwnerID == actor || r.Visibility == "public")
 	case "club_image":
@@ -280,6 +282,8 @@ func reportContextVisible(tx database.TrustTransaction, target models.TrustTarge
 		parent = "bike"
 	case "club_image":
 		parent = "club"
+	case "route_condition":
+		parent = "route"
 	}
 	if parent == "" {
 		return nil

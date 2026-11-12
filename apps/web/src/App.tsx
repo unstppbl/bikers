@@ -1,8 +1,9 @@
 import { lazy, Suspense, useEffect, useId, useRef, useState } from 'react'
-import { MapPinIcon, ArrowUpRightIcon as ArrowUpRight, BellIcon as Bell, CalendarDotsIcon as CalendarDays, SignOutIcon as LogOut, ListIcon as Menu, MotorcycleIcon as Motorbike, PlusIcon as Plus, GearSixIcon as Settings, ShieldCheckIcon as ShieldCheck, UserCircleIcon as UserRound, UsersThreeIcon as Users, WrenchIcon as Wrench, XIcon as X, LightningIcon as Zap } from '@phosphor-icons/react'
+import { PathIcon, MapPinIcon, ArrowUpRightIcon as ArrowUpRight, BellIcon as Bell, CalendarDotsIcon as CalendarDays, SignOutIcon as LogOut, ListIcon as Menu, MotorcycleIcon as Motorbike, PlusIcon as Plus, GearSixIcon as Settings, ShieldCheckIcon as ShieldCheck, UserCircleIcon as UserRound, UsersThreeIcon as Users, WrenchIcon as Wrench, XIcon as X, LightningIcon as Zap } from '@phosphor-icons/react'
 import { Link, NavLink, Route, Routes, useLocation, useNavigate, useNavigationType } from 'react-router-dom'
 import { useRegisterSW } from 'virtual:pwa-register/react'
 import { mutation } from './api'
+import { bindRecorderAccount } from './route-recorder'
 import { useI18n } from './i18n'
 import { useSession, useSessionGuard, RequireUser } from './session'
 import { ErrorNotice, Loading, useOnline } from './ui'
@@ -14,6 +15,11 @@ import { Avatar } from './components/Avatar'
 import { useTrust } from './components/Trust'
 import { NotificationBadge, useUnreadNotifications } from './components/NotificationBadge'
 import type { Locale } from './types'
+
+const RoutesPage = lazy(() => import('./pages/Routes').then((module) => ({ default: module.RoutesPage })))
+const RouteDetailPage = lazy(() => import('./pages/Routes').then((module) => ({ default: module.RouteDetailPage })))
+const RouteFormPage = lazy(() => import('./pages/Routes').then((module) => ({ default: module.RouteFormPage })))
+const TrackRecorderPage = lazy(() => import('./pages/Routes').then((module) => ({ default: module.TrackRecorderPage })))
 
 const PlacesPage = lazy(() => import('./pages/Places').then((module) => ({ default: module.PlacesPage })))
 const PlaceSubmissionPage = lazy(() => import('./pages/PlaceSubmissions').then((module) => ({ default: module.PlaceSubmissionPage })))
@@ -37,7 +43,8 @@ const RideFlowPreview = import.meta.env.DEV
 
 export function App() {
   const { t, locale, setLocale } = useI18n()
-  const { user, clear } = useSession()
+  const { user, loading: sessionLoading, clear } = useSession()
+  useEffect(() => { if (!sessionLoading) bindRecorderAccount(user?.id ?? null) }, [user?.id, sessionLoading])
   const trust = useTrust()
   const unread = useUnreadNotifications()
   const unreadCount = user && !unread.isError ? unread.data ?? 0 : 0
@@ -120,6 +127,7 @@ export function App() {
         <NavLink to="/clubs" end onClick={() => setMenuOpen(false)}><Users size={20} />{t('clubs')}</NavLink>
         <NavLink to="/bikes" onClick={() => setMenuOpen(false)}><Motorbike size={20} />{t('bikeCatalogue')}</NavLink>
         <NavLink to="/places" onClick={() => setMenuOpen(false)}><MapPinIcon size={20} />{t('placesTitle')}</NavLink>
+        <NavLink to="/routes" onClick={() => setMenuOpen(false)}><PathIcon size={20} />{t('routesTitle')}</NavLink>
         <span className="nav-group-label">{t('navYourSpace')}</span>
         <NavLink to="/my-rides" onClick={() => setMenuOpen(false)}><CalendarDays size={20} />{t('myRides')}</NavLink>
         <NavLink to="/garage" onClick={() => setMenuOpen(false)}><Wrench size={20} />{t('garage')}</NavLink>
@@ -154,6 +162,11 @@ export function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/profile" element={<RequireUser allowOnboarding><ProfilePage /></RequireUser>} />
           <Route path="/inbox" element={<RequireUser><InboxPage key={user?.id} /></RequireUser>} />
+          <Route path="/routes" element={<RoutesPage />} />
+          <Route path="/routes/new" element={<RequireUser><RouteFormPage key={user?.id} /></RequireUser>} />
+          <Route path="/routes/record" element={<RequireUser><TrackRecorderPage key={user?.id} /></RequireUser>} />
+          <Route path="/routes/:routeId/edit" element={<RequireUser><RouteFormPage key={user?.id} edit /></RequireUser>} />
+          <Route path="/routes/:routeId" element={<RouteDetailPage />} />
           <Route path="/places" element={<PlacesPage />} />
           <Route path="/places/new" element={<RequireUser><PlaceSubmissionPage key={user?.id} /></RequireUser>} />
           <Route path="/places/:placeId/suggest" element={<RequireUser><PlaceSubmissionPage key={user?.id} /></RequireUser>} />

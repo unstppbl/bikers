@@ -19,8 +19,8 @@ interface Audit { id: string; action: string; target_type: ReportTarget | 'repor
 const statuses = ['open', 'reviewing', 'resolved', 'dismissed'] as const
 const actions = ['hide_content', 'restore_content', 'restrict_account', 'restore_account', 'assign_badge', 'remove_badge'] as const
 const auditActionLabels = { hide_content: 'action_hide_content', restore_content: 'action_restore_content', restrict_account: 'action_restrict_account', restore_account: 'action_restore_account', assign_badge: 'action_assign_badge', remove_badge: 'action_remove_badge', review_content: 'auditReviewContent', grant_admin: 'auditGrantAdmin', revoke_admin: 'auditRevokeAdmin', report_open: 'auditReportOpen', report_reviewing: 'auditReportReviewing', report_resolved: 'auditReportResolved', report_dismissed: 'auditReportDismissed', update_report: 'auditReportUpdated' } as const
-const auditTargetLabels = { user: 'target_user', ride: 'target_ride', club: 'target_club', message: 'target_message', bike: 'target_bike', bike_photo: 'target_bike_photo', club_image: 'target_club_image', avatar: 'target_avatar', ride_photo: 'target_ride_photo', ride_video: 'target_ride_video', announcement: 'target_announcement', report: 'target_report' } as const
-const targets: ReportTarget[] = ['user', 'ride', 'club', 'message', 'bike', 'bike_photo', 'club_image', 'avatar', 'ride_photo', 'ride_video', 'announcement']
+const auditTargetLabels = { user: 'target_user', ride: 'target_ride', club: 'target_club', message: 'target_message', bike: 'target_bike', bike_photo: 'target_bike_photo', club_image: 'target_club_image', avatar: 'target_avatar', ride_photo: 'target_ride_photo', ride_video: 'target_ride_video', announcement: 'target_announcement', route: 'target_route', route_condition: 'target_route_condition', report: 'target_report' } as const
+const targets: ReportTarget[] = ['user', 'ride', 'club', 'message', 'bike', 'bike_photo', 'club_image', 'avatar', 'ride_photo', 'ride_video', 'announcement', 'route', 'route_condition']
 export function AdminPage() {
   const { t } = useI18n()
   const trust = useTrust()

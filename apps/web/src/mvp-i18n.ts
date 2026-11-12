@@ -134,6 +134,7 @@ const phrases = {
   target_message: ['Message', 'Сообщение', 'Хабар'], target_bike: ['Motorcycle', 'Мотоцикл', 'Мотоцикл'], target_bike_photo: ['Motorcycle photo', 'Фото мотоцикла', 'Мотоцикл фотосы'],
   target_club_image: ['Club image', 'Изображение клуба', 'Клуб суреті'], target_avatar: ['Rider photo', 'Фото райдера', 'Райдер фотосы'],
   target_ride_photo: ['Ride photo', 'Фото поездки', 'Сапар фотосы'], target_ride_video: ['Video link', 'Ссылка на видео', 'Бейне сілтемесі'], target_announcement: ['Announcement', 'Объявление', 'Хабарландыру'],
+  target_route: ['Community route', 'Маршрут сообщества', 'Қауымдастық бағыты'], target_route_condition: ['Road condition report', 'Сообщение о состоянии дороги', 'Жол жағдайы туралы хабар'],
 } as const
 
 type Key = keyof typeof phrases

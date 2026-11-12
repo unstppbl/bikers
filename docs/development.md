@@ -138,7 +138,33 @@ Club summaries contain `id`, `name`, `city`, `description`, and `status`, plus t
 
 Club owners link only their own published rides and may unlink any association in their club. Links expose public ride summaries and never confer ride approval or private plans, rosters, chat, or photo access. Club pages use ascending UUID cursors, 50 records per page, and `next_cursor`.
 
-Health endpoints are `/health/live` and `/health/ready`. Readiness checks all seven migration receipts and writable reserved media storage. The explicit migration command applies versions 1–7, verifying checksums and rejecting unknown versions. Versions 5–7 add avatars/ride media, trust/admin state, and preferences/announcements/notifications. Applied versions 1–4 remain unchanged. Older installations must run the new migration command before readiness. Server startup does not apply migrations.
+Health endpoints are `/health/live` and `/health/ready`. Readiness checks all twelve migration receipts and writable reserved media storage. The explicit migration command applies versions 1–12, verifying checksums and rejecting unknown versions. Versions 5–7 add avatars/ride media, trust/admin state and preferences/announcements/notifications; 8–9 add club notifications, reminder consent and push categories; 10 adds private ride maps; 11 adds places/submissions; 12 adds community routes, private GPS recordings/collections, dated conditions and creation budgets. Applied SQL stays unchanged. Existing installations must run the new migration command before readiness. Server startup does not apply migrations.
+
+## Community routes and recordings
+
+The `/routes` UI covers public discovery, the owner's routes, private collections and GPS recordings. All API paths below are under `/api/v1`. Writes require the current session/CSRF token; private reads require a session. Responses use `{route}`, `{track}`, `{collection}` or `{condition}` for single records, `{ok:true}` for deletions/membership changes, and `{routes|tracks|collections|conditions:[],next_cursor}` for lists.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET / POST | `/routes` | Discover/create a route; `scope=public|mine`, `q`, `city`, `collection`, `after`, `limit` |
+| GET / PUT / DELETE | `/routes/{id}` | Read an authorized route, replace owner-editable metadata/plan, or delete with `version` |
+| GET / POST | `/route-collections` | List or create private named collections |
+| PUT / DELETE | `/route-collections/{id}` | Rename with `{name,version}` or delete with `{version}` |
+| PUT / DELETE | `/route-collections/{id}/routes/{routeID}` | Save/remove an available route in an owned collection |
+| GET / POST | `/tracks` | List private recording summaries or save a finished recording |
+| GET / DELETE | `/tracks/{id}` | Read private geometry or delete with `{version}` |
+| GET / POST | `/routes/{id}/conditions` | Read dated conditions or add an attributed observation |
+| PUT / DELETE | `/routes/{id}/conditions/{conditionID}` | Author-only edit/resolve or delete with `version` |
+
+List pages default to 20 rows and accept at most 100. Opaque `after` cursors bind the actor, query, page size and relevant route/collection. Changing those inputs requires restarting pagination. Track lists omit segment payloads; fetch a single track for its private map preview. Unavailable routes are filtered from collections, including routes later made private, hidden or deleted.
+
+Route input is `{title,city,description,surface,map_points,track_id,published,publish_consent,version}`. Surface is `asphalt|mixed|unpaved|unknown`. A new planned route uses two to ten existing `MapPoint` values; the server computes geometry through the configured motorcycle router. A recorded route instead uses an owned `track_id`, copying its segments without exposing that ID. Updating recorded metadata retains the snapshot. Public route creation, private-to-public transitions and changes to public geometry require `publish_consent:true`. Route detail includes `kind`, confirmed `points`, longitude/latitude `segments`, server-computed distance and duration. Public list summaries omit points/segments. Private ride plans remain separate.
+
+Recording input is `{name,segments,duration_seconds}`. Segments contain `[longitude,latitude]` pairs within the configured Kazakhstan regional envelope. The server validates at most 20,000 points, 1,000 segments and seven days of duration, and computes distance only within each segment. The JSON body is limited to 2 MiB; other JSON mutations retain the 64 KiB limit. No device IDs, per-point timestamps or sensor metadata are saved. Owners may retain up to 100 tracks, 100 routes and 50 collections; a collection accepts up to 200 routes.
+
+The recorder uses browser geolocation after an explicit start action. Pause, permission loss, navigation and account changes stop the active watch; resumed sessions and location gaps keep separate segments. Drafts remain bound to the account on the current browser until server save succeeds, are private, and are removed when switching accounts/signing out. Browser suspension can stop GPS updates, so this PWA does not promise background recording. A stopped or rejected recording stays recoverable until the rider discards it or signs out. Physical-device GPS/battery/background acceptance is separate from synthetic recorder tests.
+
+Condition input is `{kind,description,observed_at,resolved,version}` with `gravel|closure|roadworks|damage|other`, an observation within the last year, and a bounded description. Responses include author, creation/update time, `expires_at` and `state=recent|expired|resolved`; expiry is thirty days after observation. Only the author edits/deletes a report. The daily budget is 20 successful report creations per account/UTC date and survives report deletion. Reports are dated community observations without a route-safety guarantee. Existing trust reporting and audited moderation accept `route` and `route_condition` targets; private recordings and collections are excluded.
 
 ## Avatars albums announcements and inbox
 

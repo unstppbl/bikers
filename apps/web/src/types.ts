@@ -119,7 +119,7 @@ export interface Announcement { id: string; sequence: number; owner_id: string; 
 export interface InboxNotification { id: string; kind: string; ride_id?: string; club_id?: string; created_at: string; read_at: string | null }
 export interface NotificationPage { notifications: InboxNotification[]; next_cursor: string; unread_count: number }
 export interface BlockedRider { user_id: string; display_name: string; created_at: string }
-export type ReportTarget = 'user' | 'ride' | 'club' | 'message' | 'bike' | 'bike_photo' | 'club_image' | 'avatar' | 'ride_photo' | 'ride_video' | 'announcement'
+export type ReportTarget = 'user' | 'ride' | 'club' | 'message' | 'bike' | 'bike_photo' | 'club_image' | 'avatar' | 'ride_photo' | 'ride_video' | 'announcement' | 'route' | 'route_condition'
 
 export interface PushCategories { ride_updates: boolean; participation: boolean; club_membership: boolean; ride_reminders: boolean }
 export interface RideReminders { day_before: boolean; hour_before: boolean }

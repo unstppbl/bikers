@@ -31,6 +31,7 @@ records ownership, dependency direction, transaction callbacks, and test placeme
 | `database/postgres` | Queries, mappings, migrations, transactions, and locks |
 | `managers/accounts` | OTP, sessions, profiles, authentication limits, and provider request/phone/status binding |
 | `managers/rides` | Plans, visibility, participation, organizer decisions and private calendar access |
+| `managers/routes` | Community route publication, private GPS recordings and collections, dated condition reports, visibility and quotas |
 | `managers/rooms` | Room access, messages, history, and foreground events |
 | `managers/garage` | Bike ownership/sharing, curated lookup, private maintenance, bike-photo access/reservations/covers, validation, and pagination |
 | `managers/clubs` | Club visibility, membership and atomic notification intent, ownership transfer/closure, safe ride associations, and club images |

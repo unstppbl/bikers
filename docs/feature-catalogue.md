@@ -127,6 +127,8 @@ The exact split between public content and content requiring an account remains 
 
 **MVP decision — 2 November 2026:** The community route library, route discovery, route photos and stops, and recorded tracks are deferred beyond the MVP. The full proposal is retained below; limited ride-plan scope is agreed under RIDE-02.
 
+**Scope added — 11 November 2026 ([#35](https://github.com/unstppbl/bikers/issues/35)):** Community route discovery, saved private collections and in-app GPS recording are approved and in progress. This supersedes the route-library and recorded-track deferrals for this task. GPS tracks are private by default; explicit consent publishes a separate public route snapshot. The foreground PWA provides start/pause/resume/finish controls, requires location permission and does not guarantee background recording. GPX import is outside this task. Live group-location sharing, offline maps and native navigation remain deferred. See the [feature backlog](feature-backlog.md) for all nine remaining areas.
+
 Route pages may include surface, estimated duration, suggested stops, fuel-availability notes, photos, and when someone last rode the route.
 
 Keep a planned route separate from a recorded ride. A participant’s detour must not silently overwrite the organizer’s plan.
@@ -152,6 +154,8 @@ The map’s purpose is to answer “Where can I ride, stop, or get help?” rath
 ### EXPLORE-04 — Dated condition reports
 
 **MVP decision — 2 November 2026:** Community condition reports are deferred beyond the MVP. The full proposal is retained below.
+
+**Scope added — 11 November 2026 ([#35](https://github.com/unstppbl/bikers/issues/35)):** Dated road-condition reports associated with community routes are approved and in progress, superseding this deferral. Reports show their author attribution and observation time, use the existing reporting/administrator moderation controls and must not imply that a route is safe. Production rollout acceptance remains tracked in the issue.
 
 Community reports may flag loose gravel, closures, or other relevant conditions. Show attribution and submission/update time; prevent stale reports from remaining unexplained permanent warnings.
 

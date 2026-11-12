@@ -75,10 +75,10 @@ Activation atomically changes only `APP_IMAGE` in the private runtime file and
 runs Compose with an explicit environment path, checkout directory and project
 name. The default app-only mode replaces the app with `--no-deps --no-build --wait`
 and never runs migrations or starts/recreates the database. The explicit
-[schema-11 places mode](#useful-places-schema-and-data) coordinates its schema cutover. It verifies retained environment,
+[schema-12 Routes mode](#community-routes-schema-upgrade) coordinates its schema cutover. It verifies retained environment,
 ports and media mounts, an unchanged database container/start time, and a
 healthy non-root/read-only app. App-only failures, or migration failures with
-confirmed unchanged schema 10, restore the previous environment bytes and app
+confirmed unchanged schema 11, restore the previous environment bytes and app
 image using the resolved configuration held in memory. A committed or unknown
 schema upgrade keeps the app stopped for roll-forward recovery. It does
 not create environment copies, database dumps or backups.
@@ -116,8 +116,8 @@ stay outside the checkout.
 The completed club-notification release upgraded schema 7 to 8. The subsequent
 community follow-up upgraded schema 8 to 9, adding preferences, reminders and
 calendar behavior while preserving all prior data. These transitions are
-historical; the current deployment helper supports only the reviewed 10-to-11
-places transition described below. It never silently applies an older or future
+historical; the current deployment helper supports only the reviewed 11-to-12
+Routes transition described below. It never silently applies an older or future
 migration.
 
 ## Configure and start
@@ -134,7 +134,7 @@ make up
 `make up` and `make migrate` create or validate the internal `bikerskz_gis`
 network used by the app. This does not start GIS services or enable map APIs.
 
-Migrations are explicit. Version 5 adds avatars and ride media, version 6 adds moderation, blocks, roles and badges, version 7 adds preferences, announcements, inboxes and push delivery, version 8 adds club membership notification targets, version 9 adds push categories and explicit ride reminders, version 10 adds nullable typed ride map plans, and version 11 adds useful places and moderated submissions. All eleven receipts and their checksums are checked by readiness. Previously applied SQL is immutable. Unknown versions and mismatched checksums fail closed.
+Migrations are explicit. Version 5 adds avatars and ride media, version 6 adds moderation, blocks, roles and badges, version 7 adds preferences, announcements, inboxes and push delivery, version 8 adds club membership notification targets, version 9 adds push categories and explicit ride reminders, version 10 adds nullable typed ride map plans, version 11 adds useful places and moderated submissions, and version 12 adds community routes, private GPS tracks and collections, and dated condition reports. All twelve receipts and their checksums are checked by readiness. Previously applied SQL is immutable. Unknown versions and mismatched checksums fail closed.
 
 ## GIS serving and data refresh
 
@@ -319,8 +319,8 @@ The initial schema-9 to schema-10 GIS cutover completed on 5 November with the
 reviewed source at `13774c43f276f74a964e08a422e1069f0d24159e`. Its exact receipts,
 retained-state parity and mixed-service/browser acceptance are recorded in
 [#18](https://github.com/unstppbl/bikers/issues/18). Current source no longer
-offers that historical migration mode; the supported upgrade is schema 10 to
-11 below. An archive URL change at the current schema still uses the explicit
+offers that historical migration mode; the supported upgrade is schema 11 to
+12 below. An archive URL change at the current schema still uses the explicit
 `--configure-gis` flag after both automatic-deployment controls are paused.
 
 The GIS flag permits only the two exact private service URLs, a versioned
@@ -391,27 +391,15 @@ identities. Imported OSM entries retain their source IDs/date and are not
 community verification; later OSM imports preserve community corrections and
 closures.
 
-For the existing schema-10 production database, pause **both** automatic release
-controls, preserve a private `.env`/database/image backup, and validate the dump
-before this explicit clean-main rollout:
-
-```sh
-make deploy-jarvis DEPLOY_ARGS='--migrate-to 11'
-```
-
-The helper requires exact source-matching receipts 1–10 before building. It
-builds before stopping only the app, then fingerprints every retained table
-row and sequence, **including existing ride map plans**. Only the two new tables
-and receipt 11 are excluded from parity, and the new tables must initially be
-empty. A confirmed unchanged schema 10 permits old-image recovery; a committed
-or unknown schema-11 outcome keeps the target selected for explicit roll-forward
-recovery. Do not restore a schema-10 binary against schema 11.
-
-Install `deploy-tested-main.py` and `deploy-jarvis.py` together in the existing
-host `bin` directory after the reviewed rollout. Verify public readiness,
-retained data/container state, main CI and the private deployment check before
-resuming both automatic controls. No GIS environment, network, edge or service
-restart is needed for this feature.
+The completed schema-10 to schema-11 rollout used the then-reviewed
+`--migrate-to 11` helper after both automatic release controls were paused. It
+fingerprinted every retained table row and sequence, including private ride
+map plans, while requiring the new places/submission tables to start empty.
+Its unchanged-schema recovery and live acceptance evidence remain in #22.
+The current helper no longer accepts that historical migration target; use
+[the Routes upgrade](#community-routes-schema-upgrade) for an existing schema-11
+database. No GIS environment, network, edge or service restart was needed for
+places.
 
 The historical initial country data was extracted from the retained verified PBF, using pinned
 Python wheels in the existing parser image. The explicit `extract-places` and
@@ -429,6 +417,52 @@ retried with the same artifact. The one-off worker uses the exact healthy live
 app image, private environment and database network. Its temporary environment
 file and stopped import container are removed on normal/lease cleanup. Preserve
 the job directory as private if host Docker failures prevent full cleanup.
+
+## Community Routes schema upgrade
+
+[#35](https://github.com/unstppbl/bikers/issues/35) adds `community_routes`,
+`route_tracks`, `route_collections`, `route_collection_items`,
+`route_conditions` and `route_daily_limits` in additive schema 12. The migration extends the existing
+reporting/moderation target constraints without rewriting old rows. Private
+tracks and collections are separate from public route snapshots; schema
+creation does not publish a track or import route data. The daily-limit table
+retains only the account/date/report count, so deleting a condition report
+does not reset its daily quota. Existing migrations
+remain immutable. This section describes the prepared rollout, not evidence
+that it has run in production.
+
+For the existing schema-11 database, preserve a private database dump, its
+matching image and private `.env`, validate the dump, and pause **both**
+[automatic deployment controls](github-actions-deployment.md#pause-retry-and-recovery)
+before the explicit clean-main rollout:
+
+```sh
+cd /home/user/apps/bikerskz/repo
+make deploy-jarvis DEPLOY_ARGS='--migrate-to 12'
+```
+
+The helper requires exact source-matching receipts 1–11 and exactly source
+migrations 1–12 before building. It builds the clean pushed revision on Jarvis
+before stopping only the app. With writes quiesced, it fingerprints every old
+table row and sequence, including `rides.map_plan`, `places` and
+`place_submissions`. Only the six new route tables and receipt 12 are excluded
+from retained-state parity; all six tables must initially be empty, and no
+new sequences are introduced. Activation follows exact receipt, retained-state
+and new-table verification.
+
+An unsuccessful migration command is classified only after its container has
+terminated and receipts are readable. Confirmed unchanged schema 11 permits
+restoring the previous image/environment. A committed schema 12 or an unknown
+outcome keeps the app stopped with the target image selected for explicit
+roll-forward recovery. Never start a schema-11 binary against schema 12; do
+not restore an old database merely to recover an executable.
+
+Install `deploy-tested-main.py` and `deploy-jarvis.py` together in the existing
+host `bin` directory after the reviewed rollout. Verify successful main CI,
+the private deployment result, exact live Git revision and release/schema
+receipts, retained data/container state and public readiness before resuming
+both automatic controls. This feature requires no GIS configuration, network,
+edge or GIS service restart.
 
 ## Administrator access
 
