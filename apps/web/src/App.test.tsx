@@ -279,7 +279,9 @@ describe('ride privacy and localization', () => {
 
   it('reconciles a committed send whose response was lost when history returns after reconnect', async () => {
     const commands: { body: string; client_message_id: string }[] = []
-    let committed = false
+    let committed = false, historyRequested = false
+    let releaseHistory = () => {}
+    const historyReady = new Promise<void>((resolve) => { releaseHistory = resolve })
     vi.stubGlobal('fetch', vi.fn(async (url: string, options?: RequestInit) => {
       if (url.endsWith('/session')) return response({ user, csrf_token: 'test-csrf' })
       if (url.endsWith('/rides/test-ride')) return response({ ride: full })
@@ -288,7 +290,10 @@ describe('ride privacy and localization', () => {
         commands.push(JSON.parse(options.body as string)); committed = true
         throw new TypeError('Committed but response lost')
       }
-      if (url.includes('/messages')) return response({ messages: committed ? [{ id: 'm1', sequence: 1, sender_id: user.id, sender_name: user.profile.display_name, body: commands[0].body, created_at: '2026-12-01T06:00:00Z', client_message_id: commands[0].client_message_id }] : [], next_sequence: committed ? 1 : 0 })
+      if (url.includes('/messages')) {
+        if (committed) { historyRequested = true; await historyReady }
+        return response({ messages: committed ? [{ id: 'm1', sequence: 1, sender_id: user.id, sender_name: user.profile.display_name, body: commands[0].body, created_at: '2026-12-01T06:00:00Z', client_message_id: commands[0].client_message_id }] : [], next_sequence: committed ? 1 : 0 })
+      }
       const extra = mvpRead(url); if (extra) return extra
       throw new Error(`Unexpected API call ${url}`)
     }))
@@ -298,9 +303,19 @@ describe('ride privacy and localization', () => {
     await actor.click(screen.getByRole('button', { name: 'Send message' }))
     await screen.findByText('Connection interrupted. Check your connection and try again.')
     act(() => { TestSocket.sockets[0].onclose?.() })
-    await screen.findByText('Already committed', {}, { timeout: 3000 })
-    expect(screen.getByRole('textbox', { name: 'Message the Ride Room' })).toHaveValue('')
+    await waitFor(() => expect(historyRequested).toBe(true), { timeout: 3000 })
+    const composer = screen.getByRole('textbox', { name: 'Message the Ride Room' })
+    try {
+      expect(composer).toHaveValue('Already committed')
+      expect(screen.queryByText('Already committed', { selector: '.message-content p' })).not.toBeInTheDocument()
+    } finally {
+      await act(async () => releaseHistory())
+    }
+    // The restored textarea also contains the draft text; only a history message proves acceptance.
+    await screen.findByText('Already committed', { selector: '.message-content p' }, { timeout: 3000 })
+    await waitFor(() => expect(composer).toHaveValue(''))
     expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled()
+    expect(screen.getAllByText('Already committed', { selector: '.message-content p' })).toHaveLength(1)
     expect(commands).toHaveLength(1)
   })
 
