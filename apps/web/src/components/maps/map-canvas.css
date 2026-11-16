@@ -109,6 +109,11 @@
   font: var(--type-caption-5);
 }
 
+.map-canvas .maplibregl-ctrl-bottom-left {
+  /* Attribution stays above selected and keyboard-focused pins. */
+  z-index: 4;
+}
+
 .map-canvas .maplibregl-ctrl-attrib {
   max-width: calc(100% - 24px);
   padding: 4px 8px;
