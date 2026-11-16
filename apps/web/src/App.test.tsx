@@ -88,7 +88,7 @@ describe('application navigation', () => {
   it('contains mobile-menu keyboard focus and restores it after Escape or a desktop resize', async () => {
     vi.stubGlobal('fetch', vi.fn(navigationReads))
     mount()
-    await screen.findByRole('heading', { name: 'The road is open.' })
+    await screen.findByRole('heading', { name: 'Rides' })
     const actor = userEvent.setup()
     const trigger = screen.getByRole('button', { name: 'Navigation' })
     const main = screen.getByRole('main')
@@ -121,19 +121,19 @@ describe('application navigation', () => {
   it('starts a new page at its main content without overriding Back navigation', async () => {
     vi.stubGlobal('fetch', vi.fn(navigationReads))
     mount('/', true)
-    await screen.findByRole('heading', { name: 'The road is open.' })
+    await screen.findByRole('heading', { name: 'Rides' })
     const actor = userEvent.setup()
     const scroll = vi.mocked(window.scrollTo)
     scroll.mockClear()
     await actor.click(screen.getByRole('button', { name: 'Navigation' }))
     await actor.click(within(screen.getByRole('dialog', { name: 'Navigation' })).getByRole('link', { name: 'Clubs' }))
-    await screen.findByRole('heading', { name: 'A place for your riding people.' })
+    await screen.findByRole('heading', { name: 'Clubs' })
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(scroll).toHaveBeenCalledWith(0, 0)
     expect(screen.getByRole('main')).toHaveFocus()
     scroll.mockClear()
     await actor.click(screen.getByRole('button', { name: 'Test history back' }))
-    await screen.findByRole('heading', { name: 'The road is open.' })
+    await screen.findByRole('heading', { name: 'Rides' })
     expect(scroll).not.toHaveBeenCalled()
     await actor.click(screen.getByRole('link', { name: 'Rides' }))
     expect(scroll).toHaveBeenCalledWith(0, 0)
@@ -157,7 +157,7 @@ describe('authentication and onboarding', () => {
     await actor.click(screen.getByRole('button', { name: /Send Telegram code/ }))
     await actor.type(await screen.findByLabelText(/Verification code/), '123456')
     await actor.click(screen.getByRole('button', { name: /Verify and continue/ }))
-    await screen.findByRole('heading', { name: 'Make yourself at home.' })
+    await screen.findByRole('heading', { name: 'Create your profile' })
     const call = fetch.mock.calls.find(([url]) => url.endsWith('/auth/challenges/verify'))
     expect(JSON.parse(call?.[1]?.body as string)).toEqual({ challenge_id: 'server-challenge', code: '123456' })
     expect(Object.keys(localStorage)).toEqual(['bikerskz.locale'])
@@ -279,7 +279,9 @@ describe('ride privacy and localization', () => {
 
   it('reconciles a committed send whose response was lost when history returns after reconnect', async () => {
     const commands: { body: string; client_message_id: string }[] = []
-    let committed = false
+    let committed = false, historyRequested = false
+    let releaseHistory = () => {}
+    const historyReady = new Promise<void>((resolve) => { releaseHistory = resolve })
     vi.stubGlobal('fetch', vi.fn(async (url: string, options?: RequestInit) => {
       if (url.endsWith('/session')) return response({ user, csrf_token: 'test-csrf' })
       if (url.endsWith('/rides/test-ride')) return response({ ride: full })
@@ -288,7 +290,10 @@ describe('ride privacy and localization', () => {
         commands.push(JSON.parse(options.body as string)); committed = true
         throw new TypeError('Committed but response lost')
       }
-      if (url.includes('/messages')) return response({ messages: committed ? [{ id: 'm1', sequence: 1, sender_id: user.id, sender_name: user.profile.display_name, body: commands[0].body, created_at: '2026-12-01T06:00:00Z', client_message_id: commands[0].client_message_id }] : [], next_sequence: committed ? 1 : 0 })
+      if (url.includes('/messages')) {
+        if (committed) { historyRequested = true; await historyReady }
+        return response({ messages: committed ? [{ id: 'm1', sequence: 1, sender_id: user.id, sender_name: user.profile.display_name, body: commands[0].body, created_at: '2026-12-01T06:00:00Z', client_message_id: commands[0].client_message_id }] : [], next_sequence: committed ? 1 : 0 })
+      }
       const extra = mvpRead(url); if (extra) return extra
       throw new Error(`Unexpected API call ${url}`)
     }))
@@ -298,20 +303,30 @@ describe('ride privacy and localization', () => {
     await actor.click(screen.getByRole('button', { name: 'Send message' }))
     await screen.findByText('Connection interrupted. Check your connection and try again.')
     act(() => { TestSocket.sockets[0].onclose?.() })
-    await screen.findByText('Already committed', {}, { timeout: 3000 })
-    expect(screen.getByRole('textbox', { name: 'Message the Ride Room' })).toHaveValue('')
+    await waitFor(() => expect(historyRequested).toBe(true), { timeout: 3000 })
+    const composer = screen.getByRole('textbox', { name: 'Message the Ride Room' })
+    try {
+      expect(composer).toHaveValue('Already committed')
+      expect(screen.queryByText('Already committed', { selector: '.message-content p' })).not.toBeInTheDocument()
+    } finally {
+      await act(async () => releaseHistory())
+    }
+    // The restored textarea also contains the draft text; only a history message proves acceptance.
+    await screen.findByText('Already committed', { selector: '.message-content p' }, { timeout: 3000 })
+    await waitFor(() => expect(composer).toHaveValue(''))
     expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled()
+    expect(screen.getAllByText('Already committed', { selector: '.message-content p' })).toHaveLength(1)
     expect(commands).toHaveLength(1)
   })
 
   it('switches core screens between English, Russian and Kazakh using locale-only storage', async () => {
     vi.stubGlobal('fetch', vi.fn(async (url: string) => response(url.endsWith('/session') ? { user: null } : url.endsWith('/cities') ? { cities: [] } : { rides: [], next_cursor: '' })))
     mount()
-    await screen.findByRole('heading', { name: 'The road is open.' })
+    await screen.findByRole('heading', { name: 'Rides' })
     fireEvent.change(screen.getByRole('combobox', { name: 'Language' }), { target: { value: 'ru' } })
-    expect(screen.getByRole('heading', { name: 'Дорога открыта.' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Поездки' })).toBeInTheDocument()
     fireEvent.change(screen.getByRole('combobox', { name: 'Язык' }), { target: { value: 'kk' } })
-    expect(screen.getByRole('heading', { name: 'Жол ашық.' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Сапарлар' })).toBeInTheDocument()
     expect(localStorage.getItem('bikerskz.locale')).toBe('kk')
     expect(document.documentElement.lang).toBe('kk')
   })

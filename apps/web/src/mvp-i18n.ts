@@ -52,7 +52,7 @@ const phrases = {
   publishAnnouncement: ['Publish announcement', 'Опубликовать объявление', 'Хабарландыру жариялау'],
   announcementConflict: ['This announcement ID already belongs to different text. Reload before sending again.', 'Этот ID объявления уже связан с другим текстом. Обновите страницу перед повторной отправкой.', 'Бұл хабарландыру ID-і басқа мәтінге тиесілі. Қайта жібермес бұрын бетті жаңартыңыз.'],
   inbox: ['Inbox', 'Уведомления', 'Хабарландырулар'],
-  inboxTitle: ['Your community updates.', 'Новости ваших поездок и клубов.', 'Сапарлар мен клубтар жаңалықтары.'],
+  inboxTitle: ['Inbox', 'Уведомления', 'Хабарландырулар'],
   inboxText: ['Open a ride or club to view the details available to your account.', 'Откройте поездку или клуб, чтобы увидеть доступные вашему аккаунту сведения.', 'Аккаунтыңызға қолжетімді мәліметтерді көру үшін сапарды немесе клубты ашыңыз.'],
   inboxEmpty: ['You are all caught up.', 'Новых уведомлений нет.', 'Жаңа хабарландыру жоқ.'],
   markAllRead: ['Mark all as read', 'Прочитать все', 'Барлығын оқылған деп белгілеу'],

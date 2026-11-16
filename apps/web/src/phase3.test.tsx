@@ -346,7 +346,7 @@ describe('session completion boundaries', () => {
     await waitFor(() => expect(fetch.mock.calls.some(([url, options]) => url.endsWith('/clubs') && options?.method === 'POST')).toBe(true))
     await act(async () => { setCsrfToken(); finish(response({ club }, 201)); await pending })
     expect(client.getQueryData(['club', club.id, rider.id])).toBeUndefined()
-    expect(screen.getByRole('heading', { name: 'Give your group a home.' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Create a club' })).toBeInTheDocument()
   })
 
   it('discards a delayed bike creation after account switch without restoring cache or navigating', async () => {
@@ -368,7 +368,7 @@ describe('session completion boundaries', () => {
     await act(async () => { setCsrfToken('csrf-rider-b'); client.setQueryData(['session'], signedIn(other)) })
     await act(async () => { finish(response({ bike }, 201)); await pending })
     expect(client.getQueryData(['bike', bike.id, rider.id])).toBeUndefined()
-    expect(screen.getByRole('heading', { name: 'Make room for your bike.' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Add a motorcycle' })).toBeInTheDocument()
     await waitFor(() => expect(screen.getByLabelText(/^Make \*/)).toHaveValue(''))
   })
 
@@ -393,7 +393,7 @@ describe('session completion boundaries', () => {
   it('keeps new core fields and actions available in Russian and Kazakh', async () => {
     vi.stubGlobal('fetch', vi.fn(async (url: string) => response(url.endsWith('/session') ? signedIn() : { bikes: [], next_cursor: '' })))
     mount('/garage/new')
-    await screen.findByRole('heading', { name: 'Make room for your bike.' })
+    await screen.findByRole('heading', { name: 'Add a motorcycle' })
     fireEvent.change(screen.getByRole('combobox', { name: 'Language' }), { target: { value: 'ru' } })
     expect(screen.getByRole('button', { name: 'Сохранить мотоцикл' })).toBeInTheDocument()
     fireEvent.change(screen.getByRole('combobox', { name: 'Язык' }), { target: { value: 'kk' } })

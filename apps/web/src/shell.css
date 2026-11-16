@@ -14,13 +14,38 @@
 
 .workspace main {
   flex: 1;
+  min-width: 0;
+}
+
+.app-shell-map {
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.workspace-map {
+  min-height: 0;
+}
+
+.workspace-map main {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.workspace-map .app-footer {
+  display: none;
+}
+
+.workspace > :not(main) {
+  flex-shrink: 0;
 }
 
 :where(.page-content) {
   width: 100%;
   max-width: 1440px;
   margin: 0 auto;
-  padding: 32px 40px 64px;
+  padding: 24px 24px 40px;
 }
 
 .skip-link {
@@ -40,15 +65,15 @@
 }
 
 .sidebar {
-  width: 232px;
+  width: 216px;
   height: 100dvh;
   position: sticky;
   top: 0;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  padding: 32px 24px 24px;
-  background: var(--canvas);
+  padding: 24px 16px 16px;
+  background: var(--surface);
   border-right: 1px solid var(--border);
   z-index: 30;
   overflow-y: auto;
@@ -73,23 +98,17 @@
   color: var(--accent);
 }
 
-.sidebar-label {
-  font: var(--type-caption-5);
-  color: var(--text-muted);
-  margin-top: 8px;
-}
-
 .side-navigation {
   display: grid;
-  gap: 4px;
-  margin: 24px -8px 0;
+  gap: 0;
+  margin: 16px -4px 0;
   flex-shrink: 0;
 }
 
 .nav-group-label {
   font: var(--type-caption-4);
   color: var(--text-subtle);
-  padding: 16px 12px 8px;
+  padding: 12px 12px 4px;
 }
 
 .nav-group-label:first-child {
@@ -99,7 +118,7 @@
 .side-navigation a {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   min-height: 44px;
   padding: 8px 12px;
   border-radius: var(--radius-md);
@@ -134,40 +153,13 @@
   opacity: 0;
 }
 
-.sidebar-bottom {
-  margin-top: auto;
-  padding-top: 32px;
-}
-
-.small-marker {
-  display: block;
-  width: 24px;
-  height: 2px;
-  background: var(--accent);
-}
-
-.sidebar-bottom p {
-  font: var(--type-title-3);
-  color: var(--text-muted);
-  margin-top: 16px;
-}
-
-.sidebar-caption {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 24px;
-  color: var(--text-subtle);
-  font: var(--type-caption-5);
-}
-
 .sidebar-logout {
   display: flex;
   gap: 12px;
   align-items: center;
   min-height: 44px;
-  padding: 8px 0;
-  margin-top: 16px;
+  padding: 8px 12px;
+  margin: auto -4px 0;
   background: transparent;
   color: var(--text-muted);
   font: var(--type-title-4);
@@ -187,11 +179,11 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  min-height: 72px;
-  margin: 16px 40px 0;
-  padding: 8px 16px;
+  min-height: 64px;
+  margin: 8px 24px 0;
+  padding: 4px 12px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--surface) 90%, transparent);
   backdrop-filter: blur(16px);
 }
@@ -221,7 +213,7 @@
 .topbar-actions {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 8px;
   margin-left: auto;
 }
 
@@ -280,7 +272,7 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 16px;
-  padding: 24px 40px;
+  padding: 16px 24px;
   color: var(--text-subtle);
   font: var(--type-caption-5);
 }
@@ -315,8 +307,8 @@
 @media (max-width: 1200px) {
 
   .sidebar {
-    width: 208px;
-    padding: 32px 16px 24px;
+    width: 200px;
+    padding: 24px 12px 16px;
   }
 
   .wordmark-mark {
@@ -324,7 +316,7 @@
   }
 
   .page-content {
-    padding: 32px 24px 48px;
+    padding: 24px 24px 40px;
   }
 
   .topbar {
@@ -352,19 +344,7 @@
   }
 }
 
-@media (min-width: 761px) and (max-height: 900px) {
-
-  .sidebar-bottom {
-    display: none;
-  }
-
-  .sidebar-logout {
-    margin-top: auto;
-    padding-top: 16px;
-  }
-}
-
-@media (max-width: 760px) {
+@media (max-width: 900px) {
 
   .sidebar {
     position: fixed;
@@ -373,7 +353,7 @@
     top: 0;
     width: 100%;
     max-width: 100%;
-    padding: 32px 24px;
+    padding: 24px 24px 16px;
     border: 0;
     background: color-mix(in srgb, var(--canvas) 96%, transparent);
     backdrop-filter: blur(24px);
@@ -417,13 +397,8 @@
     padding-right: 48px;
   }
 
-  .sidebar-bottom {
-    display: none;
-  }
-
   .sidebar-logout {
     margin-top: auto;
-    padding-top: 24px;
   }
 
   .menu-scrim {
@@ -436,8 +411,8 @@
 
   .topbar {
     min-height: 64px;
-    margin: 12px 16px 0;
-    padding: 8px;
+    margin: 8px 16px 0;
+    padding: 4px 8px;
     gap: 8px;
   }
 
@@ -486,15 +461,22 @@
   }
 
   .page-content {
-    padding: 24px 16px 48px;
+    padding: 16px 16px 32px;
   }
 
   .app-footer {
-    padding: 24px 16px;
+    padding: 16px;
   }
 
   .not-found-page h1 {
     font: var(--type-heading-4);
+  }
+}
+
+@media (max-height: 520px) and (max-width: 900px) {
+  .topbar {
+    min-height: 56px;
+    margin-top: 4px;
   }
 }
 

@@ -55,6 +55,7 @@ export function App() {
   const online = useOnline()
   const navigate = useNavigate()
   const location = useLocation()
+  const mapWorkspace = /^\/places\/?$/.test(location.pathname)
   const navigationType = useNavigationType()
   const navigationId = useId()
   const mainRef = useRef<HTMLElement>(null)
@@ -95,7 +96,7 @@ export function App() {
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
     }
     const close = () => setMenuOpen(false)
-    const resize = () => { if (window.innerWidth > 760) close() }
+    const resize = () => { if (window.innerWidth > 900) close() }
     document.addEventListener('keydown', keydown)
     window.addEventListener('popstate', close)
     window.addEventListener('resize', resize)
@@ -115,12 +116,11 @@ export function App() {
     catch (error) { setLogoutError(error) }
     finally { setSigningOut(false) }
   }
-  return <div className="app-shell">
+  return <div className={`app-shell${mapWorkspace ? ' app-shell-map' : ''}`}>
     <a className="skip-link" href="#main-content">{t('skipToContent')}</a>
     <aside id={navigationId} ref={sidebarRef} className={`sidebar ${menuOpen ? 'sidebar-open' : ''}`} aria-label={t('menu')} role={menuOpen ? 'dialog' : undefined} aria-modal={menuOpen || undefined}>
       <Link className="wordmark" to="/" onClick={() => setMenuOpen(false)}>BIKERS<span>.KZ</span><span className="wordmark-mark"><Zap size={19} fill="currentColor" /></span></Link>
       <button ref={menuCloseRef} className="icon-button sidebar-close" aria-label={t('close')} onClick={() => setMenuOpen(false)}><X size={23} /></button>
-      <div className="sidebar-label">{t('community')}</div>
       <nav className="side-navigation">
         <span className="nav-group-label">{t('navExplore')}</span>
         <NavLink to="/" end onClick={() => setMenuOpen(false)}><Motorbike size={20} />{t('rides')}<ArrowUpRight className="nav-arrow" size={17} /></NavLink>
@@ -138,11 +138,10 @@ export function App() {
         <NavLink to="/profile" onClick={() => setMenuOpen(false)}><UserRound size={20} />{t('profile')}</NavLink>
         <NavLink to="/settings" onClick={() => setMenuOpen(false)}><Settings size={20} />{t('settings')}</NavLink>
       </nav>
-      <div className="sidebar-bottom"><span className="small-marker" /><p>{t('together')}</p><span className="sidebar-caption">{t('country')}<span>↗</span></span></div>
       {user && <button className="sidebar-logout" onClick={() => void signOut()} disabled={signingOut || !online}><LogOut size={17} />{t('signOut')}</button>}
     </aside>
     {menuOpen && <button aria-label={t('close')} aria-hidden="true" tabIndex={-1} className="menu-scrim" onClick={() => setMenuOpen(false)} />}
-    <div className="workspace" inert={menuOpen} aria-hidden={menuOpen || undefined}>
+    <div className={`workspace${mapWorkspace ? ' workspace-map' : ''}`} inert={menuOpen} aria-hidden={menuOpen || undefined}>
       <header className="topbar">
         <div className="mobile-brand"><button ref={menuTriggerRef} className="icon-button" aria-label={t('menu')} aria-controls={navigationId} aria-expanded={menuOpen} aria-haspopup="dialog" onClick={() => setMenuOpen(true)}><Menu size={22} /></button><Link to="/">BIKERS<span>.KZ</span></Link></div>
         <span className="topbar-country"><span className="status-dot" />{t('country')}<span className="topbar-divider">/</span>{t('community')}</span>
