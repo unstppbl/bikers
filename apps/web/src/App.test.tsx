@@ -128,16 +128,24 @@ describe('application navigation', () => {
     await actor.click(screen.getByRole('button', { name: 'Navigation' }))
     await actor.click(within(screen.getByRole('dialog', { name: 'Navigation' })).getByRole('link', { name: 'Clubs' }))
     await screen.findByRole('heading', { name: 'Clubs' })
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(scroll).toHaveBeenCalledWith(0, 0)
-    expect(screen.getByRole('main')).toHaveFocus()
+    // The lazy page can render before the parent route's scroll and focus effects finish.
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(scroll).toHaveBeenCalledWith(0, 0)
+      expect(screen.getByRole('main')).toHaveFocus()
+    })
     scroll.mockClear()
-    await actor.click(screen.getByRole('button', { name: 'Test history back' }))
+    const back = screen.getByRole('button', { name: 'Test history back' })
+    // Flush the POP effects before asserting that they leave scroll and focus alone.
+    await act(async () => { await actor.click(back) })
     await screen.findByRole('heading', { name: 'Rides' })
     expect(scroll).not.toHaveBeenCalled()
+    expect(back).toHaveFocus()
     await actor.click(screen.getByRole('link', { name: 'Rides' }))
-    expect(scroll).toHaveBeenCalledWith(0, 0)
-    expect(screen.getByRole('main')).toHaveFocus()
+    await waitFor(() => {
+      expect(scroll).toHaveBeenCalledWith(0, 0)
+      expect(screen.getByRole('main')).toHaveFocus()
+    })
   })
 })
 
