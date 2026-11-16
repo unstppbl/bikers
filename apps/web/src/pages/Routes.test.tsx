@@ -130,7 +130,7 @@ describe('community routes', () => {
     await waitFor(() => expect(writes).toEqual(['{"version":1}']))
   })
 
-  it.each([['ru', 'Маршруты', 'Дороги, которыми хочется делиться.'], ['kk', 'Бағыттар', 'Бөлісуге тұрарлық жолдар.']])('localizes the route hub and navigation in %s', async (locale, nav, heading) => {
+  it.each([['ru', 'Маршруты', 'Маршруты'], ['kk', 'Бағыттар', 'Бағыттар']])('localizes the route hub and navigation in %s', async (locale, nav, heading) => {
     localStorage.setItem('bikerskz.locale', locale)
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
       if (url.endsWith('/session')) return response({ user: null })
@@ -160,7 +160,7 @@ describe('GPS recording screen', () => {
       throw new Error(url)
     }))
     mount('/routes/record')
-    await screen.findByRole('heading', { name: 'Record your ride.' })
+    await screen.findByRole('heading', { name: 'Record a ride' })
     fireEvent.change(screen.getByLabelText(/^Track name/), { target: { value: 'First recording' } })
     await userEvent.click(screen.getByRole('button', { name: 'Start recording' }))
     function point(lon: number, callback: PositionCallback, timestamp: number) { callback({ timestamp, coords: { longitude: lon, latitude: 43.25, accuracy: 5, altitude: null, altitudeAccuracy: null, heading: null, speed: null, toJSON: () => ({}) }, toJSON: () => ({}) }) }
@@ -192,7 +192,7 @@ describe('GPS recording screen', () => {
       throw new Error(url)
     }))
     mount('/routes/record')
-    await screen.findByRole('heading', { name: 'Record your ride.' })
+    await screen.findByRole('heading', { name: 'Record a ride' })
     expect(geo.watchPosition).not.toHaveBeenCalled()
     fireEvent.change(screen.getByLabelText(/^Track name/), { target: { value: 'Private Saturday ride' } })
     await userEvent.click(screen.getByRole('button', { name: 'Start recording' }))

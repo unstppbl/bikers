@@ -119,3 +119,52 @@ exclude development previews.
 
 This source refresh has not been deployed. Production activation and its
 verification must follow the repository deployment procedure in Operations.
+
+## Compact application layout · 16 November 2026
+
+The owner approved a compact direction across the application in issue
+[#37](https://github.com/unstppbl/bikers/issues/37). The charcoal/lime palette,
+local Geist font and Phosphor icons remain the visual foundation. Page titles
+now name their screen or task in English, Russian and Kazakh.
+
+The shared header, navigation, page gutters, forms and content panels use less
+space. Navigation switches to the mobile drawer at 900px so the sidebar does
+not consume the useful width of a landscape phone. Inputs retain 16px text;
+touch controls, keyboard focus and reduced motion remain supported. Ride
+discovery starts with filters and compact rows; its instructions and privacy
+guidance are available in an inline disclosure below the results. Date filters
+expand inline and open automatically when dates are present in the URL.
+
+Map is a viewport workspace with a scrolling results/details pane beside the
+canvas on desktop. Phones provide Map/List controls and one details region.
+Search stays visible, while city/category filters expand in a bounded panel.
+On mobile, My suggestions is available inside Filters. Short screens can scroll
+the workspace and use a horizontal map control rail, preserving enough canvas
+for controls and attribution.
+
+MapLibre clusters nearby places. Accessible cluster buttons expand the map;
+places at identical coordinates remain individually selectable in a chooser.
+The selected place has its own marker, including when opened from outside the
+current result page. Source revisions guard pending cluster requests, marker
+updates preserve keyboard identity, and offscreen markers leave the tab order.
+Map sizing has one owner; canvas, controls, chooser, status and attribution have
+separate reserved regions. Loading/error text sits below the map viewport.
+
+This change affects frontend presentation and map interaction only. Server
+permissions, public/private projections, stored records and the release
+workflow continue to use their existing contracts.
+
+Validation: `make check-web` passes all 254 tests, TypeScript, ESLint and the
+production/PWA build. New regressions cover clustering, stale expansion
+requests, coincident points, off-page selections, category corrections,
+keyboard identity and focus restoration, and the mobile Map/List flow.
+Existing authorization, paging/history and public/private projection coverage
+continues to pass.
+
+Browser review used a local read-only fixture server with populated ride,
+club, route, garage, settings and place views and the public self-hosted
+basemap. Checks covered English, Russian and Kazakh, 320px/390px phones,
+844×390 landscape selection and scrolling, and a 1280×800 desktop map. The
+mobile drawer opens with Close focused and returns focus on Escape. These
+Chromium viewport checks do not establish physical iOS/Safari acceptance.
+No production records, accounts or runtime configuration were changed.

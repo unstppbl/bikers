@@ -109,7 +109,7 @@ describe('club and ride inbox notifications', () => {
     await screen.findByRole('heading', { name: 'New club membership request' })
     expect(screen.queryByRole('link', { name: 'Open club' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Open ride' })).not.toBeInTheDocument()
-    expect(screen.getAllByRole('heading', { name: 'Inbox' })).toHaveLength(2)
+    expect(screen.getAllByRole('heading', { name: 'Inbox', level: 2 })).toHaveLength(2)
     expect(screen.getAllByRole('button', { name: 'Mark as read' })).toHaveLength(notices.length)
   })
 })

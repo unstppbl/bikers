@@ -53,6 +53,10 @@ describe('ride discovery filters and personal views', () => {
     mount()
     await screen.findByText('A discovery ride')
     const initialReads = fetch.mock.calls.filter(([url]) => isRideList(url)).length
+    const dateFilters = screen.getByLabelText('From date').closest('details')!
+    expect(dateFilters).not.toHaveAttribute('open')
+    await userEvent.click(screen.getByText('From date / To date'))
+    expect(dateFilters).toHaveAttribute('open')
     fireEvent.change(screen.getByLabelText('From date'), { target: { value: '2027-01-31' } })
     fireEvent.change(screen.getByLabelText('To date'), { target: { value: '2027-01-01' } })
     await userEvent.click(screen.getByRole('button', { name: 'Apply filters' }))
@@ -78,6 +82,7 @@ describe('ride discovery filters and personal views', () => {
     mount('/?q=touring&city=Almaty&from=2026-12-01&to=2026-12-31&cursor=original-page-two')
     await screen.findByText('A filtered ride')
     expect(screen.getByLabelText('City')).toHaveValue('Almaty')
+    expect(screen.getByLabelText('From date').closest('details')).toHaveAttribute('open')
     expect(screen.getByLabelText('From date')).toHaveValue('2026-12-01')
     expect(screen.getByLabelText('To date')).toHaveValue('2026-12-31')
     expect(screen.getByLabelText('Search rides')).toHaveValue('touring')

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowUpRightIcon as ArrowUpRight, CheckIcon as Check, MapPinIcon as MapPin, MagnifyingGlassIcon as Search, SlidersHorizontalIcon as SlidersHorizontal } from '@phosphor-icons/react'
+import { ArrowUpRightIcon as ArrowUpRight, CheckIcon as Check, CalendarDotsIcon, MapPinIcon as MapPin, MagnifyingGlassIcon as Search, SlidersHorizontalIcon as SlidersHorizontal } from '@phosphor-icons/react'
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { publicRide, request } from '../api'
 import { cityLabel } from '../cities'
@@ -80,7 +80,7 @@ export function RideList({ view }: { view: RideView }) {
   const heading = view === 'discover' ? t('upcoming') : t(view)
   const hasFilters = Object.values(filters).some(Boolean)
   return <section className="ride-list-section" aria-labelledby="rides-heading">
-    <div className="section-header"><div>{view === 'discover' && <span className="eyebrow">{t('browse')}</span>}<h2 id="rides-heading" tabIndex={-1}>{heading}</h2></div>{query.data && <span className="count-pill">{t('ridesOnPage', { count: query.data.rides.length })}</span>}</div>
+    <div className="section-header"><h2 id="rides-heading" tabIndex={-1}>{heading}</h2>{query.data && <span className="count-pill">{t('ridesOnPage', { count: query.data.rides.length })}</span>}</div>
     <RideFilters key={JSON.stringify(filters)} filters={filters} />
     {view === 'past' && <p className="section-intro">{t('pastRidesHint')}</p>}
     {query.isPending ? <Loading /> : query.isError ? <><ErrorNotice error={query.error} retry={() => void query.refetch()} />{cursor && <button type="button" className="text-button" onClick={() => goToCursor([''])}>{t('firstRidePage')}</button>}</> : !query.data.rides.length ? <EmptyState
@@ -119,14 +119,20 @@ function RideFilters({ filters }: { filters: Filters }) {
     apply(empty)
   }
   return <form className="ride-filters" aria-label={t('rideFilters')} onSubmit={submit}>
-    <div className="ride-filter-fields">
+    <div className="ride-filter-main">
       <Field label={t('rideSearch')} type="search" value={draft.q} onChange={(event) => setDraft({ ...draft, q: event.target.value })} maxLength={200} placeholder={t('rideSearchPlaceholder')} />
       <CitySelector value={draft.city} onChange={(city) => setDraft({ ...draft, city })} label={t('city')} placeholder={t('allCities')} hint="" maxLength={160} />
-      <Field label={t('fromDate')} type="date" value={draft.from} onChange={(event) => setDraft({ ...draft, from: event.target.value })} max={draft.to || undefined} />
-      <Field label={t('toDate')} type="date" value={draft.to} onChange={(event) => setDraft({ ...draft, to: event.target.value })} min={draft.from || undefined} />
     </div>
+    <div className="ride-filter-actions"><button type="submit" className="button button-dark"><SlidersHorizontal size={17} />{t('applyFilters')}</button><button type="button" className="text-button" onClick={clear}>{t('clearFilters')}</button></div>
+    <details className="ride-date-filters" open={!!filters.from || !!filters.to || invalidRange}>
+      <summary><CalendarDotsIcon size={16} />{t('fromDate')} / {t('toDate')}</summary>
+      <div className="ride-filter-fields">
+        <Field label={t('fromDate')} type="date" value={draft.from} onChange={(event) => setDraft({ ...draft, from: event.target.value })} max={draft.to || undefined} />
+        <Field label={t('toDate')} type="date" value={draft.to} onChange={(event) => setDraft({ ...draft, to: event.target.value })} min={draft.from || undefined} />
+      </div>
+      <p className="ride-filter-note"><Search size={14} />{t('rideDatesHint')}</p>
+    </details>
     {invalidRange && <ErrorNotice text={t('rideDateRangeInvalid')} />}
-    <div className="ride-filter-actions"><button type="submit" className="button button-dark"><SlidersHorizontal size={17} />{t('applyFilters')}</button><button type="button" className="text-button" onClick={clear}>{t('clearFilters')}</button><span className="ride-filter-note"><Search size={14} />{t('rideDatesHint')}</span></div>
   </form>
 }
 

@@ -174,12 +174,12 @@ describe('public motorcycle catalogue', () => {
     const back = await screen.findByRole('link', { name: 'Back to motorcycles' })
     expect(back).toHaveAttribute('href', '/bikes')
     await userEvent.click(back)
-    await screen.findByRole('heading', { name: 'Motorcycles in the community.' })
+    await screen.findByRole('heading', { name: 'Motorcycles' })
   })
 
   it.each([
-    ['ru', 'Мотоциклы', 'Мотоциклы сообщества.', 'Поиск мотоциклов'],
-    ['kk', 'Мотоциклдер', 'Қауымдастық мотоциклдері.', 'Мотоциклдерді іздеу'],
+    ['ru', 'Мотоциклы', 'Мотоциклы', 'Поиск мотоциклов'],
+    ['kk', 'Мотоциклдер', 'Мотоциклдер', 'Мотоциклдерді іздеу'],
   ])('localizes the public navigation and catalogue in %s', async (locale, navigation, title, search) => {
     localStorage.setItem('bikerskz.locale', locale)
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
@@ -205,7 +205,7 @@ describe('public motorcycle catalogue', () => {
       throw new Error(`Unexpected request ${url}`)
     }))
     const client = mount(`/garage/${owned.id}${operation === 'edit' ? '/edit' : ''}`)
-    await screen.findByRole('heading', { name: operation === 'edit' ? 'Your motorcycle details.' : 'CB500X' })
+    await screen.findByRole('heading', { name: operation === 'edit' ? 'Edit motorcycle' : 'CB500X' })
     const key = ['public-bikes', rider.id, '', '']
     client.setQueryDefaults(['public-bikes'], { staleTime: Infinity, gcTime: Infinity })
     client.setQueryData(key, { bikes: [bike(1, 'CB500X')], next_cursor: '' })

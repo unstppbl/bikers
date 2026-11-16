@@ -90,7 +90,7 @@ function viewport() {
 describe('ride room scroll ownership', () => {
   it('keeps normal route entry at the top when chat mounts and its delayed history arrives', async () => {
     const f = fixture('/')
-    await screen.findByRole('heading', { name: 'The road is open.' })
+    await screen.findByRole('heading', { name: 'Rides' })
     pageTop = 500
     await userEvent.click(screen.getByRole('button', { name: 'Open ride A' }))
     await screen.findByRole('heading', { name: 'Ride A plan' })

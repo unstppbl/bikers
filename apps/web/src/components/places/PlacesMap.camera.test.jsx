@@ -23,7 +23,13 @@ vi.mock('maplibre-gl', async () => {
         if (options.maxBounds) this.transform.setMaxBounds(new LngLatBounds(options.maxBounds))
         this.canvas = document.createElement('canvas')
         state.maps.push(this)
+        queueMicrotask(() => this.fire('load'))
       }
+      addSource(_id, options) { this.source = { data: options.data, setData: async (data) => { this.source.data = data } } }
+      getSource() { return this.source }
+      addLayer() {}
+      isSourceLoaded() { return !!this.source }
+      querySourceFeatures() { return this.source?.data.features ?? [] }
       addControl() {}
       getCanvas() { return this.canvas }
       getBounds() { return state.viewport ?? this.transform.getBounds() }
@@ -69,7 +75,7 @@ describe('Places map uses the actual Mercator camera', () => {
     const east = map.transform.locationToScreenPoint(new LngLat(...corners[1]))
     expect(west.x < 0 || east.x > 390).toBe(true)
   })
-  it('keeps the selected marker and its camera center after locale recreation', () => {
+  it('keeps the selected marker and its camera center after locale recreation', async () => {
     render(<I18nProvider><PlacesMap places={places} selected="p0" archiveUrl="/map-data/kz.pmtiles" onSelect={() => {}} onViewport={() => {}} /><LocaleControl /></I18nProvider>)
     expect(state.maps[0].transform.center.lng).toBeCloseTo(region.west)
     expect(state.maps[0].transform.center.lat).toBeCloseTo(region.south)
@@ -77,7 +83,7 @@ describe('Places map uses the actual Mercator camera', () => {
     expect(state.maps).toHaveLength(2)
     expect(state.maps[1].transform.center.lng).toBeCloseTo(region.west)
     expect(state.maps[1].transform.center.lat).toBeCloseTo(region.south)
-    expect(screen.getByRole('button', { name: 'Выбрать Stop 0, Заправки' })).toHaveAttribute('aria-pressed', 'true')
+    expect(await screen.findByRole('button', { name: 'Выбрать Stop 0, Заправки' })).toHaveAttribute('aria-pressed', 'true')
   })
   it('intersects an expanded viewport with coverage and invalidates an outside viewport', () => {
     const onViewport = vi.fn()

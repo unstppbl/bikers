@@ -1,20 +1,33 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { I18nProvider, useI18n } from '../../i18n'
 import type { Place } from '../../types'
 import PlacesMap from './PlacesMap'
-const state = vi.hoisted(() => ({ maps: [] as { handlers: Record<string, (() => void)[]>; remove: ReturnType<typeof vi.fn>; easeTo: ReturnType<typeof vi.fn>; fitBounds: ReturnType<typeof vi.fn> }[], removed: 0 }))
+interface TestFeature { geometry: { type: string; coordinates: number[] }; properties: Record<string, unknown> }
+interface TestSource { data: { features: TestFeature[] }; setData: ReturnType<typeof vi.fn>; getClusterExpansionZoom: ReturnType<typeof vi.fn>; getClusterLeaves: ReturnType<typeof vi.fn> }
+const state = vi.hoisted(() => ({ maps: [] as { handlers: Record<string, (() => void)[]>; remove: ReturnType<typeof vi.fn>; easeTo: ReturnType<typeof vi.fn>; fitBounds: ReturnType<typeof vi.fn>; source?: TestSource; options?: object }[], removed: 0, features: undefined as TestFeature[] | undefined, expansion: 10 }))
 vi.mock('../maps/map-browser-runtime', () => ({ initializeMapRuntime: vi.fn(), retryMapArchive: vi.fn() }))
 vi.mock('../maps/map-style', () => ({ mapStyle: () => ({ version: 8, sources: {}, layers: [] }) }))
 vi.mock('maplibre-gl', () => ({
   Map: class {
     handlers: Record<string, (() => void)[]> = {}
     remove = vi.fn(); easeTo = vi.fn(); fitBounds = vi.fn()
+    source?: TestSource
+    options?: object
     constructor() { state.maps.push(this) }
+    addSource(_id: string, options: { data: { features: TestFeature[] } }) {
+      this.options = options
+      this.source = { data: options.data, setData: vi.fn(async (data: { features: TestFeature[] }) => { this.source!.data = data }), getClusterExpansionZoom: vi.fn(async () => state.expansion), getClusterLeaves: vi.fn(async () => this.source!.data.features) }
+    }
+    getSource() { return this.source }
+    addLayer() {}
+    isSourceLoaded() { return !!this.source }
+    querySourceFeatures() { return state.features ?? this.source?.data.features ?? [] }
+    getMaxZoom() { return 20 }
     addControl() {}
     getCanvas() { return document.createElement('canvas') }
-    on(name: string, fn: () => void) { (this.handlers[name] ??= []).push(fn) }
-    getBounds() { return { getWest: () => 76, getSouth: () => 43, getEast: () => 77, getNorth: () => 44 } }
+    on(name: string, fn: () => void) { (this.handlers[name] ??= []).push(fn); if (name === 'load') queueMicrotask(fn) }
+    getBounds() { return { getWest: () => 76, getSouth: () => 43, getEast: () => 77, getNorth: () => 44, contains: (point: number[]) => point[0] >= 76 && point[0] <= 77 && point[1] >= 43 && point[1] <= 44 } }
     resize() {} zoomIn() {} zoomOut() {}
   },
   AttributionControl: class {},
@@ -29,6 +42,7 @@ vi.mock('maplibre-gl', () => ({
 }))
 const places: Place[] = Array.from({ length: 60 }, (_, i) => ({ id: 'p-' + i, name: 'Workshop ' + i, category: 'workshop', lat: 43.2, lon: 76.9, city: '', address: '', description: '', website: '', phone: '', opening_hours: '', source: 'community', source_url: '', updated_at: '2026-11-05T00:00:00Z', version: 1, status: 'published' }))
 function LocaleControl() { const { setLocale } = useI18n(); return <button onClick={() => setLocale('ru')}>Use Russian</button> }
+beforeEach(() => { state.maps = []; state.features = undefined; state.expansion = 10; state.removed = 0 })
 describe('Places map lifecycle', () => {
   it('supports arbitrary result markers, keyboard buttons, selection and full cleanup', async () => {
     state.maps = []; state.removed = 0
@@ -40,9 +54,9 @@ describe('Places map lifecycle', () => {
     expect(onSelect).toHaveBeenCalledWith('p-47')
     rerender(<I18nProvider><PlacesMap places={places} selected="p-47" archiveUrl="/map-data/kz.pmtiles" onSelect={onSelect} onViewport={onViewport} /></I18nProvider>)
     expect(marker).toHaveFocus()
-    expect(marker).toHaveAttribute('aria-pressed', 'true')
+    await waitFor(() => expect(marker).toHaveAttribute('aria-pressed', 'true'))
     expect(state.maps[0].easeTo).toHaveBeenCalledWith({ center: [76.9, 43.2], duration: 0 })
-    act(() => state.maps[0].handlers.load.forEach((fn) => fn()))
+    act(() => state.maps[0].handlers.moveend.forEach((fn) => fn()))
     expect(onViewport).toHaveBeenCalledWith({ west: 76, south: 43, east: 77, north: 44 })
     unmount()
     expect(state.removed).toBe(60)
@@ -64,4 +78,67 @@ describe('Places map lifecycle', () => {
     expect(state.maps[1].fitBounds).toHaveBeenLastCalledWith([[70, 50], [72, 52]], { duration: 0, padding: 24 })
   })
 
+})
+
+const cluster = { geometry: { type: 'Point', coordinates: [76.9, 43.2] }, properties: { cluster: true, cluster_id: 7, point_count: 60 } }
+describe('places clustering', () => {
+  it('groups dense results into one keyboard button, deduplicates source tiles and expands the cluster', async () => {
+    state.features = [cluster, cluster]
+    render(<I18nProvider><PlacesMap places={places} archiveUrl="/map-data/kz.pmtiles" onSelect={vi.fn()} onViewport={vi.fn()} /></I18nProvider>)
+    const marker = await screen.findByRole('button', { name: '60 places. Zoom in' })
+    expect(screen.queryByRole('button', { name: /^Select Workshop/ })).not.toBeInTheDocument()
+    expect(state.maps[0].options).toMatchObject({ cluster: true, clusterRadius: 52 })
+    marker.focus(); fireEvent.click(marker)
+    await waitFor(() => expect(state.maps[0].easeTo).toHaveBeenCalledWith({ center: [76.9, 43.2], zoom: 10, duration: 0 }))
+  })
+  it('updates reused cluster IDs and lets riders choose places sharing exact coordinates', async () => {
+    state.features = [cluster]; state.expansion = 21
+    const select = vi.fn()
+    render(<I18nProvider><PlacesMap places={places} archiveUrl="/map-data/kz.pmtiles" onSelect={select} onViewport={vi.fn()} /></I18nProvider>)
+    await screen.findByRole('button', { name: '60 places. Zoom in' })
+    state.features = [{ ...cluster, geometry: { type: 'Point', coordinates: [76.8, 43.3] }, properties: { ...cluster.properties, point_count: 3 } }]
+    act(() => state.maps[0].handlers.render.forEach((fn) => fn()))
+    expect(screen.queryByRole('button', { name: '60 places. Zoom in' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '3 places. Zoom in' }))
+    const item = await screen.findByRole('button', { name: 'Workshop 47' })
+    expect(state.maps[0].source!.getClusterLeaves).toHaveBeenCalledWith(7, 3, 0)
+    fireEvent.click(item)
+    expect(select).toHaveBeenCalledWith('p-47')
+    expect(screen.queryByRole('group', { name: 'Choose a place' })).not.toBeInTheDocument()
+  })
+  it('keeps selected off-page places visible and excludes buffered features outside the viewport', async () => {
+    state.features = [{ geometry: { type: 'Point', coordinates: [80, 50] }, properties: { id: 'p-0' } }]
+    render(<I18nProvider><PlacesMap places={places} selected="off-page" selectedPlace={{ ...places[0], id: 'off-page', name: 'Selected off-page stop' }} archiveUrl="/map-data/kz.pmtiles" onSelect={vi.fn()} onViewport={vi.fn()} /></I18nProvider>)
+    expect(await screen.findByRole('button', { name: 'Select Selected off-page stop, Workshops' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.queryByRole('button', { name: 'Select Workshop 0, Workshops' })).not.toBeInTheDocument()
+  })
+})
+
+describe('cluster request lifecycle', () => {
+  it('ignores a cluster expansion that finishes after the result source changes', async () => {
+    state.features = [cluster]
+    const { rerender } = render(<I18nProvider><PlacesMap places={places} archiveUrl="/map-data/kz.pmtiles" onSelect={vi.fn()} onViewport={vi.fn()} /></I18nProvider>)
+    const button = await screen.findByRole('button', { name: '60 places. Zoom in' })
+    let resolve: (zoom: number) => void = () => {}
+    state.maps[0].source!.getClusterExpansionZoom.mockImplementation(() => new Promise<number>((done) => { resolve = done }))
+    fireEvent.click(button)
+    rerender(<I18nProvider><PlacesMap places={places.slice(0, 2)} archiveUrl="/map-data/kz.pmtiles" onSelect={vi.fn()} onViewport={vi.fn()} /></I18nProvider>)
+    await act(async () => resolve(12))
+    expect(state.maps[0].easeTo).not.toHaveBeenCalled()
+    expect(state.maps[0].source!.setData).toHaveBeenCalled()
+  })
+})
+
+describe('place marker corrections', () => {
+  it('refreshes a corrected category icon while preserving the marker button and focus', async () => {
+    const { rerender } = render(<I18nProvider><PlacesMap places={[places[0]]} archiveUrl="/map-data/kz.pmtiles" onSelect={vi.fn()} onViewport={vi.fn()} /></I18nProvider>)
+    const marker = await screen.findByRole('button', { name: 'Select Workshop 0, Workshops' })
+    const oldIcon = marker.querySelector('svg')!.innerHTML
+    marker.focus()
+    rerender(<I18nProvider><PlacesMap places={[{ ...places[0], category: 'fuel' }]} archiveUrl="/map-data/kz.pmtiles" onSelect={vi.fn()} onViewport={vi.fn()} /></I18nProvider>)
+    await waitFor(() => expect(marker).toHaveAttribute('aria-label', 'Select Workshop 0, Fuel'))
+    expect(screen.getByRole('button', { name: 'Select Workshop 0, Fuel' })).toBe(marker)
+    expect(marker).toHaveFocus()
+    expect(marker.querySelector('svg')!.innerHTML).not.toBe(oldIcon)
+  })
 })

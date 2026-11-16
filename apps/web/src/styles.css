@@ -94,7 +94,7 @@ svg {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 8px;
   min-height: 44px;
   padding: 8px 12px;
   font-size: var(--text-base);
@@ -105,6 +105,9 @@ svg {
   transition: background-color var(--motion-fast) var(--motion-ease),border-color var(--motion-fast) var(--motion-ease),transform var(--motion-fast) var(--motion-ease);
   text-align: center;
   font: var(--type-button-md);
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .button:hover:not(:disabled) {
@@ -186,22 +189,23 @@ svg {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 24px;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
 }
 
 .section-header .eyebrow {
   font-size: var(--text-xs);
   letter-spacing: 0;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 .section-header h2 {
-  font-size: 24px;
-  line-height: 32px;
-  letter-spacing: -.5px;
+  font-size: 20px;
+  line-height: 28px;
+  letter-spacing: 0;
   font-weight: 600;
-  font: var(--type-heading-5);
+  font: var(--type-heading-6);
 }
 
 .count-pill {
@@ -224,9 +228,9 @@ svg {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: 0 15px;
-  height: 48px;
-  margin-bottom: 17px;
+  padding: 0 12px;
+  height: 44px;
+  margin-bottom: 16px;
   color: var(--text);
 }
 
@@ -298,10 +302,10 @@ svg {
 .empty-state {
   border: 1px solid var(--border);
   background: var(--surface);
-  border-radius: var(--radius-lg);
-  padding: 48px 24px;
+  border-radius: var(--radius-md);
+  padding: 32px 24px;
   text-align: center;
-  min-height: 280px;
+  min-height: 200px;
   display: flex;
   align-items: center;
   flex-direction: column;
@@ -322,18 +326,18 @@ svg {
 }
 
 .empty-state h3 {
-  font-size: 24px;
-  line-height: 32px;
+  font-size: 20px;
+  line-height: 28px;
   font-weight: 600;
-  letter-spacing: -.5px;
-  font: var(--type-heading-5);
+  letter-spacing: 0;
+  font: var(--type-heading-6);
 }
 
 .empty-state p {
   font-size: var(--text-sm);
   color: var(--text-muted);
   max-width: 420px;
-  margin: 12px 0 24px;
+  margin: 8px 0 16px;
   line-height: 1.5;
 }
 
@@ -349,11 +353,13 @@ svg {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
+  gap: 8px;
   line-height: 1.5;
   font-size: var(--text-sm);
   font-weight: 600;
   min-height: 44px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .text-button:hover:not(:disabled) {
@@ -401,10 +407,10 @@ svg {
   color: var(--danger);
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  padding: 13px 15px;
+  gap: 8px;
+  padding: 12px 16px;
   font-size: var(--text-sm);
-  line-height: 1.6;
+  line-height: 1.5;
   border-radius: var(--radius-sm);
   margin: 16px 0;
   overflow-wrap: anywhere;
@@ -461,10 +467,11 @@ svg {
 .back-link {
   display: inline-flex;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
   color: var(--text);
   font-size: var(--text-sm);
-  margin-bottom: 28px;
+  margin-bottom: 12px;
+  min-height: 44px;
 }
 
 .back-link:hover {
@@ -483,11 +490,11 @@ svg {
 }
 
 .auth-intro {
-  padding: 48px;
+  padding: 32px;
   background: var(--chrome);
   color: var(--text);
   position: relative;
-  min-height: 575px;
+  min-height: 400px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -499,19 +506,20 @@ svg {
 }
 
 .auth-intro h1 {
-  font-size: 48px;
+  font-size: 36px;
   font-weight: 600;
-  line-height: 1.12;
-  letter-spacing: -2.5px;
-  margin-top: 28px;
+  line-height: 40px;
+  letter-spacing: -1px;
+  margin-top: 16px;
   position: relative;
   z-index: 1;
+  font: var(--type-heading-3);
 }
 
 .auth-intro>p {
   font-size: var(--text-sm);
   color: var(--text-muted);
-  margin-top: 22px;
+  margin-top: 16px;
   max-width: 290px;
   z-index: 1;
 }
@@ -578,7 +586,7 @@ svg {
 
 .auth-card {
   background: var(--surface);
-  padding: 50px 42px;
+  padding: 32px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -588,34 +596,35 @@ svg {
   background: var(--accent-surface);
   color: var(--accent);
   border: 1px solid var(--accent-border);
-  border-radius: var(--radius-lg);
-  width: 55px;
-  height: 55px;
+  border-radius: var(--radius-md);
+  width: 48px;
+  height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 26px;
+  margin-bottom: 16px;
 }
 
 .auth-card h2 {
-  font-size: 30px;
-  letter-spacing: -1.2px;
-  line-height: 36px;
+  font-size: 24px;
+  letter-spacing: 0;
+  line-height: 32px;
   font-weight: 600;
+  font: var(--type-heading-5);
 }
 
 .auth-card>.muted {
   font-size: var(--text-sm);
-  line-height: 1.7;
-  margin-top: 13px;
-  margin-bottom: 28px;
+  line-height: 1.5;
+  margin-top: 8px;
+  margin-bottom: 24px;
 }
 
 .field {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
   min-width: 0;
 }
 
@@ -625,6 +634,7 @@ svg {
   font-weight: 600;
   color: var(--text);
   font: var(--type-title-4);
+  overflow-wrap: anywhere;
 }
 
 .field-label>span {
@@ -635,8 +645,8 @@ svg {
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
   background: var(--canvas);
-  min-height: 48px;
-  padding: 12px;
+  min-height: 44px;
+  padding: 8px 12px;
   font-size: var(--text-control);
   width: 100%;
   min-width: 0;
@@ -652,7 +662,7 @@ svg {
 
 .field textarea {
   resize: vertical;
-  min-height: 90px;
+  min-height: 96px;
 }
 
 .field input:focus,.field textarea:focus {
@@ -676,8 +686,8 @@ svg {
 
 .auth-secondary {
   display: grid;
-  gap: 17px;
-  margin-top: 22px;
+  gap: 16px;
+  margin-top: 16px;
 }
 
 .auth-secondary .text-button {
@@ -686,17 +696,17 @@ svg {
 
 .form-footnote {
   border-top: 1px solid var(--border);
-  padding-top: 20px;
-  margin-top: 33px;
+  padding-top: 16px;
+  margin-top: 24px;
   display: flex;
-  gap: 9px;
+  gap: 8px;
   align-items: flex-start;
   color: var(--text-muted);
 }
 
 .form-footnote p {
   font-size: var(--text-xs);
-  line-height: 1.75;
+  line-height: 1.5;
 }
 
 .form-footnote svg {
@@ -708,48 +718,50 @@ svg {
 }
 
 .page-heading {
-  margin-bottom: 32px;
+  margin-bottom: 24px;
   max-width: 750px;
 }
 
 .page-heading h1 {
-  font-size: var(--text-4xl);
+  font-size: 24px;
   font-weight: 600;
-  line-height: 40px;
-  letter-spacing: -1px;
-  margin-top: 12px;
-  font: var(--type-heading-3);
+  line-height: 32px;
+  letter-spacing: -.4px;
+  margin-top: 4px;
+  font: var(--type-heading-5);
+  overflow-wrap: anywhere;
 }
 
 .page-heading>p {
   font-size: var(--text-sm);
   color: var(--text-muted);
-  line-height: 24px;
+  line-height: 20px;
   max-width: 590px;
-  margin-top: 16px;
-  font: var(--type-body-3);
+  margin-top: 8px;
+  font: var(--type-body-6);
 }
 
 .surface {
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: var(--surface);
+  min-width: 0;
 }
 
 .profile-form {
-  padding: 33px;
+  padding: 24px;
 }
 
 .form-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 22px;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 16px;
   min-width: 0;
 }
 
 .language-fieldset {
   border: 0;
-  margin: 2px 0 27px;
+  margin: 0 0 16px;
   padding: 0;
 }
 
@@ -762,22 +774,22 @@ svg {
 
 .language-options {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
 .language-options label {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--surface-raised);
-  padding: 11px 14px;
+  padding: 8px 12px;
   font-size: var(--text-sm);
   color: var(--text);
   cursor: pointer;
-  min-height: 46px;
+  min-height: 44px;
 }
 
 .language-options label:has(input:checked) {
@@ -797,21 +809,22 @@ svg {
   background: var(--info-surface);
   color: var(--info);
   border-radius: var(--radius-sm);
-  padding: 17px;
-  margin-bottom: 25px;
+  padding: 16px;
+  margin-bottom: 16px;
 }
 
 .inline-note p {
   font-size: var(--text-sm);
-  line-height: 1.7;
+  line-height: 1.5;
   max-width: 570px;
 }
 
 .form-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 13px;
-  margin-top: 28px;
+  gap: 12px;
+  margin-top: 24px;
+  flex-wrap: wrap;
 }
 
 .success-message {
@@ -828,16 +841,16 @@ svg {
 }
 
 .form-section {
-  padding: 31px 34px;
-  margin-bottom: 23px;
+  padding: 24px;
+  margin-bottom: 16px;
 }
 
 .form-section-heading {
   display: flex;
   align-items: flex-start;
-  gap: 16px;
-  margin-bottom: 29px;
-  padding-bottom: 25px;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -851,15 +864,17 @@ svg {
 
 .form-section-heading h2 {
   font-size: 18px;
-  letter-spacing: -.4px;
-  line-height: 1.4;
+  letter-spacing: 0;
+  line-height: 28px;
+  font: var(--type-title-2);
 }
 
 .form-section-heading p {
   font-size: var(--text-sm);
   color: var(--text-muted);
-  margin-top: 6px;
+  margin-top: 4px;
   max-width: 520px;
+  line-height: 1.5;
 }
 
 .form-section-heading>svg {
@@ -876,36 +891,39 @@ svg {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 20px;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
 .detail-heading h1 {
-  font: var(--type-heading-3);
-  line-height: 40px;
-  letter-spacing: -1.8px;
+  font: var(--type-heading-4);
+  line-height: 36px;
+  letter-spacing: -.5px;
   font-weight: 600;
-  margin: 13px 0 19px;
+  margin: 4px 0 12px;
   overflow-wrap: anywhere;
+  font-size: 30px;
 }
 
 .detail-meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 18px;
+  gap: 12px;
   color: var(--text);
   font-size: var(--text-sm);
+  line-height: 1.5;
 }
 
 .detail-meta>span {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
 }
 
 .detail-heading .button {
   flex-shrink: 0;
-  min-height: 41px;
+  min-height: 44px;
   font-size: var(--text-sm);
 }
 
@@ -913,8 +931,8 @@ svg {
   font-size: var(--text-sm);
   color: var(--text-muted);
   max-width: 800px;
-  margin: 24px 0 33px;
-  line-height: 1.85;
+  margin: 16px 0 24px;
+  line-height: 1.5;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -922,39 +940,44 @@ svg {
 .detail-grid {
   display: grid;
   grid-template-columns: minmax(0,1.05fr) minmax(0,.95fr);
-  gap: 24px;
+  gap: 16px;
   align-items: start;
-  margin-bottom: 25px;
+  margin-bottom: 16px;
 }
 
 .plan-card,.participants-card {
-  padding: 26px;
+  padding: 24px;
 }
 
 .panel-title {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 24px;
+  gap: 8px;
+  margin-bottom: 16px;
   min-width: 0;
+  flex-wrap: wrap;
 }
 
 .panel-title h2 {
   font-size: 18px;
   line-height: 28px;
-  letter-spacing: -.5px;
+  letter-spacing: 0;
   font-weight: 600;
+  font: var(--type-title-2);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .panel-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 37px;
-  width: 37px;
-  background: var(--surface-raised);
+  height: 32px;
+  width: 32px;
+  background: transparent;
   border-radius: var(--radius-md);
-  color: var(--accent);
+  color: var(--text-muted);
+  flex-shrink: 0;
 }
 
 .panel-title .count-pill {
@@ -964,22 +987,22 @@ svg {
 .plan-details {
   margin: 0;
   display: grid;
-  gap: 20px;
+  gap: 12px;
 }
 
 .plan-details>div {
   display: grid;
-  grid-template-columns: 125px minmax(0,1fr);
-  gap: 15px;
+  grid-template-columns: minmax(96px,.4fr) minmax(0,1fr);
+  gap: 12px;
 }
 
 .plan-details dt {
   display: flex;
-  gap: 7px;
+  gap: 8px;
   align-items: flex-start;
   font-size: var(--text-sm);
   color: var(--text);
-  line-height: 1.7;
+  line-height: 1.5;
 }
 
 .plan-details dt svg {
@@ -991,7 +1014,7 @@ svg {
   margin: 0;
   color: var(--text);
   font-size: var(--text-sm);
-  line-height: 1.7;
+  line-height: 1.5;
   font-weight: 500;
   overflow-wrap: anywhere;
 }
@@ -1000,7 +1023,7 @@ svg {
   display: block;
   font-size: var(--text-sm);
   color: var(--text-muted);
-  line-height: 1.7;
+  line-height: 1.5;
   font-weight: 400;
   margin-top: 4px;
 }
@@ -1021,15 +1044,15 @@ svg {
 }
 
 .expectations {
-  margin: 25px 0 0;
-  padding: 20px 0 0;
+  margin: 16px 0 0;
+  padding: 16px 0 0;
   border-top: 1px solid var(--border);
 }
 
 .expectations h3 {
   font-size: var(--text-sm);
   color: var(--text);
-  margin-bottom: 9px;
+  margin-bottom: 8px;
 }
 
 .expectations p {
@@ -1040,9 +1063,9 @@ svg {
 }
 
 .plan-card>.button {
-  margin-top: 24px;
+  margin-top: 16px;
   font-size: var(--text-sm);
-  min-height: 39px;
+  min-height: 44px;
 }
 
 .participant {
@@ -1099,7 +1122,7 @@ svg {
 
 .request-list {
   border-bottom: 1px solid var(--border);
-  padding-bottom: 18px;
+  padding-bottom: 16px;
   margin-bottom: 12px;
 }
 
@@ -1123,8 +1146,8 @@ svg {
 .small-empty {
   font-size: var(--text-sm);
   color: var(--text-muted);
-  line-height: 1.8;
-  margin: 13px 0;
+  line-height: 1.5;
+  margin: 12px 0;
 }
 
 .remove-button {
@@ -1156,52 +1179,53 @@ svg {
 .preview-grid {
   display: grid;
   grid-template-columns: minmax(0,1fr) 270px;
-  gap: 35px;
+  gap: 24px;
   align-items: center;
 }
 
 .access-card {
   text-align: center;
-  padding: 47px 45px;
+  padding: 24px;
   display: flex;
   align-items: center;
   flex-direction: column;
 }
 
 .access-icon {
-  height: 70px;
-  width: 70px;
+  height: 48px;
+  width: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
   background: var(--surface);
   color: var(--text);
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .access-card h2 {
-  font-size: 24px;
-  letter-spacing: -.9px;
-  line-height: 32px;
+  font-size: 20px;
+  letter-spacing: 0;
+  line-height: 28px;
   font-weight: 600;
+  font: var(--type-heading-6);
 }
 
 .access-card p {
   font-size: var(--text-sm);
   color: var(--text-muted);
   max-width: 420px;
-  line-height: 1.85;
-  margin: 15px 0 27px;
+  line-height: 1.5;
+  margin: 8px 0 16px;
 }
 
 .access-footnote {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   font-size: var(--text-xs);
   color: var(--text-muted);
-  margin-top: 23px;
+  margin-top: 16px;
 }
 
 .room-card {
@@ -1209,10 +1233,10 @@ svg {
 }
 
 .room-heading {
-  padding: 24px 27px;
+  padding: 16px 24px;
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 16px;
   justify-content: space-between;
   border-bottom: 1px solid var(--border);
 }
@@ -1224,20 +1248,20 @@ svg {
 .room-heading .panel-title p {
   font-size: var(--text-sm);
   color: var(--text-muted);
-  margin-top: 5px;
+  margin-top: 4px;
 }
 
 .room-panel-icon {
   background: var(--surface-raised);
   color: var(--text);
-  width: 43px;
-  height: 43px;
+  width: 32px;
+  height: 32px;
 }
 
 .room-connection {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   font-size: var(--text-xs);
   color: var(--text-muted);
 }
@@ -1251,7 +1275,7 @@ svg {
 }
 
 .messages {
-  padding: 28px;
+  padding: 24px;
   max-height: 530px;
   min-height: 220px;
   overflow-y: auto;
@@ -1264,7 +1288,7 @@ svg {
   display: flex;
   gap: 12px;
   align-items: flex-start;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .message:last-child {
@@ -1286,9 +1310,9 @@ svg {
 .message-meta {
   display: flex;
   align-items: center;
-  gap: 11px;
+  gap: 8px;
   flex-wrap: wrap;
-  margin-bottom: 7px;
+  margin-bottom: 4px;
 }
 
 .message-meta strong {
@@ -1305,12 +1329,12 @@ svg {
 
 .message-content>p {
   font-size: var(--text-base);
-  line-height: 1.8;
+  line-height: 1.5;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   background: var(--surface-raised);
   color: var(--text);
-  padding: 13px 16px;
+  padding: 8px 12px;
   border-radius: 0 var(--radius-md) var(--radius-md) var(--radius-md);
 }
 
@@ -1330,7 +1354,7 @@ svg {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 33px 15px;
+  padding: 24px 16px;
   color: var(--text-muted);
 }
 
@@ -1345,47 +1369,47 @@ svg {
 .chat-empty p {
   max-width: 380px;
   font-size: var(--text-sm);
-  line-height: 1.8;
+  line-height: 1.5;
   color: var(--text-muted);
 }
 
 .message-composer {
   display: flex;
-  gap: 14px;
+  gap: 12px;
   align-items: flex-end;
-  padding: 19px 27px;
+  padding: 16px 24px;
   border-top: 1px solid var(--border);
   background: var(--surface-raised);
 }
 
 .message-composer textarea {
   resize: vertical;
-  min-height: 54px;
+  min-height: 48px;
   max-height: 190px;
   min-width: 0;
   flex: 1;
   background: var(--surface-raised);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: 13px 15px;
+  padding: 8px 12px;
   font-size: var(--text-control);
-  line-height: 1.6;
+  line-height: 1.5;
 }
 
 .send-button {
-  width: 47px;
-  height: 47px;
-  min-height: 47px;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
   padding: 12px;
-  margin-bottom: 3px;
+  margin-bottom: 0;
 }
 
 .room-read-only {
   border-top: 1px solid var(--border);
-  padding: 18px 27px;
+  padding: 16px 24px;
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
   font-size: var(--text-sm);
   color: var(--text);
   background: var(--surface-raised);
@@ -1394,7 +1418,8 @@ svg {
 .ride-lower-actions {
   display: flex;
   justify-content: flex-end;
-  padding-top: 27px;
+  padding-top: 16px;
+  flex-wrap: wrap;
 }
 
 .ride-lower-actions .text-button {
@@ -1409,38 +1434,38 @@ svg {
 @media(max-width:1200px) {
 
   .auth-intro {
-    padding: 35px;
+    padding: 32px;
   }
 
   .auth-intro h1 {
-    font-size: 36px;
-    line-height: 40px;
+    font-size: 30px;
+    line-height: 36px;
   }
 
   .auth-card {
-    padding: 38px 30px;
+    padding: 16px;
   }
 
   .detail-grid {
-    gap: 18px;
+    gap: 16px;
   }
 
   .plan-card,.participants-card {
-    padding: 22px;
+    padding: 16px;
   }
 
   .plan-details>div {
-    grid-template-columns: 100px minmax(0,1fr);
-    gap: 10px;
+    grid-template-columns: minmax(96px,.4fr) minmax(0,1fr);
+    gap: 12px;
   }
 
   .preview-grid {
     grid-template-columns: minmax(0,1fr) 230px;
-    gap: 25px;
+    gap: 24px;
   }
 
   .access-card {
-    padding: 38px 28px;
+    padding: 24px;
   }
 }
 
@@ -1459,20 +1484,20 @@ svg {
   }
 
   .auth-intro {
-    min-height: 270px;
-    padding: 33px 37px;
+    min-height: 200px;
+    padding: 32px;
   }
 
   .auth-intro h1 {
-    font-size: 36px;
-    line-height: 40px;
+    font-size: 30px;
+    line-height: 36px;
     max-width: 440px;
-    margin-top: 18px;
+    margin-top: 16px;
   }
 
   .auth-intro>p {
     max-width: 360px;
-    margin-top: 15px;
+    margin-top: 16px;
   }
 
   .auth-art {
@@ -1492,7 +1517,7 @@ svg {
   }
 
   .auth-card {
-    padding: 36px;
+    padding: 16px;
     max-width: none;
   }
 
@@ -1514,7 +1539,7 @@ svg {
   }
 
   .detail-heading>.button {
-    margin-top: 27px;
+    margin-top: 0;
   }
 
   .participants-card {
@@ -1532,18 +1557,18 @@ svg {
   }
 
   .plan-details>div {
-    grid-template-columns: 130px minmax(0,1fr);
+    grid-template-columns: minmax(96px,.4fr) minmax(0,1fr);
   }
 }
 
 @media(max-width:760px) {
 
   .section-header h2 {
-    font-size: 24px;
+    font-size: 20px;
   }
 
   .search-box {
-    height: 46px;
+    height: 44px;
   }
 
   .count-pill {
@@ -1555,21 +1580,21 @@ svg {
   }
 
   .back-link {
-    margin-bottom: 24px;
+    margin-bottom: 12px;
   }
 
   .page-heading h1 {
-    font-size: 36px;
-    letter-spacing: -1.7px;
+    font-size: 24px;
+    letter-spacing: -.4px;
   }
 
   .page-heading>p {
     font-size: var(--text-sm);
-    line-height: 1.85;
+    line-height: 20px;
   }
 
   .page-heading {
-    margin-bottom: 28px;
+    margin-bottom: 24px;
   }
 
   .auth-page {
@@ -1577,8 +1602,8 @@ svg {
   }
 
   .auth-intro {
-    padding: 30px;
-    min-height: 270px;
+    padding: 32px;
+    min-height: 200px;
   }
 
   .auth-intro .eyebrow {
@@ -1586,9 +1611,9 @@ svg {
   }
 
   .auth-intro h1 {
-    font-size: 36px;
-    line-height: 40px;
-    letter-spacing: -1.7px;
+    font-size: 30px;
+    line-height: 36px;
+    letter-spacing: -1px;
     max-width: 340px;
   }
 
@@ -1602,7 +1627,7 @@ svg {
   }
 
   .auth-card {
-    padding: 30px;
+    padding: 16px;
   }
 
   .auth-card h2 {
@@ -1617,15 +1642,15 @@ svg {
   .form-icon {
     width: 48px;
     height: 48px;
-    margin-bottom: 21px;
+    margin-bottom: 16px;
   }
 
   .profile-form {
-    padding: 26px;
+    padding: 16px;
   }
 
   .form-grid {
-    gap: 18px;
+    gap: 16px;
   }
 
   .form-actions {
@@ -1634,10 +1659,12 @@ svg {
 
   .form-actions .button {
     font-size: var(--text-sm);
-  }
+    min-height: 44px;
+    padding: 8px 12px;
+}
 
   .form-section {
-    padding: 27px 25px;
+    padding: 16px;
   }
 
   .form-section-heading {
@@ -1645,8 +1672,8 @@ svg {
   }
 
   .form-section-heading h2 {
-    font-size: 16px;
-    line-height: 24px;
+    font-size: 18px;
+    line-height: 28px;
   }
 
   .form-section-heading p {
@@ -1662,38 +1689,38 @@ svg {
   }
 
   .detail-heading h1 {
-    font-size: 36px;
-    letter-spacing: -1.4px;
+    font-size: 24px;
+    letter-spacing: -.5px;
     margin-bottom: 16px;
   }
 
   .detail-heading>.button {
-    margin-top: 22px;
+    margin-top: 0;
     font-size: var(--text-sm);
   }
 
   .detail-meta {
     gap: 12px;
     font-size: var(--text-sm);
-    line-height: 1.7;
+    line-height: 1.5;
   }
 
   .detail-meta>span {
-    gap: 5px;
+    gap: 8px;
   }
 
   .ride-description {
     font-size: var(--text-sm);
-    margin: 21px 0 27px;
+    margin: 16px 0 24px;
   }
 
   .access-card {
-    padding: 36px 26px;
+    padding: 24px;
   }
 
   .access-card h2 {
-    font-size: 24px;
-    line-height: 32px;
+    font-size: 20px;
+    line-height: 28px;
   }
 
   .access-card p {
@@ -1706,21 +1733,21 @@ svg {
   }
 
   .plan-card,.participants-card {
-    padding: 24px;
+    padding: 16px;
   }
 
   .detail-grid {
-    gap: 20px;
+    gap: 16px;
   }
 
   .plan-details>div {
-    grid-template-columns: 125px minmax(0,1fr);
+    grid-template-columns: minmax(96px,.4fr) minmax(0,1fr);
   }
 
   .room-heading {
-    padding: 22px;
+    padding: 16px;
     align-items: flex-start;
-    gap: 10px;
+    gap: 16px;
     flex-wrap: wrap;
   }
 
@@ -1739,18 +1766,18 @@ svg {
   }
 
   .room-panel-icon {
-    height: 39px;
-    width: 39px;
+    height: 32px;
+    width: 32px;
   }
 
   .messages {
-    padding: 22px;
+    padding: 16px;
     max-height: 490px;
   }
 
   .message-composer {
-    padding: 17px 19px;
-    gap: 10px;
+    padding: 16px;
+    gap: 12px;
   }
 
   .message-content {
@@ -1759,7 +1786,7 @@ svg {
 
   .message-content>p {
     font-size: var(--text-sm);
-    padding: 11px 13px;
+    padding: 8px 12px;
   }
 
   .message-meta {
@@ -1781,12 +1808,12 @@ svg {
   }
 
   .room-read-only {
-    padding: 17px 21px;
+    padding: 16px;
     font-size: var(--text-sm);
   }
 
   .chat-empty {
-    padding: 27px 4px;
+    padding: 24px 16px;
   }
 
   .chat-empty p {
@@ -1802,7 +1829,7 @@ svg {
   }
 
   .inline-note {
-    padding: 15px;
+    padding: 16px;
   }
 }
 
@@ -1818,7 +1845,7 @@ svg {
   }
 
   .section-header {
-    gap: 10px;
+    gap: 12px;
   }
 
   .count-pill {
@@ -1841,12 +1868,12 @@ svg {
   }
 
   .empty-state {
-    padding: 33px 23px;
-    min-height: 300px;
+    padding: 32px 24px;
+    min-height: 200px;
   }
 
   .empty-state h3 {
-    font-size: 24px;
+    font-size: 20px;
   }
 
   .empty-state p {
@@ -1862,8 +1889,8 @@ svg {
   }
 
   .auth-intro {
-    padding: 28px 25px;
-    min-height: 260px;
+    padding: 32px;
+    min-height: 200px;
   }
 
   .auth-intro h1 {
@@ -1878,7 +1905,7 @@ svg {
   }
 
   .auth-card {
-    padding: 29px 24px;
+    padding: 16px;
   }
 
   .auth-card h2 {
@@ -1892,7 +1919,7 @@ svg {
 
   .field input,.field textarea {
     font-size: var(--text-control);
-    min-height: 49px;
+    min-height: 44px;
   }
 
   .field-label {
@@ -1900,9 +1927,9 @@ svg {
   }
 
   .page-heading h1 {
-    font-size: 30px;
-    line-height: 36px;
-    letter-spacing: -1.3px;
+    font-size: 24px;
+    line-height: 32px;
+    letter-spacing: -.4px;
   }
 
   .page-heading>p {
@@ -1915,15 +1942,15 @@ svg {
   }
 
   .profile-form {
-    padding: 24px 21px;
+    padding: 16px;
   }
 
   .form-section {
-    padding: 25px 21px;
+    padding: 16px;
   }
 
   .form-section-heading {
-    gap: 10px;
+    gap: 12px;
   }
 
   .form-section-heading>svg {
@@ -1931,7 +1958,7 @@ svg {
   }
 
   .form-section-heading h2 {
-    font-size: 16px;
+    font-size: 18px;
   }
 
   .form-section-heading p {
@@ -1940,7 +1967,7 @@ svg {
 
   .form-section-number {
     font-size: var(--text-sm);
-    padding: 7px;
+    padding: 8px;
   }
 
   .form-actions {
@@ -1948,8 +1975,8 @@ svg {
   }
 
   .form-actions .button {
-    min-height: 46px;
-    padding: 12px 16px;
+    min-height: 44px;
+    padding: 8px 12px;
     flex: 1;
   }
 
@@ -1963,14 +1990,14 @@ svg {
 
   .language-options label {
     font-size: var(--text-sm);
-    padding: 10px 11px;
-    gap: 7px;
+    padding: 8px 12px;
+    gap: 8px;
   }
 
   .detail-heading h1 {
-    font-size: 30px;
-    line-height: 36px;
-    letter-spacing: -1.3px;
+    font-size: 24px;
+    line-height: 32px;
+    letter-spacing: -.5px;
   }
 
   .detail-meta {
@@ -1984,16 +2011,16 @@ svg {
 
   .ride-description {
     font-size: var(--text-sm);
-    line-height: 1.9;
+    line-height: 1.5;
   }
 
   .access-card {
-    padding: 33px 22px;
+    padding: 24px;
   }
 
   .access-card h2 {
-    font-size: 24px;
-    line-height: 32px;
+    font-size: 20px;
+    line-height: 28px;
   }
 
   .access-card p {
@@ -2006,22 +2033,22 @@ svg {
   }
 
   .access-icon {
-    height: 64px;
-    width: 64px;
+    height: 48px;
+    width: 48px;
   }
 
   .plan-card,.participants-card {
-    padding: 23px 21px;
+    padding: 16px;
   }
 
   .plan-details>div {
-    grid-template-columns: 105px minmax(0,1fr);
-    gap: 10px;
+    grid-template-columns: minmax(96px,.4fr) minmax(0,1fr);
+    gap: 12px;
   }
 
   .plan-details dt {
     font-size: var(--text-sm);
-    gap: 5px;
+    gap: 8px;
   }
 
   .plan-details dd {
@@ -2033,7 +2060,7 @@ svg {
   }
 
   .room-heading {
-    padding: 21px;
+    padding: 16px;
   }
 
   .room-heading .panel-title h2 {
@@ -2041,12 +2068,12 @@ svg {
   }
 
   .messages {
-    padding: 21px 17px;
+    padding: 16px;
     max-height: 460px;
   }
 
   .message-meta {
-    gap: 6px;
+    gap: 8px;
   }
 
   .message-meta strong {
@@ -2059,7 +2086,7 @@ svg {
 
   .message-content>p {
     font-size: var(--text-sm);
-    line-height: 1.85;
+    line-height: 1.5;
   }
 
   .message-content {
@@ -2067,26 +2094,26 @@ svg {
   }
 
   .message-composer {
-    padding: 16px 15px;
-    gap: 9px;
+    padding: 16px;
+    gap: 12px;
   }
 
   .message-composer textarea {
     font-size: var(--text-control);
-    padding: 12px;
-    min-height: 51px;
+    padding: 8px 12px;
+    min-height: 48px;
   }
 
   .send-button {
-    width: 42px;
+    width: 44px;
     height: 44px;
     min-height: 44px;
-    padding: 11px;
+    padding: 12px;
   }
 
   .error-banner {
     font-size: var(--text-sm);
-    padding: 12px;
+    padding: 12px 16px;
     gap: 8px;
     flex-wrap: wrap;
   }
@@ -2106,8 +2133,8 @@ svg {
   }
 
   .inline-note {
-    gap: 9px;
-    padding: 14px;
+    gap: 12px;
+    padding: 16px;
   }
 
   .inline-note>svg {
@@ -2115,12 +2142,12 @@ svg {
   }
 
   .panel-title {
-    gap: 11px;
+    gap: 8px;
   }
 
   .panel-icon {
-    height: 35px;
-    width: 35px;
+    height: 32px;
+    width: 32px;
   }
 
   .panel-title h2 {
@@ -2146,10 +2173,10 @@ svg {
 
 .collection-heading {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 28px;
-  margin-bottom: 31px;
+  gap: 16px;
+  margin-bottom: 24px;
 }
 
 .collection-heading .page-heading {
@@ -2158,11 +2185,13 @@ svg {
 }
 
 .collection-heading>.button {
-  flex-shrink: 0;
+  flex-shrink: 1;
+  margin-top: 0;
+  min-height: 44px;
 }
 
 .collection-heading h1 {
-  font: var(--type-heading-3);
+  font: var(--type-heading-5);
 }
 
 .collection-heading .page-heading>p {
@@ -2173,12 +2202,13 @@ svg {
   display: flex;
   gap: 4px;
   border-bottom: 0;
-  margin: 0 0 24px;
-  padding: 4px;
-  background: var(--surface);
+  margin: 0 0 16px;
+  padding: 0;
+  background: transparent;
   border-radius: var(--radius-md);
   width: fit-content;
   max-width: 100%;
+  flex-wrap: wrap;
 }
 
 .collection-tabs a {
@@ -2186,12 +2216,15 @@ svg {
   font-weight: 550;
   color: var(--text);
   border-radius: var(--radius-sm);
-  padding: 8px 16px;
+  padding: 8px 12px;
   font: var(--type-title-4);
   min-height: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-align: center;
 }
 
 .collection-tabs a.active {
@@ -2206,13 +2239,13 @@ svg {
 .bike-grid,.club-grid {
   display: grid;
   grid-template-columns: repeat(2,minmax(0,1fr));
-  gap: 22px;
+  gap: 16px;
 }
 
 .bike-card {
   display: flex;
   flex-direction: column;
-  padding: 27px;
+  padding: 16px;
   transition: border-color var(--motion-fast) var(--motion-ease),transform var(--motion-fast) var(--motion-ease);
 }
 
@@ -2225,7 +2258,7 @@ svg {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
@@ -2235,20 +2268,21 @@ svg {
 }
 
 .bike-identity {
-  margin: 27px 0 33px;
+  margin: 16px 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 4px;
 }
 
 .bike-identity strong {
-  font-size: 30px;
-  line-height: 36px;
-  letter-spacing: -1.2px;
+  font-size: 20px;
+  line-height: 28px;
+  letter-spacing: 0;
   font-weight: 600;
   overflow-wrap: anywhere;
   color: var(--text);
   font-family: var(--font-display);
+  font: var(--type-heading-6);
 }
 
 .bike-identity>span {
@@ -2256,17 +2290,19 @@ svg {
   line-height: 20px;
   color: var(--text);
   font-weight: 450;
-  letter-spacing: .6px;
+  letter-spacing: 0;
 }
 
 .bike-card-bottom {
   margin-top: auto;
-  padding-top: 19px;
+  padding-top: 12px;
   border-top: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: space-between;
   color: var(--text);
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .bike-card-bottom>span {
@@ -2280,8 +2316,9 @@ svg {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 18px;
-  margin-top: 26px;
+  gap: 12px;
+  margin-top: 16px;
+  flex-wrap: wrap;
 }
 
 .pagination>span {
@@ -2292,28 +2329,30 @@ svg {
 
 .pagination .button {
   font-size: var(--text-sm);
-  min-height: 41px;
-  padding: 10px 14px;
+  min-height: 44px;
+  padding: 8px 12px;
+  font: var(--type-button-sm);
 }
 
 .model-lookup {
-  padding: 28px 32px;
-  margin-bottom: 22px;
+  padding: 24px;
+  margin-bottom: 16px;
 }
 
 .model-lookup>h2 {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
   font-size: 18px;
-  letter-spacing: -.4px;
+  letter-spacing: 0;
   color: var(--text);
+  font: var(--type-title-2);
 }
 
 .model-lookup>p {
   font-size: var(--text-sm);
   color: var(--text-muted);
-  margin: 12px 0 22px;
+  margin: 8px 0 16px;
 }
 
 .model-lookup>.field {
@@ -2322,8 +2361,8 @@ svg {
 
 .model-results {
   display: grid;
-  gap: 5px;
-  margin-top: 13px;
+  gap: 4px;
+  margin-top: 8px;
   max-height: 260px;
   overflow: auto;
 }
@@ -2332,12 +2371,13 @@ svg {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 15px;
+  gap: 12px;
   background: var(--surface);
   color: var(--text);
-  padding: 12px 14px;
+  padding: 8px 12px;
   border-radius: var(--radius-sm);
   text-align: left;
+  min-height: 44px;
 }
 
 .model-results button:hover {
@@ -2356,20 +2396,21 @@ svg {
   gap: 8px;
   background: var(--surface-raised);
   color: var(--text);
-  padding: 13px 15px;
+  padding: 12px 16px;
   font-size: var(--text-control);
-  line-height: 1.7;
-  margin-bottom: 25px;
+  line-height: 1.5;
+  margin-bottom: 16px;
   border-radius: var(--radius-sm);
+  overflow-wrap: anywhere;
 }
 
 .visibility-card {
-  padding: 24px 27px;
+  padding: 24px;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 25px;
-  margin-bottom: 35px;
+  gap: 16px;
+  margin-bottom: 24px;
 }
 
 .visibility-card .panel-title {
@@ -2384,13 +2425,13 @@ svg {
 .visibility-card .panel-title p {
   font-size: var(--text-sm);
   color: var(--text-muted);
-  margin-top: 6px;
+  margin-top: 4px;
 }
 
 .visibility-actions {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 12px;
   flex-wrap: wrap;
   justify-content: flex-end;
   max-width: 66%;
@@ -2398,8 +2439,9 @@ svg {
 
 .visibility-actions>.button,.share-link>.button {
   font-size: var(--text-sm);
-  min-height: 38px;
-  padding: 10px 14px;
+  min-height: 44px;
+  padding: 8px 12px;
+  font: var(--type-button-sm);
 }
 
 .visibility-actions>.inline-link {
@@ -2408,7 +2450,7 @@ svg {
 
 .share-link {
   display: flex;
-  gap: 14px;
+  gap: 12px;
   align-items: center;
   flex-wrap: wrap;
   min-width: 0;
@@ -2435,20 +2477,21 @@ svg {
 }
 
 .maintenance-section {
-  margin-top: 38px;
+  margin-top: 24px;
 }
 
 .section-intro {
   font-size: var(--text-sm);
-  line-height: 1.85;
+  line-height: 1.5;
   color: var(--text-muted);
   max-width: 760px;
-  margin: 0 0 23px;
+  margin: 0 0 16px;
 }
 
 .maintenance-section .section-header {
-  margin-bottom: 13px;
+  margin-bottom: 12px;
   align-items: flex-end;
+  flex-wrap: wrap;
 }
 
 .maintenance-section .section-header .eyebrow {
@@ -2457,8 +2500,9 @@ svg {
 
 .maintenance-section .section-header>.button {
   font-size: var(--text-sm);
-  min-height: 40px;
-  padding: 10px 15px;
+  min-height: 44px;
+  padding: 8px 12px;
+  margin-top: 0;
 }
 
 .maintenance-section .section-header h2 {
@@ -2472,17 +2516,17 @@ svg {
 }
 
 .maintenance-entry {
-  padding: 24px 27px;
+  padding: 16px;
 }
 
 .maintenance-meta {
   display: flex;
   align-items: center;
-  gap: 21px;
+  gap: 12px;
   flex-wrap: wrap;
   font-size: var(--text-xs);
   color: var(--text-muted);
-  margin-bottom: 17px;
+  margin-bottom: 12px;
 }
 
 .maintenance-meta>span {
@@ -2500,20 +2544,21 @@ svg {
 
 .maintenance-entry>p {
   font-size: var(--text-sm);
-  line-height: 1.85;
+  line-height: 1.5;
   color: var(--text-muted);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
 .entry-actions {
-  margin-top: 20px;
-  padding-top: 17px;
+  margin-top: 12px;
+  padding-top: 12px;
   border-top: 1px solid var(--border);
   display: flex;
   align-items: center;
-  gap: 21px;
+  gap: 12px;
   justify-content: flex-end;
+  flex-wrap: wrap;
 }
 
 .entry-actions .text-button {
@@ -2527,11 +2572,11 @@ svg {
 }
 
 .maintenance-form>.panel-title {
-  margin-bottom: 29px;
+  margin-bottom: 16px;
 }
 
 .public-bike-card {
-  padding: 40px;
+  padding: 24px;
   position: relative;
   overflow: hidden;
 }
@@ -2541,22 +2586,25 @@ svg {
 }
 
 .public-bike-year {
-  font-size: 96px;
-  line-height: 96px;
+  font-size: 36px;
+  line-height: 40px;
   font-weight: 450;
-  letter-spacing: -5px;
+  letter-spacing: 0;
   color: var(--text-subtle);
-  margin: 26px 0 17px;
+  margin: 16px 0 8px;
+  font: var(--type-heading-3);
+  margin-top: 16px;
 }
 
 .public-bike-card h1 {
-  font-size: 36px;
-  letter-spacing: -1.9px;
-  line-height: 40px;
+  font-size: 30px;
+  letter-spacing: -.5px;
+  line-height: 36px;
   font-weight: 600;
   overflow-wrap: anywhere;
   color: var(--text);
   font-family: var(--font-display);
+  font: var(--type-heading-4);
 }
 
 .public-bike-card h1 span {
@@ -2564,7 +2612,7 @@ svg {
 }
 
 .public-bike-card>.inline-note {
-  margin: 29px 0 24px;
+  margin: 16px 0;
 }
 
 .public-bike-card>.button {
@@ -2572,7 +2620,7 @@ svg {
 }
 
 .club-card {
-  padding: 27px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
   transition: border-color var(--motion-fast) var(--motion-ease),transform var(--motion-fast) var(--motion-ease);
@@ -2582,24 +2630,25 @@ svg {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 28px;
+  margin-bottom: 12px;
   color: var(--text);
+  gap: 12px;
 }
 
 .club-emblem {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 54px;
-  height: 54px;
+  width: 40px;
+  height: 40px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: var(--surface-raised);
   color: var(--text);
   font-size: 16px;
   line-height: 24px;
   font-weight: 550;
-  letter-spacing: .7px;
+  letter-spacing: 0;
   overflow: hidden;
   flex-shrink: 0;
 }
@@ -2618,22 +2667,23 @@ svg {
 
 .club-card>.city-label {
   font-size: var(--text-sm);
-  margin-bottom: 11px;
+  margin-bottom: 8px;
 }
 
 .club-card>h2 {
-  font-size: 24px;
-  letter-spacing: -.8px;
-  line-height: 32px;
+  font-size: 20px;
+  letter-spacing: 0;
+  line-height: 28px;
   color: var(--text);
   overflow-wrap: anywhere;
+  font: var(--type-heading-6);
 }
 
 .club-card>p {
   font-size: var(--text-sm);
   color: var(--text-muted);
-  line-height: 1.8;
-  margin: 13px 0 27px;
+  line-height: 1.5;
+  margin: 8px 0 16px;
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
@@ -2645,9 +2695,9 @@ svg {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
   margin-top: auto;
-  padding-top: 19px;
+  padding-top: 12px;
   border-top: 1px solid var(--border);
   flex-wrap: wrap;
 }
@@ -2662,25 +2712,25 @@ svg {
 }
 
 .club-detail-page .page-heading>.city-label {
-  margin-top: 19px;
-  gap: 9px;
+  margin-top: 8px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
 .club-description {
   white-space: pre-wrap;
-  margin-top: -8px;
+  margin-top: 0;
 }
 
 .club-roster {
-  padding: 26px 28px;
-  margin: 31px 0;
+  padding: 24px;
+  margin: 24px 0;
 }
 
 .club-members-list {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0 27px;
+  gap: 0 16px;
   max-height: 460px;
   overflow-y: auto;
 }
@@ -2692,16 +2742,16 @@ svg {
 .club-access-card {
   display: flex;
   align-items: center;
-  gap: 23px;
-  padding: 29px;
-  margin: 30px 0;
+  gap: 16px;
+  padding: 24px;
+  margin: 24px 0;
 }
 
 .club-access-card>.access-icon {
   margin: 0;
   flex-shrink: 0;
-  width: 58px;
-  height: 58px;
+  width: 48px;
+  height: 48px;
 }
 
 .club-access-card>div {
@@ -2712,26 +2762,28 @@ svg {
 .club-access-card h2 {
   font-size: 20px;
   line-height: 28px;
-  letter-spacing: -.5px;
+  letter-spacing: 0;
   color: var(--text);
 }
 
 .club-access-card p {
   font-size: var(--text-sm);
-  line-height: 1.8;
+  line-height: 1.5;
   color: var(--text-muted);
   max-width: 600px;
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
 .club-access-card>.button {
   flex-shrink: 0;
   font-size: var(--text-sm);
+  margin-left: 0;
+  max-width: 100%;
 }
 
 .owner-tools {
-  padding: 27px 29px;
-  margin: 27px 0 35px;
+  padding: 24px;
+  margin: 24px 0;
 }
 
 .owner-tools .section-intro {
@@ -2739,10 +2791,10 @@ svg {
 }
 
 .ownership-form {
-  padding: 23px 0;
+  padding: 16px 0;
   display: grid;
   grid-template-columns: minmax(0,1fr) auto;
-  gap: 18px 23px;
+  gap: 16px;
   border-top: 1px solid var(--border);
 }
 
@@ -2754,14 +2806,14 @@ svg {
   font-size: 14px;
   line-height: 20px;
   color: var(--text);
-  letter-spacing: -.2px;
+  letter-spacing: 0;
 }
 
 .ownership-form p {
   font-size: var(--text-sm);
-  line-height: 1.8;
+  line-height: 1.5;
   color: var(--text-muted);
-  margin-top: 9px;
+  margin-top: 8px;
   max-width: 650px;
 }
 
@@ -2771,24 +2823,24 @@ svg {
 
 .ownership-form>.button {
   align-self: end;
-  min-height: 49px;
+  min-height: 44px;
   font-size: var(--text-sm);
 }
 
 .field select {
   min-width: 0;
   width: 100%;
-  height: 49px;
-  padding: 12px 14px;
+  height: 44px;
+  padding: 8px 12px;
   font-size: var(--text-control);
   color: var(--text);
   background: var(--surface-raised);
   border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 
 .close-club {
-  padding-top: 21px;
+  padding-top: 16px;
   border-top: 1px solid var(--border);
   display: flex;
   justify-content: flex-end;
@@ -2799,7 +2851,7 @@ svg {
 }
 
 .club-rides-section {
-  margin-top: 39px;
+  margin-top: 24px;
 }
 
 .club-rides-section>.section-header {
@@ -2812,8 +2864,8 @@ svg {
 }
 
 .link-ride-form {
-  padding: 25px 27px;
-  margin-bottom: 23px;
+  padding: 24px;
+  margin-bottom: 16px;
 }
 
 .link-ride-form h3 {
@@ -2827,14 +2879,14 @@ svg {
 .link-ride-form>p {
   font-size: var(--text-sm);
   color: var(--text-muted);
-  margin: 12px 0 22px;
+  margin: 8px 0 16px;
   max-width: 600px;
 }
 
 .link-ride-controls {
   display: flex;
   align-items: flex-end;
-  gap: 16px;
+  gap: 12px;
 }
 
 .link-ride-controls>.field {
@@ -2843,8 +2895,9 @@ svg {
 }
 
 .link-ride-controls>.button {
-  min-height: 49px;
+  min-height: 44px;
   font-size: var(--text-sm);
+  margin-top: 12px;
 }
 
 .linked-ride>.ride-card {
@@ -2864,7 +2917,7 @@ svg {
 }
 
 .linked-empty {
-  padding: 23px 27px;
+  padding: 16px;
   margin: 0;
   font-size: var(--text-sm);
 }
@@ -2883,13 +2936,14 @@ svg {
   }
 
   .collection-heading>.button {
-    margin-top: 24px;
+    margin-top: 0;
   }
 
   .collection-heading .page-heading h1 {
-    font-size: 36px;
-    line-height: 40px;
-  }
+    font-size: 24px;
+    line-height: 32px;
+    font: var(--type-heading-5);
+}
 
   .visibility-card {
     flex-direction: column;
@@ -2906,16 +2960,16 @@ svg {
   }
 
   .club-access-card>.button {
-    margin-left: 81px;
+    margin-left: 0;
   }
 
   .bike-card,.club-card {
-    padding: 24px;
+    padding: 16px;
   }
 
   .bike-identity strong {
-    font-size: 24px;
-    line-height: 32px;
+    font-size: 20px;
+    line-height: 28px;
   }
 
   .club-card>h2 {
@@ -2928,17 +2982,17 @@ svg {
 
   .collection-heading {
     display: block;
-    margin-bottom: 27px;
+    margin-bottom: 24px;
   }
 
   .collection-heading>.button {
-    margin-top: 23px;
+    margin-top: 0;
     font-size: var(--text-sm);
-    min-height: 43px;
+    min-height: 44px;
   }
 
   .collection-heading .page-heading h1 {
-    font-size: 36px;
+    font-size: 24px;
   }
 
   .collection-heading .page-heading>p {
@@ -2946,21 +3000,21 @@ svg {
   }
 
   .bike-grid,.club-grid {
-    gap: 17px;
+    gap: 16px;
   }
 
   .bike-card,.club-card {
-    padding: 22px;
+    padding: 16px;
   }
 
   .bike-identity {
-    margin: 26px 0;
+    margin: 16px 0;
   }
 
   .bike-identity strong {
-    font-size: 24px;
-    line-height: 32px;
-    letter-spacing: -.8px;
+    font-size: 20px;
+    line-height: 28px;
+    letter-spacing: 0;
   }
 
   .bike-card-bottom>span {
@@ -2976,11 +3030,11 @@ svg {
   }
 
   .visibility-card {
-    padding: 23px;
+    padding: 16px;
   }
 
   .visibility-actions {
-    gap: 14px;
+    gap: 12px;
   }
 
   .maintenance-section .section-header {
@@ -2994,7 +3048,7 @@ svg {
 
   .maintenance-section .section-header>.button {
     font-size: var(--text-sm);
-    padding: 10px 12px;
+    padding: 8px 12px;
   }
 
   .section-intro {
@@ -3002,11 +3056,11 @@ svg {
   }
 
   .maintenance-entry {
-    padding: 23px;
+    padding: 16px;
   }
 
   .maintenance-meta {
-    gap: 13px;
+    gap: 12px;
     font-size: var(--text-xs);
   }
 
@@ -3020,7 +3074,7 @@ svg {
   }
 
   .model-lookup {
-    padding: 25px;
+    padding: 16px;
   }
 
   .model-lookup>h2 {
@@ -3032,11 +3086,11 @@ svg {
   }
 
   .club-card>h2 {
-    font-size: 24px;
+    font-size: 20px;
   }
 
   .club-card-top {
-    margin-bottom: 24px;
+    margin-bottom: 12px;
   }
 
   .club-card>p {
@@ -3048,20 +3102,20 @@ svg {
   }
 
   .club-roster {
-    padding: 24px;
+    padding: 16px;
   }
 
   .club-members-list {
-    gap: 0 20px;
+    gap: 0 16px;
   }
 
   .club-access-card {
-    padding: 25px;
-    gap: 17px;
+    padding: 16px;
+    gap: 16px;
   }
 
   .club-access-card>div {
-    min-width: 180px;
+    min-width: 0;
   }
 
   .club-access-card h2 {
@@ -3070,11 +3124,11 @@ svg {
   }
 
   .club-access-card>.button {
-    margin-left: 75px;
+    margin-left: 0;
   }
 
   .owner-tools {
-    padding: 25px;
+    padding: 16px;
   }
 
   .ownership-form {
@@ -3086,7 +3140,7 @@ svg {
   }
 
   .link-ride-form {
-    padding: 24px;
+    padding: 16px;
   }
 
   .link-ride-controls {
@@ -3098,17 +3152,17 @@ svg {
   }
 
   .public-bike-card {
-    padding: 33px;
+    padding: 16px;
   }
 
   .public-bike-card h1 {
-    font-size: 36px;
-    line-height: 40px;
+    font-size: 30px;
+    line-height: 36px;
   }
 
   .public-bike-year {
-    font-size: 72px;
-    line-height: 72px;
+    font-size: 36px;
+    line-height: 40px;
   }
 
   .collection-tabs a {
@@ -3120,7 +3174,7 @@ svg {
   }
 
   .share-link {
-    gap: 11px;
+    gap: 12px;
   }
 }
 
@@ -3131,25 +3185,25 @@ svg {
   }
 
   .bike-card {
-    padding: 25px;
+    padding: 16px;
   }
 
   .bike-identity strong {
-    font-size: 30px;
-    line-height: 36px;
+    font-size: 20px;
+    line-height: 28px;
   }
 
   .bike-identity {
-    margin: 27px 0 31px;
+    margin: 16px 0;
   }
 
   .club-card {
-    padding: 26px;
+    padding: 16px;
   }
 
   .club-card>h2 {
-    font-size: 24px;
-    line-height: 32px;
+    font-size: 20px;
+    line-height: 28px;
   }
 
   .club-card>p {
@@ -3169,8 +3223,8 @@ svg {
   }
 
   .collection-heading .page-heading h1 {
-    font-size: 30px;
-    line-height: 36px;
+    font-size: 24px;
+    line-height: 32px;
   }
 
   .maintenance-section .section-header {
@@ -3178,11 +3232,11 @@ svg {
   }
 
   .maintenance-section .section-header>.button {
-    margin-top: 18px;
+    margin-top: 0;
   }
 
   .maintenance-meta {
-    gap: 12px 18px;
+    gap: 12px;
   }
 
   .maintenance-meta .private-label {
@@ -3190,7 +3244,7 @@ svg {
   }
 
   .entry-actions {
-    gap: 18px;
+    gap: 12px;
   }
 
   .entry-actions .text-button {
@@ -3210,10 +3264,11 @@ svg {
 
   .pagination>.button {
     flex: 1;
-    padding: 11px 10px;
+    padding: 8px 12px;
     font-size: var(--text-sm);
-    gap: 6px;
-  }
+    gap: 8px;
+    min-height: 44px;
+}
 
   .pagination>.button>svg {
     width: 14px;
@@ -3227,7 +3282,7 @@ svg {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    padding: 25px;
+    padding: 16px;
   }
 
   .club-access-card>div {
@@ -3249,13 +3304,13 @@ svg {
   }
 
   .club-access-card>.access-icon {
-    height: 53px;
-    width: 53px;
+    height: 48px;
+    width: 48px;
     margin-bottom: 2px;
   }
 
   .visibility-card {
-    padding: 23px 21px;
+    padding: 16px;
   }
 
   .visibility-card .panel-title h2 {
@@ -3268,15 +3323,15 @@ svg {
   }
 
   .visibility-actions {
-    gap: 17px;
+    gap: 12px;
   }
 
   .model-lookup {
-    padding: 24px 21px;
+    padding: 16px;
   }
 
   .public-bike-card {
-    padding: 29px 25px;
+    padding: 16px;
   }
 
   .public-bike-card h1 {
@@ -3285,9 +3340,9 @@ svg {
   }
 
   .public-bike-year {
-    font-size: 72px;
-    line-height: 72px;
-    margin-top: 29px;
+    font-size: 36px;
+    line-height: 40px;
+    margin-top: 16px;
   }
 
   .public-bike-card>.eyebrow {
@@ -3295,7 +3350,7 @@ svg {
   }
 
   .owner-tools {
-    padding: 24px 21px;
+    padding: 16px;
   }
 
   .ownership-form p {
@@ -3303,7 +3358,7 @@ svg {
   }
 
   .link-ride-form {
-    padding: 23px 21px;
+    padding: 16px;
   }
 
   .link-ride-controls {
@@ -3311,8 +3366,8 @@ svg {
   }
 
   .link-ride-controls>.button {
-    margin-top: 15px;
-    min-height: 42px;
+    margin-top: 12px;
+    min-height: 44px;
   }
 
   .link-ride-form>p {
@@ -3320,7 +3375,7 @@ svg {
   }
 
   .linked-empty {
-    padding: 22px;
+    padding: 16px;
     font-size: var(--text-sm);
   }
 
@@ -3348,22 +3403,22 @@ svg {
 
 .confirmation-dialog {
   width: min(100%,450px);
-  padding: 31px;
+  padding: 24px;
   box-shadow: var(--shadow-dialog);
   margin: auto;
 }
 
 .confirmation-icon {
   display: flex;
-  width: 49px;
-  height: 49px;
+  width: 40px;
+  height: 40px;
   align-items: center;
   justify-content: center;
   background: var(--surface);
   border: 1px solid var(--border);
   color: var(--text);
-  border-radius: var(--radius-lg);
-  margin-bottom: 23px;
+  border-radius: var(--radius-md);
+  margin-bottom: 16px;
 }
 
 .confirmation-dialog h2 {
@@ -3376,9 +3431,9 @@ svg {
 
 .confirmation-dialog>p {
   font-size: var(--text-sm);
-  line-height: 1.85;
+  line-height: 1.5;
   color: var(--text-muted);
-  margin: 17px 0 28px;
+  margin: 12px 0 24px;
 }
 
 .confirmation-actions {
@@ -3409,7 +3464,7 @@ svg {
   }
 
   .confirmation-dialog {
-    padding: 27px 24px;
+    padding: 24px;
   }
 
   .confirmation-dialog h2 {
@@ -3510,13 +3565,13 @@ svg {
 .model-reference-detail {
   display: grid;
   grid-template-columns: minmax(0,1.4fr) minmax(150px,1fr);
-  gap: 27px;
+  gap: 16px;
   align-items: center;
   background: var(--surface);
   border: 1px solid var(--border);
-  padding: 24px;
+  padding: 16px;
   border-radius: var(--radius-md);
-  margin-bottom: 30px;
+  margin-bottom: 24px;
 }
 
 .model-reference-detail figcaption>p {
@@ -3538,11 +3593,11 @@ svg {
 
 .model-reference-form {
   max-width: 610px;
-  padding: 18px;
+  padding: 16px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  margin: 5px 0 25px;
+  margin: 4px 0 16px;
 }
 
 .model-reference-form .model-reference-frame {
@@ -3604,15 +3659,15 @@ svg {
 
 .catalogue-bike-card .bike-identity h2 {
   margin: 0;
-  font: var(--type-heading-5);
+  font: var(--type-heading-6);
   overflow-wrap: anywhere;
 }
 
 @media(max-width:760px) {
 
   .model-reference-detail {
-    gap: 22px;
-    padding: 22px;
+    gap: 16px;
+    padding: 16px;
     grid-template-columns: minmax(0,1.3fr) minmax(130px,1fr);
   }
 
@@ -3632,7 +3687,7 @@ svg {
   }
 
   .model-reference-form {
-    padding: 15px;
+    padding: 16px;
   }
 }
 
@@ -3640,7 +3695,7 @@ svg {
 
   .model-reference-detail {
     display: block;
-    padding: 20px;
+    padding: 16px;
   }
 
   .model-reference-detail figcaption {
@@ -3667,7 +3722,7 @@ svg {
   }
 
   .model-reference-form {
-    padding: 13px;
+    padding: 16px;
   }
 
   .model-reference-unavailable {
@@ -3676,7 +3731,7 @@ svg {
 }
 
 .bike-photos-section {
-  margin: 0 0 36px;
+  margin: 0 0 24px;
   min-width: 0;
 }
 
@@ -3717,15 +3772,15 @@ svg {
 }
 
 .photo-upload-panel {
-  padding: 25px 27px;
-  margin-bottom: 23px;
+  padding: 24px;
+  margin-bottom: 16px;
 }
 
 .photo-upload-heading {
   display: flex;
   align-items: center;
-  gap: 15px;
-  margin-bottom: 21px;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
 .photo-upload-heading .panel-icon {
@@ -3741,9 +3796,9 @@ svg {
 
 .photo-upload-heading p {
   font-size: var(--text-sm);
-  line-height: 1.8;
+  line-height: 1.5;
   color: var(--text-muted);
-  margin-top: 6px;
+  margin-top: 4px;
 }
 
 .photo-file-input {
@@ -3778,9 +3833,9 @@ svg {
   display: grid;
   grid-template-columns: minmax(0,210px) minmax(0,1fr);
   align-items: center;
-  gap: 22px;
-  margin-top: 23px;
-  padding-top: 23px;
+  gap: 16px;
+  margin-top: 16px;
+  padding-top: 16px;
   border-top: 1px solid var(--border);
 }
 
@@ -3805,8 +3860,8 @@ svg {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 21px;
-  margin-top: 20px;
+  gap: 16px;
+  margin-top: 16px;
   flex-wrap: wrap;
 }
 
@@ -3838,7 +3893,7 @@ svg {
 .bike-photo-grid {
   display: grid;
   grid-template-columns: repeat(3,minmax(0,1fr));
-  gap: 17px;
+  gap: 16px;
 }
 
 .bike-photo {
@@ -3886,8 +3941,8 @@ svg {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 13px;
-  padding: 15px 13px;
+  gap: 12px;
+  padding: 8px 12px;
   flex-wrap: wrap;
 }
 
@@ -3935,7 +3990,7 @@ svg {
   }
 
   .photo-upload-panel {
-    padding: 23px;
+    padding: 16px;
   }
 
   .bike-photos-section .section-header>.button {
@@ -3962,7 +4017,7 @@ svg {
   }
 
   .photo-upload-panel {
-    padding: 22px 20px;
+    padding: 16px;
   }
 
   .photo-upload-heading {
@@ -4001,7 +4056,7 @@ svg {
 
   .photo-upload-preview {
     grid-template-columns: 1fr;
-    gap: 12px;
+    gap: 16px;
   }
 
   .photo-upload-preview img {
@@ -4022,12 +4077,12 @@ svg {
   }
 
   .bike-photo-grid {
-    gap: 14px;
+    gap: 16px;
     grid-template-columns: 1fr;
   }
 
   .bike-photo-actions {
-    padding: 15px 16px;
+    padding: 8px 12px;
   }
 
   .bike-photo-actions .text-button {
@@ -4053,7 +4108,7 @@ svg {
 .club-detail-identity {
   display: flex;
   align-items: center;
-  gap: 24px;
+  gap: 16px;
   min-width: 0;
 }
 
@@ -4062,9 +4117,9 @@ svg {
 }
 
 .club-emblem-detail {
-  width: 92px;
-  height: 92px;
-  border-radius: var(--radius-lg);
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-md);
   font-size: 24px;
   line-height: 32px;
   border: 1px solid var(--border);
@@ -4080,14 +4135,14 @@ svg {
 }
 
 .club-image-section {
-  margin-bottom: 30px;
+  margin-bottom: 24px;
 }
 
 .club-image-editor-heading {
   display: flex;
   align-items: center;
-  gap: 18px;
-  margin-bottom: 20px;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
 .club-image-editor-heading>div {
@@ -4105,7 +4160,7 @@ svg {
 .club-image-editor-heading p {
   font-size: var(--text-sm);
   color: var(--text-muted);
-  line-height: 1.8;
+  line-height: 1.5;
   margin-top: 8px;
   max-width: 430px;
 }
@@ -4137,22 +4192,25 @@ svg {
 
 .club-detail-identity h1 {
   overflow-wrap: anywhere;
+  font: var(--type-heading-5);
+  font-size: 24px;
+  line-height: 32px;
 }
 
 @media(max-width:760px) {
 
   .club-detail-identity {
-    gap: 18px;
+    gap: 16px;
   }
 
   .club-emblem-detail {
-    width: 76px;
-    height: 76px;
+    width: 48px;
+    height: 48px;
     font-size: 24px;
   }
 
   .club-image-editor-heading {
-    gap: 15px;
+    gap: 12px;
     flex-wrap: wrap;
   }
 
@@ -4166,12 +4224,12 @@ svg {
 
   .club-detail-identity {
     align-items: flex-start;
-    gap: 14px;
+    gap: 16px;
   }
 
   .club-emblem-detail {
-    width: 57px;
-    height: 57px;
+    width: 48px;
+    height: 48px;
     border-radius: var(--radius-md);
     font-size: 18px;
     line-height: 28px;
@@ -4182,7 +4240,7 @@ svg {
   }
 
   .club-detail-identity h1 {
-    font-size: 30px;
+    font-size: 24px;
   }
 
   .club-image-editor-heading h2 {
@@ -4239,10 +4297,10 @@ svg {
 
 .install-status {
   display: flex;
-  gap: 20px;
+  gap: 16px;
   align-items: flex-start;
-  padding: 28px;
-  margin-bottom: 25px;
+  padding: 24px;
+  margin-bottom: 16px;
 }
 
 .install-status>div {
@@ -4259,8 +4317,8 @@ svg {
 .install-status p {
   font-size: var(--text-sm);
   color: var(--text-muted);
-  line-height: 1.9;
-  margin-top: 10px;
+  line-height: 1.5;
+  margin-top: 8px;
   max-width: 650px;
 }
 
@@ -4276,26 +4334,26 @@ svg {
 }
 
 .install-guide {
-  padding: 27px;
+  padding: 24px;
   min-width: 0;
 }
 
 .install-guide h2 {
-  margin-top: 21px;
+  margin-top: 16px;
   font-size: 18px;
 }
 
 .install-guide ol {
   padding-left: 19px;
-  margin: 20px 0 24px;
+  margin: 16px 0;
   color: var(--text);
   font-size: var(--text-sm);
-  line-height: 1.9;
+  line-height: 1.5;
 }
 
 .install-guide li {
   padding-left: 3px;
-  margin-bottom: 13px;
+  margin-bottom: 8px;
 }
 
 .install-guide>.inline-link {
@@ -4309,7 +4367,7 @@ svg {
   }
 
   .install-guide {
-    padding: 26px;
+    padding: 16px;
   }
 
   .install-guide ol {
@@ -4328,8 +4386,8 @@ svg {
 @media(max-width:520px) {
 
   .install-status {
-    padding: 23px 20px;
-    gap: 14px;
+    padding: 16px;
+    gap: 16px;
   }
 
   .install-status h2 {
@@ -4346,7 +4404,7 @@ svg {
   }
 
   .install-guide {
-    padding: 23px 21px;
+    padding: 16px;
   }
 
   .install-guide ol {
@@ -4358,9 +4416,9 @@ svg {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
-  padding: 23px 26px;
-  margin-top: 22px;
+  gap: 16px;
+  padding: 16px;
+  margin-top: 16px;
   color: var(--accent);
   font-size: var(--text-sm);
 }
@@ -4368,11 +4426,12 @@ svg {
 .settings-link>span {
   display: flex;
   align-items: center;
-  gap: 13px;
+  gap: 12px;
+  min-width: 0;
 }
 
 .preferences-form .panel-title {
-  margin-bottom: 29px;
+  margin-bottom: 16px;
 }
 
 .preferences-form .panel-title h2 {
@@ -4429,9 +4488,9 @@ svg {
 .content-safety {
   display: flex;
   align-items: center;
-  gap: 25px;
+  gap: 16px;
   flex-wrap: wrap;
-  margin: 19px 0 28px;
+  margin: 12px 0 24px;
 }
 
 .user-safety {
@@ -4454,8 +4513,8 @@ svg {
 }
 
 .report-form {
-  padding: 22px;
-  margin: 15px 0;
+  padding: 16px;
+  margin: 12px 0;
   max-width: 520px;
 }
 
@@ -4513,12 +4572,12 @@ svg {
 }
 
 .announcements-panel {
-  padding: 28px;
-  margin: 25px 0;
+  padding: 24px;
+  margin: 16px 0;
 }
 
 .announcements-panel>.panel-title {
-  margin-bottom: 23px;
+  margin-bottom: 16px;
 }
 
 .announcements-panel>.panel-title p {
@@ -4529,7 +4588,7 @@ svg {
 }
 
 .announcement {
-  padding: 23px 0;
+  padding: 16px 0;
   border-top: 1px solid var(--border);
 }
 
@@ -4555,11 +4614,11 @@ svg {
   font-size: var(--text-sm);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  margin: 15px 0;
+  margin: 12px 0;
 }
 
 .announcement-composer {
-  padding-top: 23px;
+  padding-top: 16px;
   border-top: 1px solid var(--border);
 }
 
@@ -4569,20 +4628,20 @@ svg {
 }
 
 .ride-media-section {
-  margin-top: 36px;
+  margin-top: 24px;
 }
 
 .album-editors {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 22px;
+  gap: 16px;
   margin-bottom: 24px;
 }
 
 .album-editors>section,.album-editors>form {
   margin: 0;
   min-width: 0;
-  padding: 26px;
+  padding: 24px;
 }
 
 .album-video-form>h3 {
@@ -4610,9 +4669,9 @@ svg {
 
 .album-video {
   display: flex;
-  gap: 20px;
+  gap: 16px;
   justify-content: space-between;
-  padding: 22px;
+  padding: 16px;
   align-items: center;
   min-width: 0;
 }
@@ -4633,8 +4692,8 @@ svg {
 }
 
 .settings-panel {
-  margin-top: 24px;
-  padding: 27px;
+  margin-top: 16px;
+  padding: 24px;
 }
 
 .settings-panel .panel-title {
@@ -4648,7 +4707,7 @@ svg {
 .settings-panel>p {
   font-size: var(--text-sm);
   color: var(--text-muted);
-  margin: 15px 0;
+  margin: 12px 0;
 }
 
 .blocked-users-list {
@@ -4658,12 +4717,13 @@ svg {
 .blocked-users-list>div,.subscription-row {
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 12px;
   justify-content: space-between;
   border-top: 1px solid var(--border);
-  padding: 17px 0;
+  padding: 12px 0;
   font-size: var(--text-sm);
   overflow-wrap: anywhere;
+  flex-wrap: wrap;
 }
 
 .subscription-row>span {
@@ -4688,18 +4748,19 @@ svg {
 
 .inbox-list {
   display: grid;
-  gap: 13px;
+  gap: 8px;
 }
 
 .inbox-item {
   display: flex;
-  gap: 18px;
-  padding: 24px;
+  gap: 12px;
+  padding: 16px;
   overflow-wrap: anywhere;
 }
 
 .inbox-item.unread {
-  border-left: 3px solid var(--border);
+  border-color: var(--accent-border);
+  background: var(--surface-raised);
 }
 
 .inbox-item>div {
@@ -4709,7 +4770,8 @@ svg {
 .inbox-item h2 {
   font-size: 16px;
   line-height: 24px;
-  margin-bottom: 9px;
+  margin-bottom: 4px;
+  font: var(--type-title-3);
 }
 
 .inbox-item time {
@@ -4720,12 +4782,13 @@ svg {
 .inbox-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 15px 22px;
-  margin-top: 18px;
+  gap: 8px 16px;
+  margin-top: 8px;
+  flex-direction: row;
 }
 
 .empty-panel {
-  padding: 25px;
+  padding: 16px;
   font-size: var(--text-sm);
   color: var(--text-muted);
 }
@@ -4736,13 +4799,15 @@ svg {
 
 .collection-tabs>button {
   background: transparent;
-  padding: 8px 16px;
+  padding: 8px 12px;
   font-size: var(--text-sm);
   border-bottom: 0;
   color: var(--text);
   font: var(--type-title-4);
   min-height: 44px;
   border-radius: var(--radius-sm);
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .collection-tabs>button.active {
@@ -4753,22 +4818,24 @@ svg {
 
 .admin-reports>.field {
   max-width: 260px;
-  margin: 23px 0;
+  margin: 16px 0;
 }
 
 .report-queue {
   display: grid;
-  gap: 9px;
+  gap: 8px;
 }
 
 .report-queue-item {
-  padding: 20px;
+  padding: 16px;
   text-align: left;
   display: flex;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
   font-size: var(--text-sm);
   align-items: center;
+  overflow-wrap: anywhere;
+  min-width: 0;
 }
 
 .report-queue-item.selected {
@@ -4782,19 +4849,19 @@ svg {
 }
 
 .report-review {
-  margin: 25px 0;
-  padding: 27px;
+  margin: 16px 0;
+  padding: 24px;
 }
 
 .report-review>h2 {
   font-size: 20px;
-  margin-bottom: 22px;
+  margin-bottom: 16px;
 }
 
 .admin-evidence {
   font-size: var(--text-sm);
   display: grid;
-  gap: 18px;
+  gap: 16px;
 }
 
 .admin-evidence div {
@@ -4825,18 +4892,18 @@ svg {
 }
 
 .admin-review-form {
-  margin-top: 27px;
+  margin-top: 16px;
   border-top: 1px solid var(--border);
-  padding-top: 26px;
+  padding-top: 16px;
 }
 
 .admin-action-form {
-  margin: 26px 0;
-  padding: 27px;
+  margin: 16px 0;
+  padding: 24px;
 }
 
 .admin-action-form .panel-title {
-  margin-bottom: 25px;
+  margin-bottom: 16px;
 }
 
 .admin-action-form h2 {
@@ -4856,7 +4923,7 @@ svg {
 }
 
 .audit-item {
-  padding: 23px;
+  padding: 16px;
   overflow-wrap: anywhere;
 }
 
@@ -4884,7 +4951,7 @@ svg {
   }
 
   .announcements-panel {
-    padding: 23px;
+    padding: 16px;
   }
 
   .album-video {
@@ -4902,21 +4969,21 @@ svg {
   }
 
   .settings-panel {
-    padding: 24px;
+    padding: 16px;
   }
 
   .admin-action-form,.report-review {
-    padding: 23px;
+    padding: 16px;
   }
 
   .report-queue-item {
     flex-direction: column;
     align-items: flex-start;
-    gap: 9px;
+    gap: 12px;
   }
 
   .inbox-item {
-    padding: 21px;
+    padding: 16px;
     gap: 12px;
   }
 
@@ -4926,17 +4993,17 @@ svg {
   }
 
   .inbox-item h2 {
-    font-size: 14px;
-    line-height: 20px;
+    font-size: 16px;
+    line-height: 24px;
   }
 
   .inbox-actions {
     align-items: flex-start;
-    flex-direction: column;
+    flex-direction: row;
   }
 
   .content-safety {
-    gap: 20px;
+    gap: 16px;
   }
 
   .announcement-author .community-badge {
@@ -4948,7 +5015,7 @@ svg {
   }
 
   .report-form {
-    padding: 19px;
+    padding: 16px;
   }
 
   .report-form .form-actions {
@@ -4996,12 +5063,6 @@ svg {
   flex-wrap: wrap;
 }
 
-@media (min-width: 1200px) {
-  .my-rides-page .ride-filter-fields {
-    grid-template-columns: minmax(0,1.5fr) minmax(0,1.2fr) repeat(2,minmax(0,1fr));
-  }
-}
-
 @media (max-width: 480px) {
 
   .ride-view-tabs {
@@ -5046,14 +5107,14 @@ svg {
   line-height: 16px;
   flex-shrink: 0;
 }
-.ride-schedule { margin: 24px 0; padding: 24px; }
-.notification-options { display: grid; gap: 4px; margin: 0 0 18px; padding: 0; border: 0; min-width: 0; }
+.ride-schedule { margin: 16px 0; padding: 24px; }
+.notification-options { display: grid; gap: 4px; margin: 0 0 16px; padding: 0; border: 0; min-width: 0; }
 .notification-option { display: flex; gap: 12px; align-items: center; min-height: 44px; cursor: pointer; }
 .notification-option input { flex: 0 0 19px; width: 19px; height: 19px; accent-color: var(--accent); margin: 0; }
 .notification-option span { min-width: 0; }
-.calendar-download { margin-top: 24px; padding-top: 22px; border-top: 1px solid var(--border); }
+.calendar-download { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
 .calendar-download .section-intro { margin: 12px 0 0; }
 
 @media (max-width: 390px) {
-  .ride-schedule { padding: 18px; }
+  .ride-schedule { padding: 16px; }
 }
