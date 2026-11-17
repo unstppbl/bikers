@@ -80,7 +80,7 @@ type PlaceImportResult struct {
 
 func PlaceCategory(value string) bool {
 	switch value {
-	case "fuel", "workshop", "tires", "motorcycle_shop", "parking", "meeting_spot":
+	case "fuel", "workshop", "tires", "motorcycle_shop", "parking", "meeting_spot", "speed_camera":
 		return true
 	}
 	return false

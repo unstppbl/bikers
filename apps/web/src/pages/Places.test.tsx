@@ -7,10 +7,11 @@ import { setCsrfToken } from '../api'
 import { I18nProvider } from '../i18n'
 import { RequireUser, SessionProvider, useSession } from '../session'
 import type { Place, PlaceSubmission, User } from '../types'
+import type { CityOption } from '../cities'
 import { PlacesPage } from './Places'
 import { MyPlaceSubmissionsPage, PlaceSubmissionPage } from './PlaceSubmissions'
 import { AdminPage } from './Admin'
-vi.mock('../components/places/PlacesMap', () => ({ default: ({ places, onViewport, onSelect }: { places: Place[]; onViewport: (b: object) => void; onSelect: (id: string) => void }) => <div><button onClick={() => onViewport({ west: 76, south: 43, east: 77, north: 44 })}>Pan test map</button>{places.map((p) => <button key={p.id} onClick={() => onSelect(p.id)}>{'Map ' + p.name}</button>)}</div> }))
+vi.mock('../components/places/PlacesMap', () => ({ default: ({ places, center, onViewport, onSelect }: { places: Place[]; center?: CityOption['center']; onViewport: (b: object) => void; onSelect: (id: string) => void }) => <div><output data-testid="map-center">{JSON.stringify(center)}</output><button onClick={() => onViewport({ west: 76, south: 43, east: 77, north: 44 })}>Pan test map</button>{places.map((p) => <button key={p.id} onClick={() => onSelect(p.id)}>{'Map ' + p.name}</button>)}</div> }))
 vi.mock('../components/maps/MapCanvas', () => ({ default: () => <p>Point map test surface</p> }))
 const rider: User = { id: 'rider-a', profile: { display_name: 'A', city: 'Almaty', languages: ['en'], interests: '', locale: 'en' }, onboarding_complete: true }
 const place: Place = { id: 'place-a', name: 'Road workshop', category: 'workshop', lat: 43.2, lon: 76.9, city: 'Almaty', address: 'Abay avenue', description: '', website: '', phone: '', opening_hours: '', source: 'osm', source_ref: 'node/12', source_url: 'https://www.openstreetmap.org/node/12', source_date: '2026-11-01', updated_at: '2026-11-05T00:00:00Z', version: 3, status: 'published' }
@@ -34,6 +35,39 @@ beforeEach(() => setCsrfToken())
 afterEach(() => { setCsrfToken(); vi.unstubAllGlobals() })
 
 describe('public community map', () => {
+  it('opens filters initially and keeps them available after applying and clearing a camera category', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => url.includes('/places?') ? response({ places: [], next_cursor: '' }) : ancillary(url, null) ?? response({})))
+    mount('/places')
+    const toggle = await screen.findByRole('button', { name: 'Filters' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    await userEvent.click(screen.getByRole('button', { name: 'Speed cameras' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Apply filters' }))
+    expect(screen.getByTestId('location')).toHaveTextContent('category=speed_camera')
+    expect(screen.getByRole('button', { name: 'Filters (1)' })).toHaveAttribute('aria-expanded', 'true')
+    await userEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
+    expect(screen.getByRole('button', { name: 'Filters' })).toHaveAttribute('aria-expanded', 'true')
+    await userEvent.click(screen.getByRole('button', { name: 'Filters' }))
+    expect(screen.queryByRole('combobox', { name: 'City' })).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Filters' }))
+    expect(screen.getByRole('combobox', { name: 'City' })).toBeInTheDocument()
+  })
+  it('focuses a selected city with no results and clears the previous geographic area when the city changes', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url.endsWith('/cities')) return response({ cities: [{ value: 'Astana', names: { en: 'Astana', ru: 'Астана', kk: 'Астана' }, aliases: ['Nur-Sultan'], center: { lat: 51.1801, lon: 71.44598 } }] })
+      if (url.endsWith('/places/config')) return response({ enabled: true, archive_url: '/map-data/kz.pmtiles' })
+      if (url.includes('/places?')) return response({ places: [], next_cursor: '' })
+      return ancillary(url, null) ?? response({})
+    }))
+    mount('/places?west=76&south=43&east=77&north=44')
+    await screen.findByRole('button', { name: 'Pan test map' })
+    await userEvent.type(screen.getByRole('combobox', { name: 'City' }), 'Nur-Sultan')
+    await userEvent.click(screen.getByRole('button', { name: 'Apply filters' }))
+    await waitFor(() => expect(screen.getByTestId('map-center')).toHaveTextContent('51.1801'))
+    expect(screen.getByTestId('map-center')).toHaveTextContent('71.44598')
+    expect(screen.getByTestId('location')).toHaveTextContent('city=Astana')
+    expect(screen.getByTestId('location')).not.toHaveTextContent('west=')
+    expect(await screen.findByRole('heading', { name: 'No places from riders found here yet' })).toBeInTheDocument()
+  })
   it('browses even when the session service fails, without private requests or geolocation', async () => {
     const gps = vi.fn()
     Object.defineProperty(navigator, 'geolocation', { configurable: true, value: { getCurrentPosition: gps } })
@@ -61,7 +95,6 @@ describe('public community map', () => {
     mount('/places')
     await screen.findByText('Only this page is shown on the map. Narrow the area or filters, or open the next page.')
     await userEvent.type(screen.getByRole('searchbox', { name: 'Search places' }), 'repair')
-    await userEvent.click(screen.getByRole('button', { name: 'Filters' }))
     await userEvent.type(screen.getByRole('combobox', { name: 'City' }), 'Almaty')
     await userEvent.click(screen.getByRole('button', { name: 'Workshops' }))
     await userEvent.click(screen.getByRole('button', { name: 'Apply filters' }))
@@ -241,7 +274,6 @@ describe('suggestion rebase and translated directory', () => {
     vi.stubGlobal('fetch', vi.fn(async (url: string) => url.includes('/places?') ? response({ places: [], next_cursor: '' }) : ancillary(url, null) ?? response({})))
     mount('/places')
     expect(await screen.findByRole('heading', { name: title })).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: locale === 'ru' ? 'Фильтры' : 'Сүзгілер' }))
     expect(screen.getByRole('button', { name: category })).toBeInTheDocument()
   })
 })
@@ -266,7 +298,6 @@ describe('directory history and latest public state', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Previous page' }))
     await screen.findByRole('button', { name: /First page/ })
     expect(screen.getByTestId('location')).not.toHaveTextContent('after=')
-    await userEvent.click(screen.getByRole('button', { name: 'Filters' }))
     await userEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
     expect(screen.getByRole('searchbox', { name: 'Search places' })).toHaveValue('')
     await userEvent.click(screen.getByRole('button', { name: 'History back' }))
@@ -341,7 +372,7 @@ describe('compact map workspace', () => {
     })
     expect(search).toHaveFocus()
     const filters = screen.getByRole('button', { name: 'Filters' })
-    await userEvent.click(filters)
+    expect(filters).toHaveAttribute('aria-expanded', 'true')
     const filterPanel = document.getElementById(filters.getAttribute('aria-controls')!)!
     expect(within(filterPanel).getByRole('link', { name: 'My suggestions' })).toHaveAttribute('href', '/places/submissions')
     expect(screen.getByRole('link', { name: 'Suggest a place' })).toBeInTheDocument()

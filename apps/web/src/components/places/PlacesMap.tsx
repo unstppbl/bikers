@@ -9,17 +9,21 @@ import type { Place, PlaceBounds } from '../../types'
 import { initializeMapRuntime, retryMapArchive } from '../maps/map-browser-runtime'
 import { mapStyle } from '../maps/map-style'
 import { PlaceCategoryIcon } from './shared'
+import type { CityOption } from '../../cities'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import '../maps/map-canvas.css'
 
 const sourceId = 'community-places'
-interface Props { places: Place[]; selected?: string; selectedPlace?: Place; archiveUrl: string; bounds?: PlaceBounds; onSelect: (id: string) => void; onViewport: (bounds: PlaceBounds) => void }
+// GeoNames Astana city center (1526273), shared with the public city catalogue.
+const defaultCenter = { lat: 51.1801, lon: 71.44598 }
+const cityZoom = 11
+interface Props { places: Place[]; selected?: string; selectedPlace?: Place; archiveUrl: string; bounds?: PlaceBounds; center?: CityOption['center']; onSelect: (id: string) => void; onViewport: (bounds: PlaceBounds) => void }
 interface Pin { key: string; point: [number, number]; place?: Place; cluster?: { id: number; count: number } }
 export default function PlacesMap(props: Props) {
   const [attempt, setAttempt] = useState(0)
   return <MapSurface key={props.archiveUrl + ':' + attempt} {...props} retry={() => { try { retryMapArchive(props.archiveUrl); setAttempt((v) => v + 1) } catch { /* Invalid archive remains an inline error. */ } }} />
 }
-function MapSurface({ places, selected, selectedPlace, archiveUrl, bounds, onSelect, onViewport, retry }: Props & { retry: () => void }) {
+function MapSurface({ places, selected, selectedPlace, archiveUrl, bounds, center, onSelect, onViewport, retry }: Props & { retry: () => void }) {
   const { t, locale } = useI18n(), container = useRef<HTMLDivElement>(null), mapRef = useRef<LibreMap | null>(null)
   const inputs = useRef({ places, selected, selectedPlace, onSelect, onViewport, t })
   const refreshSource = useRef<(() => void) | undefined>(undefined)
@@ -27,7 +31,8 @@ function MapSurface({ places, selected, selectedPlace, archiveUrl, bounds, onSel
   const [choices, setChoices] = useState<{ items: Place[]; places: Place[]; selected?: string } | null>(null)
   const visibleChoices = choices?.places === places && choices.selected === selected ? choices.items : null
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
-  const { west, south, east, north } = bounds ?? region
+  const { west, south, east, north } = bounds ?? {}
+  const { lat, lon } = bounds ? {} : center ?? defaultCenter
   useEffect(() => { inputs.current = { places, selected, selectedPlace, onSelect, onViewport, t } })
   useEffect(() => { if (visibleChoices) chooser.current?.querySelector('button')?.focus() }, [visibleChoices])
   useEffect(() => {
@@ -122,7 +127,7 @@ function MapSurface({ places, selected, selectedPlace, archiveUrl, bounds, onSel
     }
     try {
       initializeMapRuntime()
-      map = new LibreMap({ container: container.current, style: mapStyle(archiveUrl, locale, window.location.origin), center: [66.888315, 48.030725], zoom: 4, maxZoom: 20, renderWorldCopies: false, attributionControl: false, dragRotate: false, touchPitch: false })
+      map = new LibreMap({ container: container.current, style: mapStyle(archiveUrl, locale, window.location.origin), center: [defaultCenter.lon, defaultCenter.lat], zoom: cityZoom, maxZoom: 20, renderWorldCopies: false, attributionControl: false, dragRotate: false, touchPitch: false })
       mapRef.current = map
       map.addControl(new AttributionControl({ compact: false }), 'bottom-left')
       map.getCanvas().setAttribute('aria-label', t('placesMap'))
@@ -152,12 +157,14 @@ function MapSurface({ places, selected, selectedPlace, archiveUrl, bounds, onSel
   useEffect(() => { refreshSource.current?.() }, [places, selected, selectedPlace, locale])
   useEffect(() => {
     const map = mapRef.current
-    if (map) map.fitBounds([[west, south], [east, north]], { duration: 0, padding: 24 })
-  }, [archiveUrl, locale, west, south, east, north])
+    if (!map) return
+    if (west !== undefined && south !== undefined && east !== undefined && north !== undefined) map.fitBounds([[west, south], [east, north]], { duration: 0, padding: 24 })
+    else if (lon !== undefined && lat !== undefined) map.easeTo({ center: [lon, lat], zoom: cityZoom, duration: 0 })
+  }, [archiveUrl, locale, west, south, east, north, lat, lon])
   useEffect(() => {
     const place = places.find((p) => p.id === selected) ?? selectedPlace
     if (place && selected) mapRef.current?.easeTo({ center: [place.lon, place.lat], duration: 0 })
-  }, [selected, selectedPlace, places, locale])
+  }, [selected, selectedPlace, places, locale, lat, lon, west, south, east, north])
   function fit() { if (!mapRef.current || !places.length) return; const b = new LngLatBounds(); places.forEach((p) => b.extend([p.lon, p.lat])); mapRef.current.fitBounds(b, { padding: 40, maxZoom: 14, duration: 0 }) }
   function closeChoices() { setChoices(null); mapRef.current?.getCanvas().focus({ preventScroll: true }) }
   return <div className="map-canvas places-map" role="region" aria-label={t('placesMap')}><div className="places-map-viewport"><div className="map-canvas-surface" ref={container} /><div className="map-canvas-controls" role="group" aria-label={t('placesMap')}><button type="button" aria-label={t('placesZoomIn')} onClick={() => mapRef.current?.zoomIn({ duration: 0 })}><PlusIcon size={20} /></button><button type="button" aria-label={t('placesZoomOut')} onClick={() => mapRef.current?.zoomOut({ duration: 0 })}><MinusIcon size={20} /></button><button type="button" aria-label={t('placesFit')} disabled={!places.length} onClick={fit}><ArrowsOutSimpleIcon size={20} /></button></div>{visibleChoices && <div ref={chooser} className="place-cluster-chooser" role="group" aria-label={t('placesClusterChoose')} onKeyDown={(event) => { if (event.key === 'Escape') { event.preventDefault(); closeChoices() } }}><button type="button" className="text-button" onClick={closeChoices}><XIcon size={16} />{t('close')}</button>{visibleChoices.map((place) => <button key={place.id} type="button" onClick={() => { setChoices(null); onSelect(place.id) }}>{place.name}</button>)}</div>}</div>{status === 'loading' && <div className="map-canvas-status" role="status"><span className="map-canvas-loading-bar" />{t('loading')}</div>}{status === 'error' && <div className="map-canvas-status map-canvas-error" role="alert">{t('placesMapUnavailable')}<button type="button" className="text-button" onClick={retry}>{t('retry')}</button></div>}</div>

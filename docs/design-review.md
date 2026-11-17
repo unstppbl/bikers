@@ -168,3 +168,24 @@ basemap. Checks covered English, Russian and Kazakh, 320px/390px phones,
 mobile drawer opens with Close focused and returns focus on Escape. These
 Chromium viewport checks do not establish physical iOS/Safari acceptance.
 No production records, accounts or runtime configuration were changed.
+
+## Map city focus and speed cameras
+
+Issue #40 refines Map without changing the shared shell. The initial canvas
+opens on Astana at city zoom. Applying a suggested city focuses its catalogue
+point, even when the community directory has no results. Changing cities
+clears the previous area filter; explicit area links and selected places keep
+their location intent. Late city metadata cannot override an opened place or
+manual panning within an explicit area. Search text remains a place search.
+
+City/category filters open initially and remain open after applying or clearing
+them. The bounded panel still scrolls on phones and can be collapsed to leave
+more canvas. Speed cameras use a shared camera icon and EN/RU/KK category
+labels across filters, markers, details, submissions and moderation. Camera
+locations follow the existing review flow and require schema 13; the migration
+adds no camera records.
+
+Validation includes the actual MapLibre Mercator camera, filter/history and
+submission regressions, plus read-only local desktop and Russian phone
+previews with the public basemap. Phone previews confirm the open panel can
+scroll independently of the map. Physical iOS/Safari acceptance remains open.

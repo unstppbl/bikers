@@ -128,7 +128,9 @@ gh workflow run deploy.yml --repo unstppbl/bikers-deploy \
 Retry does not bypass CI, main, configuration, schema or health checks.
 Compose changes and migrations require an explicit reviewed rollout through
 [Operations](operations.md#repository-deployments-on-jarvis). The automatic path
-never supplies `--migrate-to`. Existing receipts and migration checksums must
+never supplies `--migrate-to`. The current explicit rollout supports only
+schema 12 to 13; pause both controls before merging schema-dependent code and
+follow the speed-camera category procedure in Operations. Existing receipts and migration checksums must
 match the source before building or restarting the app.
 
 Review logs in the private Actions run and on Jarvis:

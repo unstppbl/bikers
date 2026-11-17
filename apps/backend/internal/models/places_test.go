@@ -20,3 +20,19 @@ func TestPlaceValidationBoundsCategoriesAndUnsafeLinks(t *testing.T) {
 		}
 	}
 }
+
+func TestPlaceCategoriesIncludeSpeedCamerasAndRemainClosed(t *testing.T) {
+	for _, category := range []string{"fuel", "workshop", "tires", "motorcycle_shop", "parking", "meeting_spot", "speed_camera"} {
+		t.Run(category, func(t *testing.T) {
+			place, err := ValidatePlace(PlaceInput{Name: "  Observed place  ", Category: " " + category + " ", Lat: 51.1694, Lon: 71.4491, City: "Астана"})
+			if err != nil || place.Category != category || place.Name != "Observed place" || place.City != "Astana" {
+				t.Fatal("valid place category rejected or normalization changed", place, err)
+			}
+		})
+	}
+	for _, category := range []string{"", "speed-camera", "speed_cameras", "traffic_camera", "Speed_camera"} {
+		if PlaceCategory(category) {
+			t.Fatal("unknown category accepted", category)
+		}
+	}
+}

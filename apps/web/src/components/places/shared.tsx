@@ -1,11 +1,11 @@
-import { GasPumpIcon, WrenchIcon, TireIcon, MotorcycleIcon, CarSimpleIcon, UsersThreeIcon, ArrowSquareOutIcon } from '@phosphor-icons/react'
+import { GasPumpIcon, WrenchIcon, TireIcon, MotorcycleIcon, CarSimpleIcon, UsersThreeIcon, SecurityCameraIcon, ArrowSquareOutIcon } from '@phosphor-icons/react'
 import { Link } from 'react-router-dom'
 import { safeExternalUrl } from '../../api'
 import { intlLocale, useI18n } from '../../i18n'
 import { categoryLabels } from '../../places'
 import { useSession } from '../../session'
 import type { Place, PlaceCategory, PlaceInput } from '../../types'
-const icons = { fuel: GasPumpIcon, workshop: WrenchIcon, tires: TireIcon, motorcycle_shop: MotorcycleIcon, parking: CarSimpleIcon, meeting_spot: UsersThreeIcon }
+const icons = { fuel: GasPumpIcon, workshop: WrenchIcon, tires: TireIcon, motorcycle_shop: MotorcycleIcon, parking: CarSimpleIcon, meeting_spot: UsersThreeIcon, speed_camera: SecurityCameraIcon }
 export function PlaceCategoryIcon({ category, size = 20 }: { category: PlaceCategory; size?: number }) { const Icon = icons[category]; return <Icon size={size} aria-hidden="true" /> }
 export function PlaceInformation({ place }: { place: PlaceInput }) {
   const { t } = useI18n(), website = safeExternalUrl(place.website)

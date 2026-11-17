@@ -7,7 +7,7 @@ Club membership requests notify the current owner, and approval/rejection/remova
 notify the affected rider. These transitions and their inbox/push work commit
 atomically. Push payloads remain generic and open `/inbox`.
 
-This executable requires schema 9; its source implementation is
+This executable requires schema 13; its source implementation is
 separate from the currently deployed release. Migration is explicit and must be
 coordinated with the matching app. See [Operations](../../docs/operations.md).
 Photo bytes remain in bounded PostgreSQL `bytea` storage; the persistent media
@@ -96,9 +96,13 @@ accounts/rides/chat; version 2 adds bikes, maintenance, clubs, memberships, and
 ride links; version 3 adds bike-photo content, gallery state, and upload attempts;
 version 4 adds club images and the current-image reference; versions 5–7 add
 avatars/ride media, trust/admin state and notifications/preferences/push; version
-8 adds club notification targets; version 9 adds category push preferences and ride reminder state. Versions 1–8 remain unchanged. Applied receipts
-are verified before proceeding; unknown versions or changed checksums fail.
-Readiness requires all nine receipts.
+8 adds club notification targets; version 9 adds category push preferences and
+ride reminder state; version 10 adds private ride map plans; version 11 adds
+public places and moderated submissions; version 12 adds community routes,
+private tracks/collections and dated conditions; version 13 adds the speed-camera
+place category. Versions 1–12 remain unchanged. Applied receipts are verified
+before proceeding; unknown versions or changed checksums fail. Readiness
+requires all thirteen receipts.
 Run `migrate` with the new executable before serving an older installation.
 
 ## API behavior

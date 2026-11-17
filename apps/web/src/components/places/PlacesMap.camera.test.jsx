@@ -60,8 +60,32 @@ function expectVisible(map, points, padding) {
 function LocaleControl() { const { setLocale } = useI18n(); return <button onClick={() => setLocale('ru')}>Use Russian</button> }
 beforeEach(() => { state.maps = []; state.viewport = undefined })
 describe('Places map uses the actual Mercator camera', () => {
-  it('shows the full country initially and fits distant results on a narrow viewport', () => {
-    render(<I18nProvider><PlacesMap places={places} archiveUrl="/map-data/kz.pmtiles" onSelect={() => {}} onViewport={() => {}} /></I18nProvider>)
+  it('opens Astana at city zoom without requiring any community places', () => {
+    render(<I18nProvider><PlacesMap places={[]} archiveUrl="/map-data/kz.pmtiles" onSelect={() => {}} onViewport={() => {}} /></I18nProvider>)
+    const map = state.maps[0]
+    expect(map.transform.center.lng).toBeCloseTo(71.44598)
+    expect(map.transform.center.lat).toBeCloseTo(51.1801)
+    expect(map.getZoom()).toBe(11)
+    expect(map.getBounds().getEast() - map.getBounds().getWest()).toBeLessThan(0.2)
+  })
+  it('focuses a chosen city, retains manual panning on result refresh and lets a selected place take priority', () => {
+    const common = { archiveUrl: '/map-data/kz.pmtiles', onSelect: () => {}, onViewport: () => {} }
+    const { rerender } = render(<I18nProvider><PlacesMap {...common} places={[]} center={{ lat: 43.25249, lon: 76.9115 }} /></I18nProvider>)
+    const map = state.maps[0]
+    expect(map.transform.center.lng).toBeCloseTo(76.9115)
+    expect(map.transform.center.lat).toBeCloseTo(43.25249)
+    expect(map.getZoom()).toBe(11)
+    map.jumpTo({ center: [76.95, 43.3], zoom: 13 })
+    rerender(<I18nProvider><PlacesMap {...common} places={[...places]} center={{ lat: 43.25249, lon: 76.9115 }} /></I18nProvider>)
+    expect(map.transform.center.lng).toBeCloseTo(76.95)
+    expect(map.transform.center.lat).toBeCloseTo(43.3)
+    expect(map.getZoom()).toBe(13)
+    rerender(<I18nProvider><PlacesMap {...common} places={places} selected="p0" center={{ lat: 43.25249, lon: 76.9115 }} /></I18nProvider>)
+    expect(map.transform.center.lng).toBeCloseTo(region.west)
+    expect(map.transform.center.lat).toBeCloseTo(region.south)
+  })
+  it('preserves explicit country bounds and fits distant results on a narrow viewport', () => {
+    render(<I18nProvider><PlacesMap places={places} bounds={region} center={{ lat: 43.25249, lon: 76.9115 }} archiveUrl="/map-data/kz.pmtiles" onSelect={() => {}} onViewport={() => {}} /></I18nProvider>)
     const map = state.maps[0]
     expect(map).toBeInstanceOf(Camera)
     expectVisible(map, corners, 24)
@@ -74,6 +98,27 @@ describe('Places map uses the actual Mercator camera', () => {
     const west = map.transform.locationToScreenPoint(new LngLat(...corners[0]))
     const east = map.transform.locationToScreenPoint(new LngLat(...corners[1]))
     expect(west.x < 0 || east.x > 390).toBe(true)
+  })
+  it('keeps an opened place centered when city metadata arrives after its details', () => {
+    const common = { places, selected: 'p0', archiveUrl: '/map-data/kz.pmtiles', onSelect: () => {}, onViewport: () => {} }
+    const { rerender } = render(<I18nProvider><PlacesMap {...common} /></I18nProvider>)
+    const map = state.maps[0]
+    rerender(<I18nProvider><PlacesMap {...common} center={{ lat: 43.25249, lon: 76.9115 }} /></I18nProvider>)
+    expect(map.transform.center.lng).toBeCloseTo(region.west)
+    expect(map.transform.center.lat).toBeCloseTo(region.south)
+    rerender(<I18nProvider><PlacesMap {...common} center={{ lat: 43.25249, lon: 76.9115 }} bounds={{ west: 76, south: 43, east: 77, north: 44 }} /></I18nProvider>)
+    expect(map.transform.center.lng).toBeCloseTo(region.west)
+    expect(map.transform.center.lat).toBeCloseTo(region.south)
+  })
+  it('preserves manual panning within an explicit area when lower-priority city metadata arrives', () => {
+    const common = { places: [], bounds: region, archiveUrl: '/map-data/kz.pmtiles', onSelect: () => {}, onViewport: () => {} }
+    const { rerender } = render(<I18nProvider><PlacesMap {...common} /></I18nProvider>)
+    const map = state.maps[0]
+    map.jumpTo({ center: [71.45, 51.18], zoom: 13 })
+    rerender(<I18nProvider><PlacesMap {...common} center={{ lat: 43.25249, lon: 76.9115 }} /></I18nProvider>)
+    expect(map.transform.center.lng).toBeCloseTo(71.45)
+    expect(map.transform.center.lat).toBeCloseTo(51.18)
+    expect(map.getZoom()).toBe(13)
   })
   it('keeps the selected marker and its camera center after locale recreation', async () => {
     render(<I18nProvider><PlacesMap places={places} selected="p0" archiveUrl="/map-data/kz.pmtiles" onSelect={() => {}} onViewport={() => {}} /><LocaleControl /></I18nProvider>)

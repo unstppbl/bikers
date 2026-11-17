@@ -124,7 +124,7 @@ export type ReportTarget = 'user' | 'ride' | 'club' | 'message' | 'bike' | 'bike
 export interface PushCategories { ride_updates: boolean; participation: boolean; club_membership: boolean; ride_reminders: boolean }
 export interface RideReminders { day_before: boolean; hour_before: boolean }
 
-export type PlaceCategory = 'fuel' | 'workshop' | 'tires' | 'motorcycle_shop' | 'parking' | 'meeting_spot'
+export type PlaceCategory = 'fuel' | 'workshop' | 'tires' | 'motorcycle_shop' | 'parking' | 'meeting_spot' | 'speed_camera'
 export interface PlaceInput {
   name: string; category: PlaceCategory; lat: number; lon: number; city: string; address: string; description: string; website: string; phone: string; opening_hours: string
 }
