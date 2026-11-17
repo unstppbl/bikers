@@ -56,8 +56,10 @@ def valid_revision(value):
 
 
 def successful_ci(revision):
+    # Discover by source identity; GitHub can omit completed successes from its
+    # conclusion-filtered listing. Validate status and conclusion below instead.
     parameters = urlencode({'branch': 'main', 'event': 'push', 'head_sha': revision,
-                            'status': 'success', 'per_page': 10})
+                            'per_page': 10})
     payload = github(f'/repos/{REPOSITORY}/actions/workflows/ci.yml/runs?{parameters}')
     for run in payload['workflow_runs']:
         if not (run.get('head_sha') == revision and run.get('head_branch') == 'main'

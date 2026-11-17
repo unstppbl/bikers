@@ -12,6 +12,7 @@ import sys
 import tempfile
 import unittest
 from unittest.mock import patch
+from urllib.parse import parse_qs, urlsplit
 
 
 SCRIPT = Path(__file__).with_name('deploy-tested-main.py')
@@ -225,6 +226,23 @@ class GateTests(unittest.TestCase):
             with self.subTest(revision=revision), self.assertRaises(RuntimeError):
                 self.deploy(revision)
         self.assertEqual(self.fixture.events, [])
+
+    def test_ci_discovery_does_not_depend_on_github_conclusion_filter(self):
+        def github(path):
+            query = parse_qs(urlsplit(path).query)
+            if '/actions/workflows/ci.yml/runs?' in path and query.get('status') == ['success']:
+                # Observed on Jarvis: the conclusion-filtered listing omits a
+                # completed successful run that the exact-SHA listing returns.
+                self.fixture.requests.append(path)
+                return {'workflow_runs': []}
+            return self.fixture.github(path)
+
+        with patch.object(GATE, 'github', github):
+            self.assertEqual(GATE.successful_ci(REVISION), 123)
+        listing = next(path for path in self.fixture.requests if '/actions/workflows/ci.yml/runs?' in path)
+        self.assertEqual(parse_qs(urlsplit(listing).query), {
+            'branch': ['main'], 'event': ['push'], 'head_sha': [REVISION], 'per_page': ['10'],
+        })
 
     def test_ci_must_be_exact_public_push_workflow_and_not_fork_or_manual_success(self):
         cases = (('event', 'workflow_dispatch'), ('head_sha', OTHER), ('head_branch', 'topic'),
