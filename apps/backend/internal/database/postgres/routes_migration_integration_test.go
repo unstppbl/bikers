@@ -12,6 +12,7 @@ import (
 
 func removeCommunityRoutes(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
+	removeSpeedCameras(t, pool)
 	_, err := pool.Exec(context.Background(), `DROP TABLE route_daily_limits,route_conditions,route_collection_items,route_collections,community_routes,route_tracks;
 ALTER TABLE moderation_hidden DROP CONSTRAINT moderation_hidden_target_type_check;
 ALTER TABLE moderation_hidden ADD CONSTRAINT moderation_hidden_target_type_check CHECK(target_type IN ('user','ride','message','club','bike','bike_photo','club_image','avatar','ride_photo','ride_video','announcement'));

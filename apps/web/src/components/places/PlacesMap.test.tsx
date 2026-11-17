@@ -119,6 +119,7 @@ describe('cluster request lifecycle', () => {
     state.features = [cluster]
     const { rerender } = render(<I18nProvider><PlacesMap places={places} archiveUrl="/map-data/kz.pmtiles" onSelect={vi.fn()} onViewport={vi.fn()} /></I18nProvider>)
     const button = await screen.findByRole('button', { name: '60 places. Zoom in' })
+    state.maps[0].easeTo.mockClear()
     let resolve: (zoom: number) => void = () => {}
     state.maps[0].source!.getClusterExpansionZoom.mockImplementation(() => new Promise<number>((done) => { resolve = done }))
     fireEvent.click(button)

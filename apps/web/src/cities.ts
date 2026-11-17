@@ -4,6 +4,7 @@ export interface CityOption {
   value: string
   names: Record<Locale, string>
   aliases: string[]
+  center?: { lat: number; lon: number }
 }
 
 function cityKey(value: string) { return value.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '') }
@@ -20,6 +21,13 @@ export function normalizeCity(value: string, cities: readonly CityOption[]) {
 
 export function cityLabel(value: string, locale: Locale, cities: readonly CityOption[]) {
   return findCity(value, cities)?.names[locale] ?? value
+}
+
+// Use the catalogue's existing localized names and aliases for camera lookup too.
+export function cityCenter(value: string, cities: readonly CityOption[]) {
+  const center = findCity(value, cities)?.center
+  if (!center || !Number.isFinite(center.lat) || !Number.isFinite(center.lon) || Math.abs(center.lat) > 90 || Math.abs(center.lon) > 180) return undefined
+  return { lat: center.lat, lon: center.lon }
 }
 
 export const cityCopy: Record<Locale, { hint: string; unavailable: string }> = {

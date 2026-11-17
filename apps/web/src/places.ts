@@ -1,6 +1,6 @@
 import type { Place, PlaceBounds, PlaceCategory, PlaceInput } from './types'
-export const placeCategories: PlaceCategory[] = ['fuel', 'workshop', 'tires', 'motorcycle_shop', 'parking', 'meeting_spot']
-export const categoryLabels = { fuel: 'placesFuel', workshop: 'placesWorkshop', tires: 'placesTires', motorcycle_shop: 'placesShop', parking: 'placesParking', meeting_spot: 'placesMeeting' } as const
+export const placeCategories: PlaceCategory[] = ['fuel', 'workshop', 'tires', 'motorcycle_shop', 'parking', 'meeting_spot', 'speed_camera']
+export const categoryLabels = { fuel: 'placesFuel', workshop: 'placesWorkshop', tires: 'placesTires', motorcycle_shop: 'placesShop', parking: 'placesParking', meeting_spot: 'placesMeeting', speed_camera: 'placesSpeedCamera' } as const
 export const region = { west: 46, south: 40.5, east: 87.5, north: 55.5 }
 export const byteLength = (value: string) => new TextEncoder().encode(value.trim()).length
 export function validBounds(b: PlaceBounds) { return Object.values(b).every(Number.isFinite) && b.west >= region.west && b.east <= region.east && b.south >= region.south && b.north <= region.north && b.west < b.east && b.south < b.north }

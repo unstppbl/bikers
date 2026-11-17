@@ -150,6 +150,52 @@ func TestPlacesModeratedPublicationPrivacyStaleReviewClosureAndRestart(t *testin
 	}
 }
 
+func TestSpeedCameraSubmissionRequiresReviewBeforePublicCategoryDiscovery(t *testing.T) {
+	f := newFixture(t)
+	rider := f.login("+77011234941", "Camera contributor")
+	admin := f.login("+77011234942", "Camera moderator")
+	grantTestAdmin(t, f, admin)
+	camera := placeInput("Observed speed camera")
+	camera.Category = "speed_camera"
+	camera.City, camera.Lat, camera.Lon = "Астана", 51.1694, 71.4491
+	station := camera
+	station.Name, station.Category = "Existing fuel station", "fuel"
+	importPlaceRecords(t, f, []models.PlaceImportRecord{{PlaceInput: station, SourceRef: "node/34941", SourceDate: "2026-11-02"}})
+	pending := submitPlace(t, f, rider, "new", "", 0, &camera)
+	if got := placeList(t, f, "?category=speed_camera&city=Astana").body["places"].([]any); len(got) != 0 {
+		t.Fatal("unreviewed speed camera published", got)
+	}
+	expect(t, reviewPlace(f, rider, pending, "approved"), 403)
+	approved := reviewPlace(f, admin, pending, "approved")
+	expect(t, approved, 200)
+	id := approved.body["submission"].(map[string]any)["place_id"].(string)
+	public := placeList(t, f, "?category=speed_camera&city=Astana&west=71&south=51&east=72&north=52")
+	items := public.body["places"].([]any)
+	if len(items) != 1 {
+		t.Fatal("speed-camera category or city/bounds filtering failed", public.raw)
+	}
+	item := items[0].(map[string]any)
+	if item["id"] != id || item["category"] != "speed_camera" || item["source"] != "community" || item["status"] != "published" {
+		t.Fatal("incorrect public speed-camera projection", public.raw)
+	}
+	for _, forbidden := range []string{"PRIVATE", "submitter_id", "reviewer_id", "review_reason", rider.id, admin.id} {
+		if strings.Contains(public.raw, forbidden) {
+			t.Fatal("public camera leaked contribution or review evidence", forbidden)
+		}
+	}
+	if got := placeList(t, f, "?category=fuel&city=Astana").body["places"].([]any); len(got) != 1 || got[0].(map[string]any)["name"] != station.Name {
+		t.Fatal("adding a speed camera changed existing category discovery", got)
+	}
+	closure := submitPlace(t, f, rider, "closed", id, 1, nil)
+	if len(placeList(t, f, "?category=speed_camera").body["places"].([]any)) != 1 {
+		t.Fatal("unreviewed closure hid a published speed camera")
+	}
+	expect(t, reviewPlace(f, admin, closure, "approved"), 200)
+	if len(placeList(t, f, "?category=speed_camera").body["places"].([]any)) != 0 {
+		t.Fatal("approved camera closure remains publicly discoverable")
+	}
+}
+
 func TestPlacesImportIdempotencyAtomicValidationFiltersAndRestartPaging(t *testing.T) {
 	f := newFixture(t)
 	records := []models.PlaceImportRecord{}

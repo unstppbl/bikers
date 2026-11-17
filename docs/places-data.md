@@ -9,6 +9,22 @@ suggest places and administrators review additions, corrections and closures.
 There is no scheduled import or automatic seed on startup. Do not repopulate
 the directory from OSM or run a bulk import without a new owner instruction.
 
+[Issue #40](https://github.com/unstppbl/bikers/issues/40) adds rider-submitted
+`speed_camera` records through the same moderated place workflow. Pending
+camera suggestions remain private until approved; the schema change creates no
+records and does not enable an OSM camera import.
+
+The public city catalogue includes representative map points for its 20
+suggested cities. They come from the [GeoNames Kazakhstan dataset](https://download.geonames.org/export/dump/KZ.zip),
+checked on 17 November 2026 (archive SHA-256
+`48f7aa5261d2f87c3dfb78a5d6ea696eaa775e8f1b4c06b574a88fcdccce9598`).
+[GeoNames](https://www.geonames.org/) provides this data under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); source record IDs
+are recorded beside each city in `internal/models/cities.go`. These are map
+focus points, not city boundaries. Localized names and historical aliases use
+the existing city vocabulary. Astana is the initial map view; choosing a
+suggested city changes the map focus without requiring a place result or GPS.
+
 The self-hosted OSM basemap, address search and motorcycle routing remain in
 use. Their map data is separate from the community's place entries. Existing
 SQL migration files and source/provenance fields remain unchanged.

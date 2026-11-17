@@ -8,7 +8,8 @@ import { useI18n } from '../i18n'
 import { useSession } from '../session'
 import { byteLength, categoryLabels, placeCategories, placesQuery, readPlaceFilters, validBounds } from '../places'
 import { ErrorNotice, Loading } from '../ui'
-import { CitySelector } from '../components/CitySelector'
+import { CitySelector, useCityOptions } from '../components/CitySelector'
+import { cityCenter } from '../cities'
 import { PlaceCategoryIcon, PlaceDetails } from '../components/places/shared'
 import type { MapConfig, Place, PlaceBounds } from '../types'
 import './places.css'
@@ -19,6 +20,7 @@ export function usePlacesConfig() { return useQuery({ queryKey: ['places-config'
 export function PlacesPage() {
   const { t } = useI18n(), { user, error: sessionError } = useSession()
   const [params, setParams] = useSearchParams(), f = readPlaceFilters(params), config = usePlacesConfig()
+  const cities = useCityOptions()
   const [viewport, setViewport] = useState<PlaceBounds>()
   const [view, setView] = useState<'map' | 'list'>('map')
   const mapViewRef = useRef<HTMLButtonElement>(null)
@@ -84,7 +86,7 @@ export function PlacesPage() {
         </div>}
       </section>
       <section className="places-map-column" aria-label={t('placesMap')}>
-        {config.data?.enabled && config.data.archive_url ? <><div className="places-area-action"><button className="button button-outline" type="button" disabled={!viewport || !validBounds(viewport) || query.isFetching} onClick={searchArea}><MagnifyingGlassIcon size={16} />{t('placesSearchArea')}</button></div><Suspense fallback={<Loading />}><PlacesMap places={query.data?.places ?? noPlaces} selected={selectedId} selectedPlace={selected} bounds={f.bounds} archiveUrl={config.data.archive_url} onSelect={select} onViewport={setViewport} /></Suspense></> : config.isPending ? <Loading /> : <div className="places-map-unavailable"><MapTrifoldIcon size={32} /><p>{t('placesMapUnavailable')}</p><button className="button button-outline" type="button" onClick={() => setView('list')}>{t('placesList')}</button></div>}
+        {config.data?.enabled && config.data.archive_url ? <><div className="places-area-action"><button className="button button-outline" type="button" disabled={!viewport || !validBounds(viewport) || query.isFetching} onClick={searchArea}><MagnifyingGlassIcon size={16} />{t('placesSearchArea')}</button></div><Suspense fallback={<Loading />}><PlacesMap places={query.data?.places ?? noPlaces} selected={selectedId} selectedPlace={selected} bounds={f.bounds} center={cityCenter(f.city, cities.data?.cities ?? [])} archiveUrl={config.data.archive_url} onSelect={select} onViewport={setViewport} /></Suspense></> : config.isPending ? <Loading /> : <div className="places-map-unavailable"><MapTrifoldIcon size={32} /><p>{t('placesMapUnavailable')}</p><button className="button button-outline" type="button" onClick={() => setView('list')}>{t('placesList')}</button></div>}
       </section>
     </div>
   </div>
@@ -93,16 +95,16 @@ export function PlacesPage() {
 function PlaceFilters({ params, apply, suggestions }: { params: URLSearchParams; apply: (params: URLSearchParams) => void; suggestions: boolean }) {
   const { t } = useI18n(), f = readPlaceFilters(params)
   const [q, setQ] = useState(f.q), [city, setCity] = useState(f.city), [category, setCategory] = useState(f.category), [invalid, setInvalid] = useState(false)
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(true)
   const panelId = useId()
   const activeCount = Number(!!f.city) + Number(!!f.category)
-  function submit(event: FormEvent) { event.preventDefault(); if (byteLength(q) > 160 || byteLength(city) > 160) { setInvalid(true); setExpanded(true); return }; const next = new URLSearchParams(params); for (const [key, value] of Object.entries({ q: q.trim(), city: city.trim(), category })) { if (value) next.set(key, value); else next.delete(key) }; apply(next); setExpanded(false) }
+  function submit(event: FormEvent) { event.preventDefault(); if (byteLength(q) > 160 || byteLength(city) > 160) { setInvalid(true); setExpanded(true); return }; const next = new URLSearchParams(params); if (city.trim() !== f.city) ['west', 'south', 'east', 'north'].forEach((key) => next.delete(key)); for (const [key, value] of Object.entries({ q: q.trim(), city: city.trim(), category })) { if (value) next.set(key, value); else next.delete(key) }; apply(next) }
   return <form className="places-filters" onSubmit={submit}>
     <div className="places-search-row"><label className="places-search"><MagnifyingGlassIcon size={18} /><span className="sr-only">{t('placesSearch')}</span><input type="search" value={q} onChange={(event) => setQ(event.target.value)} maxLength={160} placeholder={t('placesSearch')} /></label><button className="button button-primary" type="submit">{t('placesSearchAction')}</button><button type="button" className="button button-outline places-filter-toggle" aria-label={t('placesFilters') + (activeCount ? ` (${activeCount})` : '')} aria-expanded={expanded} aria-controls={panelId} onClick={() => setExpanded((value) => !value)}><SlidersHorizontalIcon size={18} />{t('placesFilters')}{activeCount > 0 && <span className="places-filter-count">{activeCount}</span>}</button></div>
     <div id={panelId} className="places-filter-panel" hidden={!expanded}>
       <CitySelector label={t('placesCity')} value={city} onChange={setCity} maxLength={160} hint="" />
       <div className="places-categories" role="group" aria-label={t('placesCategory')}><button type="button" aria-pressed={!category} className={'place-category-filter ' + (!category ? 'active' : '')} onClick={() => setCategory('')}>{t('placesAll')}</button>{placeCategories.map((value) => <button type="button" key={value} className={'place-category-filter ' + (value === category ? 'active' : '')} aria-pressed={value === category} onClick={() => setCategory(value)}><PlaceCategoryIcon category={value} size={16} />{t(categoryLabels[value])}</button>)}</div>
-      <div className="places-filter-actions"><button className="button button-primary" type="submit">{t('placesApply')}</button><button className="text-button" type="button" onClick={() => { setQ(''); setCity(''); setCategory(''); apply(new URLSearchParams()); setExpanded(false) }}>{t('placesClear')}</button>{suggestions && <Link className="text-button places-mobile-suggestions" to="/places/submissions">{t('placesMy')}</Link>}</div>
+      <div className="places-filter-actions"><button className="button button-primary" type="submit">{t('placesApply')}</button><button className="text-button" type="button" onClick={() => { setQ(''); setCity(''); setCategory(''); apply(new URLSearchParams()) }}>{t('placesClear')}</button>{suggestions && <Link className="text-button places-mobile-suggestions" to="/places/submissions">{t('placesMy')}</Link>}</div>
     </div>{invalid && <ErrorNotice text={t('placesTextLimit')} />}
   </form>
 }

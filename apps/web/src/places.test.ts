@@ -21,4 +21,10 @@ describe('places request and field validation', () => {
     expect(validReason(' ')).toBe(false)
     expect(validReason('Ә'.repeat(1001))).toBe(false)
   })
+  it('accepts speed-camera suggestions and preserves the category in public filters', () => {
+    expect(validPlace({ ...place, category: 'speed_camera' })).toBe(true)
+    const params = new URLSearchParams('category=speed_camera&place=camera-test')
+    expect(readPlaceFilters(params).category).toBe('speed_camera')
+    expect(placesQuery(params)).toBe('limit=100&category=speed_camera')
+  })
 })
