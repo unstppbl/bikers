@@ -62,7 +62,7 @@ services:
 
   maps:
     <<: *service
-    image: nginx@sha256:dede8895648b461178c3bc604f7eed4423efe5220b2c4d839f5eb3d34ac3f8f7
+    image: nginx@sha256:8c950211a641ec5b23f265450517001f6bcca533666120ebe36cb4cff3d00a55
     entrypoint: [nginx]
     command: [-c, /etc/nginx/gis.conf, -g, "daemon off;"]
     mem_limit: 128m
