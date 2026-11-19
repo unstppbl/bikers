@@ -426,7 +426,7 @@ func (m *Manager) Rides(ctx context.Context, id string, session *models.Session)
 			return err
 		}
 		for _, r := range rows {
-			out = append(out, models.RideSummary{ID: r.ID, City: r.City, Date: r.Date, Description: r.Description, Status: r.Status})
+			out = append(out, models.RideSummary{ID: r.ID, City: r.City, Date: r.Date, Description: r.Description, Status: r.Status, Cover: r.Cover})
 		}
 		return nil
 	})

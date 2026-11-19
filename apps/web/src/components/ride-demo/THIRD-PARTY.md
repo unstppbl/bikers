@@ -8,4 +8,4 @@ composition, content, timing, tokens, and localized story; it does not include
 other products' artwork or the skill's example/teaching libraries.
 
 Icons use the application's `@phosphor-icons/react` dependency under its MIT license.
-Geist and its OFL notice are supplied by the host application's local font asset. The demo fetches no fonts, images, or API data.
+Fira Sans and Fira Sans Extra Condensed, with their OFL notice, come from the host application's self-hosted fonts. The demo fetches no fonts, images, or API data.

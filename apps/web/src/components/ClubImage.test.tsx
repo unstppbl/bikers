@@ -80,6 +80,31 @@ describe('club image projection and public display', () => {
     expect(screen.queryByRole('button', { name: 'Remove club image' })).not.toBeInTheDocument()
   })
 
+  it('names the image report apart from the club report and leaves it out for the owner', async () => {
+    const current = state(); current.user = other; current.club = { id: club.id, name: club.name, city: club.city, description: club.description, status: 'active', can_manage: false }
+    const reports: unknown[] = []
+    vi.stubGlobal('fetch', vi.fn(async (url: string, options?: RequestInit) => {
+      if (url.endsWith('/reports')) { reports.push(JSON.parse(options!.body as string)); return response({ ok: true }) }
+      return base(url, current)
+    }))
+    mount()
+    const actor = userEvent.setup()
+    await actor.click(await screen.findByRole('button', { name: 'Report club image' }))
+    expect(screen.getAllByRole('button', { name: /^Report/ }).map((button) => button.textContent)).toEqual(['Report', 'Report club image'])
+    // The form names what is reported, not only the club.
+    expect(screen.getByRole('heading', { level: 3, name: 'Report club image' })).toBeInTheDocument()
+    await actor.click(screen.getByRole('button', { name: 'Send report' }))
+    await waitFor(() => expect(reports).toEqual([{ target_type: 'club_image', target_id: oldImage.id, reason: 'spam', details: '' }]))
+  })
+
+  it('does not offer the owner a report on their own club image', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => base(url, state())))
+    mount()
+    await screen.findByRole('heading', { name: 'Club image' })
+    expect(screen.getByRole('button', { name: 'Report' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Report club image' })).not.toBeInTheDocument()
+  })
+
   it('does not fetch cookie-dependent image metadata after session failure and sanitizes guest recovery', async () => {
     const current = state(); current.failedSession = true
     const fetch = vi.fn(async (url: string) => base(url, current))
@@ -155,7 +180,89 @@ describe('single-image owner editing', () => {
     expect(screen.queryByText(/6 photos per/)).not.toBeInTheDocument()
   })
 
-  it.each([['ru', 'Выбрать фото', 'Это изображение видно всем, в том числе после закрытия клуба.'], ['kk', 'Фото таңдау', 'Бұл сурет клуб жабылғаннан кейін де бәріне көрінеді.']])('localizes the owner editor and public-visibility note in %s', async (locale, picker, note) => {
+  it('keeps the upload result when an older image read finishes after it', async () => {
+    const current = state()
+    const ownerKey = ['club-image', club.id, rider.id, 'owner']
+    let holdRead = false
+    let finishRead: () => void = () => { throw new Error('not started') }
+    const removed: number[] = []
+    vi.stubGlobal('fetch', vi.fn(async (url: string, options?: RequestInit) => {
+      if (options?.method === 'POST' && url.includes(`/clubs/${club.id}/image?`)) { current.metadata = { image: newImage, version: 2 }; return response(current.metadata, 201) }
+      if (options?.method === 'DELETE' && url.endsWith(`/clubs/${club.id}/image`)) { removed.push(JSON.parse(options.body as string).version); current.metadata = { image: null, version: 3 }; return response(current.metadata) }
+      if (!holdRead || !url.endsWith(`/clubs/${club.id}/image`)) return base(url, current)
+      holdRead = false
+      const old = response(current.metadata)
+      return new Promise<Response>((resolve) => { finishRead = () => resolve(old) })
+    }))
+    const client = mount()
+    const actor = userEvent.setup()
+    await actor.upload(await screen.findByLabelText('Choose a photo'), new File(['bytes'], 'club.webp', { type: 'image/webp' }))
+    // A background read of the old image is still running when the replacement succeeds.
+    holdRead = true
+    act(() => { void client.refetchQueries({ queryKey: ownerKey, exact: true }) })
+    await waitFor(() => expect(holdRead).toBe(false))
+    await actor.click(screen.getByRole('button', { name: 'Replace club image' }))
+    const shown = () => screen.getAllByRole('img', { name: 'Image of Test Riders' }).map((image) => image.getAttribute('src'))
+    await waitFor(() => expect(shown().every((src) => src === newImage.url)).toBe(true))
+    await act(async () => { finishRead() })
+    await waitFor(() => expect(client.getQueryState(ownerKey)?.fetchStatus).toBe('idle'))
+    expect(shown().every((src) => src === newImage.url)).toBe(true)
+    await actor.click(screen.getByRole('button', { name: 'Remove club image' }))
+    await actor.click(within(await screen.findByRole('dialog', { name: 'Remove club image' })).getByRole('button', { name: 'Remove club image' }))
+    await screen.findByText('The club’s initials are shown until you upload an image.')
+    expect(removed).toEqual([2])
+  })
+
+  it('blocks a second upload until an unconfirmed result is reloaded', async () => {
+    const current = state()
+    vi.stubGlobal('fetch', vi.fn(async (url: string, options?: RequestInit) => {
+      if (options?.method === 'POST' && url.includes(`/clubs/${club.id}/image?`)) throw new TypeError('connection lost')
+      return base(url, current)
+    }))
+    mount()
+    const actor = userEvent.setup()
+    const unconfirmed = 'The upload result could not be confirmed. Reload the club image before uploading again.'
+    await actor.upload(await screen.findByLabelText('Choose a photo'), new File(['bytes'], 'club.jpg', { type: 'image/jpeg' }))
+    await actor.click(screen.getByRole('button', { name: 'Replace club image' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(unconfirmed)
+    expect(screen.getByRole('button', { name: 'Replace club image' })).toBeDisabled()
+    // Choosing another photo does not lift the block: the first upload may still have landed.
+    await actor.upload(screen.getByLabelText('Choose a photo'), new File(['other'], 'other.jpg', { type: 'image/jpeg' }))
+    await screen.findByRole('img', { name: 'Preview of the selected photo' })
+    expect(screen.getByRole('button', { name: 'Replace club image' })).toBeDisabled()
+    expect(screen.getByRole('alert')).toHaveTextContent(unconfirmed)
+    await actor.click(screen.getByRole('button', { name: 'Try again' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Replace club image' })).toBeEnabled())
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it.each(['cancels the chosen photo', 'chooses an invalid file'])('keeps an unconfirmed upload blocked when the owner %s', async (step) => {
+    const current = state()
+    vi.stubGlobal('fetch', vi.fn(async (url: string, options?: RequestInit) => {
+      if (options?.method === 'POST' && url.includes(`/clubs/${club.id}/image?`)) throw new TypeError('connection lost')
+      return base(url, current)
+    }))
+    mount()
+    const actor = userEvent.setup()
+    const unconfirmed = 'The upload result could not be confirmed. Reload the club image before uploading again.'
+    await actor.upload(await screen.findByLabelText('Choose a photo'), new File(['bytes'], 'club.jpg', { type: 'image/jpeg' }))
+    await actor.click(screen.getByRole('button', { name: 'Replace club image' }))
+    await screen.findByText(unconfirmed)
+    if (step === 'cancels the chosen photo') await actor.click(screen.getByRole('button', { name: 'Cancel' }))
+    else {
+      await actor.upload(screen.getByLabelText('Choose a photo'), new File([], 'empty.jpg', { type: 'image/jpeg' }))
+      expect(screen.getByText('Choose a photo that is not empty.')).toBeInTheDocument()
+    }
+    expect(screen.queryByRole('img', { name: 'Preview of the selected photo' })).not.toBeInTheDocument()
+    expect(screen.getByText(unconfirmed)).toBeInTheDocument()
+    // The next valid photo stays blocked: the first upload may still have landed.
+    await actor.upload(screen.getByLabelText('Choose a photo'), new File(['other'], 'other.jpg', { type: 'image/jpeg' }))
+    await screen.findByRole('img', { name: 'Preview of the selected photo' })
+    expect(screen.getByRole('button', { name: 'Replace club image' })).toBeDisabled()
+    expect(screen.getByText(unconfirmed)).toBeInTheDocument()
+  })
+
+  it.each([['ru', 'Выбрать фото', 'Это изображение видно всем, в том числе после закрытия клуба.'],['kk', 'Фото таңдау', 'Бұл сурет клуб жабылғаннан кейін де бәріне көрінеді.']])('localizes the owner editor and public-visibility note in %s', async (locale, picker, note) => {
     localStorage.setItem('bikerskz.locale', locale)
     const current = state()
     vi.stubGlobal('fetch', vi.fn(async (url: string) => base(url, current)))

@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { MemoryRouter, useLocation } from 'react-router-dom'
+import { MemoryRouter, useLocation, useNavigate } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../App'
 import { setCsrfToken } from '../api'
@@ -28,8 +28,9 @@ function ancillaryRead(url: string) {
 
 function TestControls() {
   const location = useLocation()
+  const navigate = useNavigate()
   const session = useSession()
-  return <><output data-testid="location">{location.pathname + location.search}</output><button onClick={() => session.accept({ user: nextRider, csrf_token: 'csrf-b' })}>Switch test rider</button></>
+  return <><output data-testid="location">{location.pathname + location.search}</output><button onClick={() => session.accept({ user: nextRider, csrf_token: 'csrf-b' })}>Switch test rider</button><button onClick={() => void navigate(-1)}>Go back</button></>
 }
 
 function mount(path = '/') {
@@ -39,7 +40,9 @@ function mount(path = '/') {
 }
 
 beforeEach(() => setCsrfToken())
-afterEach(() => { setCsrfToken(); vi.unstubAllGlobals() })
+afterEach(() => { setCsrfToken(); vi.unstubAllGlobals(); vi.useRealTimers() })
+// Date labels leave out the current year, so tests that read them fix the date (timers stay real).
+const fixToday = (iso: string) => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date(iso)) }
 
 describe('ride discovery filters and personal views', () => {
   it('rejects a reversed date range without requesting it and accepts the corrected range', async () => {
@@ -55,7 +58,10 @@ describe('ride discovery filters and personal views', () => {
     const initialReads = fetch.mock.calls.filter(([url]) => isRideList(url)).length
     const dateFilters = screen.getByLabelText('From date').closest('details')!
     expect(dateFilters).not.toHaveAttribute('open')
-    await userEvent.click(screen.getByText('From date / To date'))
+    // The control's name is its visible label, so voice commands that say what is shown reach it.
+    const dateToggle = dateFilters.querySelector('summary')!
+    expect(dateToggle).toHaveAccessibleName('Any date')
+    await userEvent.click(dateToggle)
     expect(dateFilters).toHaveAttribute('open')
     fireEvent.change(screen.getByLabelText('From date'), { target: { value: '2027-01-31' } })
     fireEvent.change(screen.getByLabelText('To date'), { target: { value: '2027-01-01' } })
@@ -79,13 +85,19 @@ describe('ride discovery filters and personal views', () => {
       throw new Error(`Unexpected request ${url}`)
     })
     vi.stubGlobal('fetch', fetch)
+    fixToday('2026-11-19T06:00:00Z')
     mount('/?q=touring&city=Almaty&from=2026-12-01&to=2026-12-31&cursor=original-page-two')
     await screen.findByText('A filtered ride')
     expect(screen.getByLabelText('City')).toHaveValue('Almaty')
     expect(screen.getByLabelText('From date').closest('details')).toHaveAttribute('open')
+    // A short range keeps the summary beside the city field on a phone; its name is the text it shows.
+    expect(screen.getByLabelText('From date').closest('details')!.querySelector('summary')).toHaveAccessibleName('1–31 Dec')
     expect(screen.getByLabelText('From date')).toHaveValue('2026-12-01')
     expect(screen.getByLabelText('To date')).toHaveValue('2026-12-31')
-    expect(screen.getByLabelText('Search rides')).toHaveValue('touring')
+    expect(screen.getByLabelText('Search public descriptions')).toHaveValue('touring')
+    // The placeholder is the only visible label, so the accessible name says the same.
+    expect(screen.getByRole('searchbox', { name: 'Search public descriptions' })).toHaveAttribute('placeholder', 'Search public descriptions')
+    expect(screen.getByRole('combobox', { name: 'City' })).toHaveAttribute('placeholder', 'City')
     const initial = parsed(fetch.mock.calls.find(([url]) => isRideList(url))![0]).searchParams
     expect(initial.get('city')).toBe('Almaty')
     expect(initial.get('from')).toBe('2026-12-01')
@@ -93,7 +105,7 @@ describe('ride discovery filters and personal views', () => {
     expect(initial.get('q')).toBe('touring')
     expect(initial.get('cursor')).toBe('original-page-two')
 
-    fireEvent.change(screen.getByLabelText('Search rides'), { target: { value: 'city loop' } })
+    fireEvent.change(screen.getByLabelText('Search public descriptions'), { target: { value: 'city loop' } })
     fireEvent.change(screen.getByLabelText('City'), { target: { value: 'Astana' } })
     fireEvent.change(screen.getByLabelText('From date'), { target: { value: '2027-01-01' } })
     fireEvent.change(screen.getByLabelText('To date'), { target: { value: '2027-01-31' } })
@@ -110,8 +122,106 @@ describe('ride discovery filters and personal views', () => {
     await waitFor(() => expect(screen.getByLabelText('City')).toHaveValue(''))
     expect(screen.getByLabelText('From date')).toHaveValue('')
     expect(screen.getByLabelText('To date')).toHaveValue('')
-    expect(screen.getByLabelText('Search rides')).toHaveValue('')
+    expect(screen.getByLabelText('Search public descriptions')).toHaveValue('')
     expect(parsed(screen.getByTestId('location').textContent!).searchParams.has('city')).toBe(false)
+  })
+
+  it.each([['ru', '1–30 июн.'], ['kk', '1–30 мау']])('names the date summary by its short range in %s', async (locale, label) => {
+    localStorage.setItem('bikerskz.locale', locale)
+    fixToday('2026-06-10T04:00:00Z')
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url.endsWith('/session')) return response({ user: rider, csrf_token: 'csrf-a' })
+      if (isRideList(url)) return response({ rides: [summary('ranged', 'A ranged ride')], next_cursor: '' })
+      const extra = ancillaryRead(url); if (extra) return extra
+      throw new Error(`Unexpected request ${url}`)
+    }))
+    mount('/?from=2026-06-01&to=2026-06-30')
+    await screen.findByText('A ranged ride')
+    expect(screen.getByRole('form').querySelector('details > summary')).toHaveAccessibleName(label)
+  })
+
+  it('keeps keyboard focus on Apply, follows history, and moves focus to the search field after Clear', async () => {
+    const fetch = vi.fn(async (url: string) => {
+      if (url.endsWith('/session')) return response({ user: rider, csrf_token: 'csrf-a' })
+      if (isRideList(url)) return response({ rides: [summary('discovery', 'A discovery ride')], next_cursor: '' })
+      const extra = ancillaryRead(url); if (extra) return extra
+      throw new Error(`Unexpected request ${url}`)
+    })
+    vi.stubGlobal('fetch', fetch)
+    mount()
+    await screen.findByText('A discovery ride')
+    const actor = userEvent.setup()
+    const search = screen.getByLabelText('Search public descriptions')
+    await actor.type(search, 'loop')
+    const apply = screen.getByRole('button', { name: 'Apply filters' })
+    await actor.click(apply)
+    await waitFor(() => expect(parsed(screen.getByTestId('location').textContent!).searchParams.get('q')).toBe('loop'))
+    expect(screen.getByRole('button', { name: 'Apply filters' })).toBe(apply)
+    expect(apply).toHaveFocus()
+    expect(search).toHaveValue('loop')
+
+    await actor.click(screen.getByRole('button', { name: 'Go back' }))
+    await waitFor(() => expect(search).toHaveValue(''))
+    expect(parsed(screen.getByTestId('location').textContent!).searchParams.has('q')).toBe(false)
+
+    await actor.type(search, 'chrome')
+    await actor.keyboard('{Enter}')
+    await waitFor(() => expect(parsed(screen.getByTestId('location').textContent!).searchParams.get('q')).toBe('chrome'))
+    expect(search).toHaveFocus()
+    await actor.click(screen.getByRole('button', { name: 'Clear filters' }))
+    await waitFor(() => expect(parsed(screen.getByTestId('location').textContent!).searchParams.has('q')).toBe(false))
+    expect(screen.queryByRole('button', { name: 'Clear filters' })).not.toBeInTheDocument()
+    expect(search).toHaveFocus()
+    expect(search).toHaveValue('')
+  })
+
+  it('shows cover photos on cards, decorative and lazy except on the featured card, and falls back to the city art', async () => {
+    const id = (n: number) => `20000000-0000-4000-8000-00000000000${n}`
+    const cover = (ride: string, n: number) => ({ id: `75000000-0000-4000-8000-00000000000${n}`, url: `/api/v1/rides/${ride}/cover/75000000-0000-4000-8000-00000000000${n}/content`, width: 1600, height: 900, created_at: '2026-11-19T09:00:00Z' })
+    const rides: Ride[] = [
+      { ...summary(id(1), 'Featured with cover'), cover: cover(id(1), 1) },
+      { ...summary(id(2), 'Second with cover'), cover: cover(id(2), 2) },
+      { ...summary(id(3), 'Foreign cover'), cover: { ...cover(id(3), 3), url: 'https://tracker.example/cover.jpg' } },
+      summary(id(4), 'No cover'),
+    ]
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url.endsWith('/session')) return response({ user: null })
+      if (isRideList(url)) return response({ rides, next_cursor: '' })
+      const extra = ancillaryRead(url); if (extra) return extra
+      throw new Error(`Unexpected request ${url}`)
+    }))
+    mount()
+    const card = async (text: string) => (await screen.findByText(text)).closest('a')!
+    const featured = (await card('Featured with cover')).querySelector('img.ride-card-cover')
+    expect(featured).toHaveAttribute('src', rides[0].cover!.url)
+    expect(featured).toHaveAttribute('alt', '')
+    expect(featured).toHaveAttribute('width', '1600')
+    expect(featured).toHaveAttribute('height', '900')
+    expect(featured).not.toHaveAttribute('loading')
+    const second = (await card('Second with cover')).querySelector('img.ride-card-cover')
+    expect(second).toHaveAttribute('loading', 'lazy')
+    expect(second).toHaveAttribute('referrerpolicy', 'no-referrer')
+    expect((await card('Foreign cover')).querySelector('img')).toBeNull()
+    expect((await card('No cover')).querySelector('img')).toBeNull()
+    expect(screen.queryAllByRole('img')).toHaveLength(0)
+    fireEvent.error(second!)
+    expect((await card('Second with cover')).querySelector('img')).toBeNull()
+    expect((await card('Second with cover')).querySelector('.city-art')).toHaveTextContent('Almaty')
+  })
+
+  it('says “You’re going” only for approved rides that lie ahead', async () => {
+    const approved = (id: string, description: string, date: string, status = 'published'): Ride => ({ ...summary(id, description), date, status, participation_state: 'approved' })
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url.endsWith('/session')) return response({ user: rider, csrf_token: 'csrf-a' })
+      if (isRideList(url)) return response({ rides: [approved('ahead', 'Ride ahead', '2099-06-01'), approved('past', 'Ride in the past', '2020-06-01'), approved('cancelled', 'Cancelled ride', '2099-06-02', 'cancelled')], next_cursor: '' })
+      const extra = ancillaryRead(url); if (extra) return extra
+      throw new Error(`Unexpected request ${url}`)
+    }))
+    mount('/my-rides?view=joined')
+    const status = async (text: string) => (await screen.findByText(text)).closest('a')!.querySelector('.ride-card-status')
+    expect(await status('Ride ahead')).toHaveTextContent('You’re going')
+    expect(await status('Ride in the past')).toHaveTextContent('Approved')
+    expect(await status('Cancelled ride')).toHaveTextContent('CancelledApproved')
   })
 
   it('pages with server cursors and resets the cursor when switching personal views', async () => {

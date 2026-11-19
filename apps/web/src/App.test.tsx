@@ -1,9 +1,12 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { MemoryRouter, useNavigate } from 'react-router-dom'
+import { MapTrifoldIcon, RoadHorizonIcon, UserCircleIcon, UsersThreeIcon } from '@phosphor-icons/react'
+import type { Icon } from '@phosphor-icons/react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { MemoryRouter, useLocation, useNavigate } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { App } from './App'
+import { App, pageSection } from './App'
 import { setCsrfToken } from './api'
 import { I18nProvider } from './i18n'
 import { SessionProvider } from './session'
@@ -40,9 +43,17 @@ function mvpRead(url: string) {
   if (url.endsWith('/me/blocks')) return response({ blocks: [], next_cursor: '' })
   return null
 }
+// Test-only history controls and a location readout for asserting where the app navigated.
 function HistoryControls() {
   const navigate = useNavigate()
-  return <button onClick={() => void navigate(-1)}>Test history back</button>
+  const location = useLocation()
+  return <>
+    <button onClick={() => void navigate(-1)}>Test history back</button>
+    <button onClick={() => void navigate(1)}>Test history forward</button>
+    <button onClick={() => void navigate({ pathname: location.pathname, search: '?q=steppe' })}>Test same-page search</button>
+    <button onClick={() => void navigate({ pathname: location.pathname, search: location.search, hash: '#ride-results' })}>Test same-page anchor</button>
+    <p data-testid="test-location">{location.pathname + location.search + location.hash}</p>
+  </>
 }
 
 function mount(path = '/', historyControls = false) {
@@ -54,102 +65,319 @@ function mount(path = '/', historyControls = false) {
 beforeEach(() => { TestSocket.sockets = []; vi.stubGlobal('WebSocket', TestSocket); setCsrfToken() })
 afterEach(() => { vi.unstubAllGlobals(); setCsrfToken() })
 
-describe('application navigation', () => {
-  function navigationReads(url: string) {
-    if (url.endsWith('/session')) return response({ user, csrf_token: 'test-csrf' })
-    if (url.endsWith('/me/trust')) return response({ is_admin: true })
-    if (new URL(url, 'https://bikers.kz').pathname === '/api/v1/rides') return response({ rides: [], next_cursor: '' })
-    if (url.endsWith('/clubs')) return response({ clubs: [], next_cursor: '' })
-    const extra = mvpRead(url)
-    if (extra) return extra
-    throw new Error(`Unexpected navigation API call ${url}`)
+// Reads for a signed-in administrator browsing the shell and the Me page.
+function navigationReads(url: string) {
+  if (url.endsWith('/session')) return response({ user, csrf_token: 'test-csrf' })
+  if (url.endsWith('/me/trust')) return response({ is_admin: true })
+  if (new URL(url, 'https://bikers.kz').pathname === '/api/v1/rides') return response({ rides: [], next_cursor: '' })
+  if (url.endsWith('/clubs')) return response({ clubs: [], next_cursor: '' })
+  const extra = mvpRead(url)
+  if (extra) return extra
+  throw new Error(`Unexpected navigation API call ${url}`)
+}
+function guestReads(url: string) {
+  if (url.endsWith('/session')) return response({ user: null })
+  if (new URL(url, 'https://bikers.kz').pathname === '/api/v1/rides') return response({ rides: [], next_cursor: '' })
+  const extra = mvpRead(url)
+  if (extra) return extra
+  throw new Error(`Unexpected guest API call ${url}`)
+}
+// The top bar and the phone tab bar are both always in the DOM; CSS shows one per screen width.
+const primaryNav = (name = 'Main navigation') => screen.getByRole('navigation', { name })
+const tabBar = (name = 'Sections') => screen.getByRole('navigation', { name })
+function expectLinks(nav: HTMLElement, expected: [name: string, href: string][]) {
+  const links = within(nav).getAllByRole('link')
+  expect(links.map((link) => link.getAttribute('href'))).toEqual(expected.map(([, href]) => href))
+  expected.forEach(([name], index) => expect(links[index]).toHaveAccessibleName(name))
+}
+function expectCurrent(nav: HTMLElement, name?: string) {
+  expect(within(nav).queryAllByRole('link', { current: 'page' })).toEqual(name ? [within(nav).getByRole('link', { name })] : [])
+}
+// Phosphor draws each weight with its own paths, so a tab's drawing shows whether its icon is filled.
+const tabIcons: [name: string, icon: Icon][] = [['Rides', RoadHorizonIcon], ['Map', MapTrifoldIcon], ['Clubs', UsersThreeIcon], ['Me', UserCircleIcon]]
+function drawing(markup: string) {
+  const template = document.createElement('template')
+  template.innerHTML = markup
+  return template.content.querySelector('svg')?.innerHTML
+}
+function expectFilledIcon(tabs: HTMLElement, current?: string) {
+  for (const [name, TabIcon] of tabIcons) {
+    const shown = within(tabs).getByRole('link', { name }).querySelector('svg')?.innerHTML
+    expect(shown, name).toBe(drawing(renderToStaticMarkup(<TabIcon size={24} weight={name === current ? 'fill' : 'regular'} />)))
   }
+}
+// The unread dot is decorative; the inbox bell carries the count for assistive technology.
+const hasUnreadDot = (meTab: HTMLElement) => meTab.querySelector('.tab-dot') !== null
 
+describe('application navigation', () => {
   it.each([
-    ['en', 'Map', 'Motorcycles', 'Navigation'],
-    ['ru', 'Карта', 'Мотоциклы', 'Навигация'],
-    ['kk', 'Карта', 'Мотоциклдер', 'Навигация'],
-  ])('keeps the localized map directly below motorcycles in shared desktop and mobile navigation (%s)', async (locale, mapLabel, bikesLabel, navigationLabel) => {
+    ['en', ['Main navigation', 'Sections'], ['Rides', 'Map', 'Routes', 'Clubs', 'Motorcycles'], ['New ride', 'New ride', 'Me']],
+    ['ru', ['Основная навигация', 'Разделы'], ['Поездки', 'Карта', 'Маршруты', 'Клубы', 'Мотоциклы'], ['Создать поездку', 'Создать', 'Я']],
+    ['kk', ['Негізгі навигация', 'Бөлімдер'], ['Сапарлар', 'Карта', 'Бағыттар', 'Клубтар', 'Мотоциклдер'], ['Сапар құру', 'Құру', 'Мен']],
+  ])('lists the localized sections in the top bar and the phone tab bar (%s)', async (locale, [mainLabel, tabsLabel], [rides, map, routes, clubs, bikes], [createName, createText, me]) => {
     localStorage.setItem('bikerskz.locale', locale)
     vi.stubGlobal('fetch', vi.fn(navigationReads))
     mount()
-    const desktop = screen.getByRole('complementary', { name: navigationLabel })
-    const map = within(desktop).getByRole('link', { name: mapLabel })
-    const bikes = within(desktop).getByRole('link', { name: bikesLabel })
-    expect(map).toHaveAttribute('href', '/places')
-    expect(bikes).toHaveAttribute('href', '/bikes')
-    expect(bikes.nextElementSibling).toBe(map)
-    await userEvent.click(screen.getByRole('button', { name: navigationLabel }))
-    const mobile = screen.getByRole('dialog', { name: navigationLabel })
-    expect(within(mobile).getByRole('link', { name: mapLabel })).toBe(map)
-    expect(within(mobile).getByRole('link', { name: bikesLabel }).nextElementSibling).toBe(map)
+    await screen.findByRole('heading', { level: 1, name: rides })
+    const primary = primaryNav(mainLabel)
+    const tabs = tabBar(tabsLabel)
+    expectLinks(primary, [[rides, '/'], [map, '/places'], [routes, '/routes'], [clubs, '/clubs'], [bikes, '/bikes']])
+    expectLinks(tabs, [[rides, '/'], [map, '/places'], [createName, '/rides/new'], [clubs, '/clubs'], [me, '/me']])
+    expectCurrent(primary, rides)
+    expectCurrent(tabs, rides)
+    // Both create buttons show a short label. Their accessible name contains it, so speech users can say what they see.
+    const create = [within(primary.closest('header')!).getByRole('link', { name: createName }), within(tabs).getByRole('link', { name: createName })]
+    create.forEach((link) => {
+      expect(link).toHaveAttribute('href', '/rides/new')
+      expect(link).toHaveTextContent(createText)
+    })
+    expect(createName.toLocaleLowerCase(locale)).toContain(createText.toLocaleLowerCase(locale))
   })
 
-  it('contains mobile-menu keyboard focus and restores it after Escape or a desktop resize', async () => {
+  it.each([
+    ['/places', 'Map', 'Map', 'Map'],
+    ['/routes', 'Routes', 'Routes', 'Map'],
+    ['/clubs', 'Clubs', 'Clubs', 'Clubs'],
+    ['/me', 'Test Rider', undefined, 'Me'],
+    ['/garage', 'My garage', undefined, 'Me'],
+    ['/settings', 'Settings', undefined, 'Me'],
+    ['/bikes', 'Motorcycles', 'Motorcycles', 'Me'],
+    ['/rides/test-ride', 'A ride in Almaty', 'Rides', 'Rides'],
+  ])('marks the current section on %s', async (path, heading, primaryCurrent, tabCurrent) => {
+    vi.stubGlobal('fetch', vi.fn((url: string) => {
+      if (url.endsWith('/rides/test-ride')) return response({ ride: { ...summary, participation_state: 'requested' } })
+      if (new URL(url, 'https://bikers.kz').pathname === '/api/v1/bikes') return response({ bikes: [], next_cursor: '' })
+      return navigationReads(url)
+    }))
+    mount(path)
+    await screen.findByRole('heading', { level: 1, name: heading })
+    expectCurrent(primaryNav(), primaryCurrent)
+    expectCurrent(tabBar(), tabCurrent)
+    // The current tab is not shown by colour alone: its icon is filled and the others stay outlined.
+    expectFilledIcon(tabBar(), tabCurrent)
+  })
+
+  // Every route in App.tsx, including those whose pages need more data than these tests provide.
+  // The top bar links the section; the tab bar shows places and routes as Map, and bikes as Me.
+  it.each([
+    ['/', 'rides'], ['/rides/test-ride', 'rides'], ['/rides/test-ride/edit', 'rides'], ['/rides/new', 'create'], ['/rides/new/', 'create'],
+    ['/places', 'places'], ['/places/new', 'places'], ['/places/place/suggest', 'places'], ['/places/submissions', 'places'],
+    ['/routes', 'routes'], ['/routes/new', 'routes'], ['/routes/record', 'routes'], ['/routes/route', 'routes'], ['/routes/route/edit', 'routes'],
+    ['/clubs', 'clubs'], ['/clubs/new', 'clubs'], ['/clubs/club', 'clubs'], ['/clubs/club/edit', 'clubs'],
+    ['/me', 'me'], ['/my-rides', 'me'], ['/my-clubs', 'me'], ['/inbox', 'me'], ['/profile', 'me'], ['/settings', 'me'], ['/admin', 'me'], ['/install', 'me'],
+    ['/garage', 'me'], ['/garage/new', 'me'], ['/garage/bike', 'me'], ['/garage/bike/edit', 'me'], ['/bikes', 'bikes'], ['/bikes/bike', 'bikes'],
+    ['/login', undefined], ['/preview/ride-flow', undefined], ['/rides', undefined], ['/no-such-page', undefined],
+    // Unknown paths under a section render the not-found page, so they select nothing either.
+    ['/clubs/club/extra', undefined], ['/settings/extra', undefined], ['/rides/test-ride/edit/extra', undefined], ['/places/place', undefined],
+    ['/routes/route/edit/extra', undefined], ['/garage/bike/edit/extra', undefined], ['/bikes/bike/extra', undefined], ['/me/extra', undefined],
+  ])('assigns %s to the %s section', (path, section) => {
+    expect(pageSection(path)).toBe(section)
+  })
+
+  it.each(['/clubs/club/extra', '/settings/extra', '/bikes/bike/extra'])('shows the not-found page on %s with no section current', async (path) => {
     vi.stubGlobal('fetch', vi.fn(navigationReads))
-    mount()
-    await screen.findByRole('heading', { name: 'Rides' })
-    const actor = userEvent.setup()
-    const trigger = screen.getByRole('button', { name: 'Navigation' })
-    const main = screen.getByRole('main')
-    const previousOverflow = document.body.style.overflow
-    await actor.click(trigger)
-    const dialog = screen.getByRole('dialog', { name: 'Navigation' })
-    expect(trigger).toHaveAttribute('aria-expanded', 'true')
-    expect(within(dialog).getByRole('button', { name: 'Close' })).toHaveFocus()
-    expect(main.parentElement).toHaveAttribute('inert')
-    expect(screen.queryByRole('main')).not.toBeInTheDocument()
-    expect(document.body.style.overflow).toBe('hidden')
-    const last = within(dialog).getByRole('button', { name: 'Sign out' })
-    last.focus()
-    await actor.tab()
-    expect(within(dialog).getByRole('link', { name: /BIKERS/ })).toHaveFocus()
-    await actor.tab({ shift: true })
-    expect(last).toHaveFocus()
-    await actor.keyboard('{Escape}')
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(trigger).toHaveFocus()
-    expect(trigger).toHaveAttribute('aria-expanded', 'false')
-    expect(main.parentElement).not.toHaveAttribute('inert')
-    expect(document.body.style.overflow).toBe(previousOverflow)
-    await actor.click(trigger)
-    fireEvent(window, new Event('resize'))
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(main.parentElement).not.toHaveAttribute('inert')
+    mount(path)
+    await screen.findByRole('heading', { level: 1, name: 'That page couldn’t be found.' })
+    expectCurrent(primaryNav())
+    expectCurrent(tabBar())
+    expectFilledIcon(tabBar())
+    expect(within(screen.getByRole('main')).getByRole('link', { name: 'Back to rides' })).toHaveAttribute('href', '/')
   })
 
-  it('starts a new page at its main content without overriding Back navigation', async () => {
+  // Pages reached from the Me page lead back to it. Links to the rides feed keep "Back to rides".
+  it.each(['/settings', '/install', '/inbox', '/admin', '/profile'])('leads back to the Me page from %s', async (path) => {
+    vi.stubGlobal('fetch', vi.fn(navigationReads))
+    mount(path)
+    const main = screen.getByRole('main')
+    expect(await within(main).findByRole('link', { name: 'Back to your space' })).toHaveAttribute('href', '/me')
+    expect(within(main).queryByRole('link', { name: 'Back to rides' })).not.toBeInTheDocument()
+  })
+
+  it.each([
+    ['ru', 'К вашему пространству'],
+    ['kk', 'Жеке кеңістікке оралу'],
+  ])('names the way back to the Me page in %s', async (locale, label) => {
+    localStorage.setItem('bikerskz.locale', locale)
+    vi.stubGlobal('fetch', vi.fn(navigationReads))
+    mount('/install')
+    expect(await within(screen.getByRole('main')).findByRole('link', { name: label })).toHaveAttribute('href', '/me')
+  })
+
+  it('leads a new rider from onboarding back to the rides feed', async () => {
+    vi.stubGlobal('fetch', vi.fn((url: string) => url.endsWith('/session') ? response({ user: { ...user, onboarding_complete: false }, csrf_token: 'test-csrf' }) : navigationReads(url)))
+    mount('/profile')
+    const main = screen.getByRole('main')
+    await within(main).findByRole('heading', { level: 1, name: 'Create your profile' })
+    expect(within(main).getByRole('link', { name: 'Back to rides' })).toHaveAttribute('href', '/')
+    expect(within(main).queryByRole('link', { name: 'Back to your space' })).not.toBeInTheDocument()
+  })
+
+  it.each([
+    [3, 'Inbox, 3 unread updates', true],
+    [0, 'Inbox', false],
+  ])('shows account controls to a signed-in rider with %i unread updates', async (count, inboxName, dot) => {
+    vi.stubGlobal('fetch', vi.fn((url: string) => url.endsWith('/me/notifications/unread-count') ? response({ unread_count: count }) : navigationReads(url)))
+    mount()
+    expect(await screen.findByRole('link', { name: inboxName })).toHaveAttribute('href', '/inbox')
+    expect(screen.getByRole('link', { name: 'Your space and settings' })).toHaveAttribute('href', '/me')
+    expect(screen.queryByRole('link', { name: 'Sign in' })).not.toBeInTheDocument()
+    expect(hasUnreadDot(within(tabBar()).getByRole('link', { name: 'Me' }))).toBe(dot)
+  })
+
+  it('offers guests sign-in instead of account controls', async () => {
+    vi.stubGlobal('fetch', vi.fn(guestReads))
+    mount()
+    expect(await screen.findByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/login')
+    expect(screen.queryByRole('link', { name: /^Inbox/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Your space and settings' })).not.toBeInTheDocument()
+    const me = within(tabBar()).getByRole('link', { name: 'Me' })
+    expect(me).toHaveAttribute('href', '/me')
+    expect(hasUnreadDot(me)).toBe(false)
+  })
+
+  it('starts a new page at its main content without overriding history or same-page navigation', async () => {
     vi.stubGlobal('fetch', vi.fn(navigationReads))
     mount('/', true)
-    await screen.findByRole('heading', { name: 'Rides' })
+    await screen.findByRole('heading', { level: 1, name: 'Rides' })
     const actor = userEvent.setup()
+    const main = screen.getByRole('main')
+    const location = screen.getByTestId('test-location')
     const scroll = vi.mocked(window.scrollTo)
     scroll.mockClear()
-    await actor.click(screen.getByRole('button', { name: 'Navigation' }))
-    await actor.click(within(screen.getByRole('dialog', { name: 'Navigation' })).getByRole('link', { name: 'Clubs' }))
-    await screen.findByRole('heading', { name: 'Clubs' })
+    await actor.click(within(primaryNav()).getByRole('link', { name: 'Clubs' }))
+    await screen.findByRole('heading', { level: 1, name: 'Clubs' })
     // The lazy page can render before the parent route's scroll and focus effects finish.
     await waitFor(() => {
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
       expect(scroll).toHaveBeenCalledWith(0, 0)
-      expect(screen.getByRole('main')).toHaveFocus()
+      expect(main).toHaveFocus()
     })
     scroll.mockClear()
-    const back = screen.getByRole('button', { name: 'Test history back' })
     // Flush the POP effects before asserting that they leave scroll and focus alone.
+    const back = screen.getByRole('button', { name: 'Test history back' })
     await act(async () => { await actor.click(back) })
-    await screen.findByRole('heading', { name: 'Rides' })
+    await screen.findByRole('heading', { level: 1, name: 'Rides' })
     expect(scroll).not.toHaveBeenCalled()
     expect(back).toHaveFocus()
-    await actor.click(screen.getByRole('link', { name: 'Rides' }))
+    const forward = screen.getByRole('button', { name: 'Test history forward' })
+    await act(async () => { await actor.click(forward) })
+    await screen.findByRole('heading', { level: 1, name: 'Clubs' })
+    expect(scroll).not.toHaveBeenCalled()
+    expect(forward).toHaveFocus()
+    await actor.click(within(tabBar()).getByRole('link', { name: 'Rides' }))
+    await screen.findByRole('heading', { level: 1, name: 'Rides' })
     await waitFor(() => {
       expect(scroll).toHaveBeenCalledWith(0, 0)
-      expect(screen.getByRole('main')).toHaveFocus()
+      expect(main).toHaveFocus()
     })
+    scroll.mockClear()
+    const search = screen.getByRole('button', { name: 'Test same-page search' })
+    await act(async () => { await actor.click(search) })
+    expect(location).toHaveTextContent('/?q=steppe')
+    expect(scroll).not.toHaveBeenCalled()
+    expect(search).toHaveFocus()
+    const anchor = screen.getByRole('button', { name: 'Test same-page anchor' })
+    await act(async () => { await actor.click(anchor) })
+    expect(location).toHaveTextContent('/?q=steppe#ride-results')
+    expect(scroll).not.toHaveBeenCalled()
+    expect(anchor).toHaveFocus()
+  })
+})
+
+describe('Me page', () => {
+  function signOutReads(signOut: () => Response) {
+    return vi.fn((url: string, options?: RequestInit) => url.endsWith('/session') && options?.method === 'DELETE' ? signOut() : navigationReads(url))
+  }
+
+  it('invites guests to sign in and keeps the shared sections within reach', async () => {
+    vi.stubGlobal('fetch', vi.fn(guestReads))
+    mount('/me')
+    const main = screen.getByRole('main')
+    await within(main).findByRole('heading', { level: 1, name: 'Your space' })
+    expect(within(main).getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/login?next=%2Fme')
+    expectLinks(within(main).getByRole('region', { name: 'Explore' }), [['Routes', '/routes'], ['Motorcycles', '/bikes'], ['Map', '/places'], ['Install the app', '/install']])
+    expect(within(main).queryByRole('link', { name: 'My rides' })).not.toBeInTheDocument()
+    expect(within(main).queryByRole('button', { name: 'Sign out' })).not.toBeInTheDocument()
+  })
+
+  it.each([true, false])('gathers personal pages, shared sections and account actions (admin: %s)', async (admin) => {
+    vi.stubGlobal('fetch', vi.fn((url: string) => url.endsWith('/me/trust') ? response({ is_admin: admin }) : navigationReads(url)))
+    mount('/me')
+    const main = screen.getByRole('main')
+    await within(main).findByRole('heading', { level: 1, name: 'Test Rider' })
+    expect(within(main).getByRole('link', { name: 'Edit profile' })).toHaveAttribute('href', '/profile')
+    expectLinks(within(main).getByRole('region', { name: 'Your space' }), [['My rides', '/my-rides'], ['My garage', '/garage'], ['My clubs', '/my-clubs'], ['Inbox', '/inbox']])
+    expectLinks(within(main).getByRole('region', { name: 'Explore' }), [['Routes', '/routes'], ['Motorcycles', '/bikes'], ['Map', '/places'], ['Install the app', '/install']])
+    const account = within(main).getByRole('region', { name: 'Account' })
+    // Trust loads after the session, so wait for the administrator link before checking the list.
+    if (admin) await within(account).findByRole('link', { name: 'Administration' })
+    expectLinks(account, admin ? [['Settings', '/settings'], ['Administration', '/admin']] : [['Settings', '/settings']])
+    expect(within(account).getByRole('button', { name: 'Sign out' })).toBeEnabled()
+  })
+
+  it('signs out, clears the session and returns to the rides page', async () => {
+    const fetch = signOutReads(() => new Response(null, { status: 204 }))
+    vi.stubGlobal('fetch', fetch)
+    const client = mount('/me', true)
+    const actor = userEvent.setup()
+    await actor.click(await screen.findByRole('button', { name: 'Sign out' }))
+    await screen.findByRole('heading', { level: 1, name: 'Rides' })
+    expect(screen.getByTestId('test-location')).toHaveTextContent(/^\/$/)
+    expect(client.getQueryData(['session'])).toEqual({ user: null })
+    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/login')
+    expect(screen.queryByRole('link', { name: 'Your space and settings' })).not.toBeInTheDocument()
+    const call = fetch.mock.calls.find(([, options]) => options?.method === 'DELETE')
+    expect(call?.[0]).toBe('/api/v1/session')
+    expect(new Headers(call?.[1]?.headers).get('X-CSRF-Token')).toBe('test-csrf')
+    await waitFor(() => expect(screen.getByRole('main')).toHaveFocus())
+  })
+
+  it('disables sign-out while offline', async () => {
+    const online = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+    const fetch = signOutReads(() => new Response(null, { status: 204 }))
+    vi.stubGlobal('fetch', fetch)
+    mount('/me')
+    const signOut = await screen.findByRole('button', { name: 'Sign out' })
+    expect(signOut).toBeDisabled()
+    expect(screen.getByText('You’re offline. Reconnect to load rides and make changes.')).toBeInTheDocument()
+    online.mockReturnValue(true)
+    act(() => { fireEvent(window, new Event('online')) })
+    expect(signOut).toBeEnabled()
+    expect(fetch.mock.calls.some(([, options]) => options?.method === 'DELETE')).toBe(false)
+  })
+
+  it('keeps the rider signed in and explains a failed sign-out', async () => {
+    vi.stubGlobal('fetch', signOutReads(() => response({ error: { code: 'internal_error' } }, 500)))
+    const client = mount('/me', true)
+    const actor = userEvent.setup()
+    const signOut = await screen.findByRole('button', { name: 'Sign out' })
+    await actor.click(signOut)
+    expect(await screen.findByRole('alert')).toHaveTextContent('Something went wrong. Please try again.')
+    expect(screen.getByRole('heading', { level: 1, name: 'Test Rider' })).toBeInTheDocument()
+    expect(screen.getByTestId('test-location')).toHaveTextContent(/^\/me$/)
+    expect(client.getQueryData(['session'])).toMatchObject({ user: { id: user.id } })
+    expect(signOut).toBeEnabled()
   })
 })
 
 describe('authentication and onboarding', () => {
+  it('titles the sign-in page once and gives only the code step its own heading', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => url.endsWith('/auth/challenges')
+      ? response({ challenge_id: 'server-challenge', expires_at: new Date(Date.now() + 300_000).toISOString(), resend_after: new Date(Date.now() + 60_000).toISOString() })
+      : guestReads(url)))
+    mount('/login')
+    const actor = userEvent.setup()
+    const main = screen.getByRole('main')
+    const title = await within(main).findByRole('heading', { level: 1, name: 'Sign in' })
+    expect(within(main).getAllByRole('heading')).toEqual([title])
+    expect(within(main).getByRole('link', { name: 'Back to rides' })).toHaveAttribute('href', '/')
+    const card = within(main).getByRole('region', { name: 'Sign in' })
+    await actor.type(within(card).getByLabelText(/Phone number/), '+7 700 000 00 00')
+    await actor.click(within(card).getByRole('button', { name: /Send Telegram code/ }))
+    const step = await within(main).findByRole('heading', { level: 2, name: 'Check Telegram.' })
+    expect(within(main).getAllByRole('heading')).toEqual([title, step])
+    expect(within(main).getByRole('region', { name: 'Check Telegram.' })).toContainElement(within(main).getByLabelText(/Verification code/))
+  })
+
   it('binds verification to the returned challenge and keeps OTP material out of browser storage', async () => {
     const fetch = vi.fn(async (url: string, options?: RequestInit) => {
       if (url.endsWith('/session')) return response({ user: null })
@@ -191,6 +419,18 @@ describe('authentication and onboarding', () => {
     await screen.findByText('Changes saved.')
     const call = fetch.mock.calls.find(([url]) => url.endsWith('/me/profile'))
     expect(JSON.parse(call?.[1]?.body as string)).toMatchObject({ display_name: 'Test Rider', languages: ['kk'] })
+  })
+
+  // The API accepts a profile or ride city of up to 160 UTF-8 bytes: 80 Cyrillic letters.
+  it.each(['/profile', '/rides/new'])('accepts as long a city on %s as the API does', async (path) => {
+    vi.stubGlobal('fetch', vi.fn(navigationReads))
+    mount(path)
+    const city = await within(screen.getByRole('main')).findByRole('combobox', { name: 'City' })
+    expect(city).not.toHaveAttribute('maxlength')
+    fireEvent.change(city, { target: { value: 'Ж'.repeat(80) } })
+    expect(city).not.toHaveAttribute('aria-invalid')
+    fireEvent.change(city, { target: { value: 'Ж'.repeat(81) } })
+    expect(city).toHaveAttribute('aria-invalid', 'true')
   })
 })
 

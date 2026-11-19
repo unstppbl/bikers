@@ -1,4 +1,5 @@
-.map-plan-editor { display: grid; gap: 16px; min-width: 0; }
+/* The editor sits among form fields, so it keeps their bottom spacing. */
+.map-plan-editor { display: grid; gap: 16px; min-width: 0; margin-bottom: 16px; }
 .map-mode-row, .map-point-actions, .map-route-actions, .map-route-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; }
 .map-mode-row { justify-content: space-between; }
 .map-mode-row h3 { font: var(--type-title-2); margin: 0; }

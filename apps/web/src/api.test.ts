@@ -110,6 +110,13 @@ describe('untrusted and revoked ride data', () => {
     expect(ride.can_manage).toBe(false)
   })
 
+  it('keeps the public cover photo but not the organizer’s cover version', () => {
+    const cover = { id: 'c1', url: '/api/v1/rides/r1/cover/c1/content', width: 1600, height: 900, created_at: '2026-11-19T09:00:00Z' }
+    const ride = publicRide({ id: 'r1', city: 'Test city', date: '2026-12-01', description: 'Public summary', status: 'published', cover, cover_version: 3, can_manage: true })
+    expect(ride.cover).toEqual(cover)
+    expect(ride).not.toHaveProperty('cover_version')
+  })
+
   it('allows navigation links only for HTTP or HTTPS', () => {
     expect(safeExternalUrl('javascript:alert(1)')).toBeUndefined()
     expect(safeExternalUrl('data:text/html,example')).toBeUndefined()

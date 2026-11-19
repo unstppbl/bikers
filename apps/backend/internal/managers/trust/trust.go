@@ -77,13 +77,13 @@ func admin(tx database.TrustTransaction, id string) error {
 }
 func validKind(kind string) bool {
 	switch kind {
-	case "user", "ride", "message", "club", "bike", "bike_photo", "club_image", "avatar", "ride_photo", "ride_video", "announcement", "route", "route_condition":
+	case "user", "ride", "message", "club", "bike", "bike_photo", "club_image", "avatar", "ride_photo", "ride_video", "announcement", "route", "route_condition", "ride_cover":
 		return true
 	}
 	return false
 }
 func imageKind(kind string) bool {
-	return kind == "bike_photo" || kind == "club_image" || kind == "avatar" || kind == "ride_photo"
+	return kind == "bike_photo" || kind == "club_image" || kind == "avatar" || kind == "ride_photo" || kind == "ride_cover"
 }
 func validStatus(status string) bool {
 	return status == "open" || status == "reviewing" || status == "resolved" || status == "dismissed"
@@ -251,7 +251,7 @@ func reportAllowed(r models.TrustTargetRecord, actor string) bool {
 		return r.Current && r.AuthorStatus == "active" && (r.OwnerID == actor || r.Visibility == "public")
 	case "bike_photo":
 		return r.State == "ready" && (r.OwnerID == actor || r.Visibility == "public")
-	case "club_image":
+	case "club_image", "ride_cover":
 		return r.State == "ready" && r.Current
 	case "avatar":
 		return r.State == "ready" && r.Current && r.AuthorStatus == "active" && (r.OwnerID == actor || r.SharedRides > 0 || r.SharedClubs > 0)
@@ -282,6 +282,8 @@ func reportContextVisible(tx database.TrustTransaction, target models.TrustTarge
 		parent = "bike"
 	case "club_image":
 		parent = "club"
+	case "ride_cover":
+		parent = "ride"
 	case "route_condition":
 		parent = "route"
 	}
@@ -296,6 +298,9 @@ func reportContextVisible(tx database.TrustTransaction, target models.TrustTarge
 		return nil
 	}
 	if parent == "club" && target.Membership == "approved" {
+		return nil
+	}
+	if parent == "ride" && target.Participation == "approved" {
 		return nil
 	}
 	return database.ErrNotFound
@@ -339,7 +344,7 @@ func (m *Manager) Report(ctx context.Context, actor models.User, input models.Re
 		if hidden {
 			return database.ErrNotFound
 		}
-		publicContent := input.TargetType == "club" || input.TargetType == "club_image" || ((input.TargetType == "bike" || input.TargetType == "bike_photo") && target.Visibility == "public")
+		publicContent := input.TargetType == "club" || input.TargetType == "club_image" || input.TargetType == "ride_cover" || ((input.TargetType == "bike" || input.TargetType == "bike_photo") && target.Visibility == "public")
 		if !publicContent && input.TargetType != "user" && !(input.TargetType == "announcement" && target.Target.AuthorID == target.OwnerID) {
 			blocked, e := tx.Blocked(actor.ID, target.Target.AuthorID)
 			if e != nil {

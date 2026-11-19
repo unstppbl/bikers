@@ -1,14 +1,16 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowUpRightIcon as ArrowUpRight, CheckIcon as Check, CalendarDotsIcon, MapPinIcon as MapPin, MagnifyingGlassIcon as Search, SlidersHorizontalIcon as SlidersHorizontal } from '@phosphor-icons/react'
+import { ArrowRightIcon, CheckIcon as Check, CalendarDotsIcon, ClockIcon, LockKeyIcon, MapPinIcon as MapPin, MagnifyingGlassIcon as Search, XIcon } from '@phosphor-icons/react'
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { publicRide, request } from '../api'
 import { cityLabel } from '../cities'
 import { CitySelector, useCityOptions } from '../components/CitySelector'
 import { useI18n } from '../i18n'
 import { useSession } from '../session'
-import { CreateRideLink, EmptyState, ErrorNotice, Field, Loading, Pagination, dateParts, formatCalendarDate } from '../ui'
+import { CreateRideLink, EmptyState, ErrorNotice, Field, Loading, Pagination, dateParts, dateRangeLabel } from '../ui'
+import { CityArt, DatePlate, goingLabel } from '../components/RideVisual'
+import { RideCoverImage } from '../components/RideCover'
 import type { Ride, RidePage } from '../types'
 
 const personalViews = ['organizing', 'joined', 'pending', 'past'] as const
@@ -79,24 +81,35 @@ export function RideList({ view }: { view: RideView }) {
   }
   const heading = view === 'discover' ? t('upcoming') : t(view)
   const hasFilters = Object.values(filters).some(Boolean)
+  const featured = view === 'discover' && page === 0
   return <section className="ride-list-section" aria-labelledby="rides-heading">
-    <div className="section-header"><h2 id="rides-heading" tabIndex={-1}>{heading}</h2>{query.data && <span className="count-pill">{t('ridesOnPage', { count: query.data.rides.length })}</span>}</div>
-    <RideFilters key={JSON.stringify(filters)} filters={filters} />
+    <div className={`section-header${view === 'discover' ? ' sr-only' : ''}`}><h2 id="rides-heading" tabIndex={-1}>{heading}</h2>{query.data && <span className="count-pill">{t('ridesOnPage', { count: query.data.rides.length })}</span>}</div>
+    <RideFilters filters={filters} />
     {view === 'past' && <p className="section-intro">{t('pastRidesHint')}</p>}
     {query.isPending ? <Loading /> : query.isError ? <><ErrorNotice error={query.error} retry={() => void query.refetch()} />{cursor && <button type="button" className="text-button" onClick={() => goToCursor([''])}>{t('firstRidePage')}</button>}</> : !query.data.rides.length ? <EmptyState
       title={hasFilters || cursor ? t('noResults') : t(view === 'discover' ? 'emptyTitle' : 'myRidesEmpty')}
       text={hasFilters || cursor ? t('rideFiltersEmptyText') : t(view === 'discover' ? 'emptyText' : `${view}Empty`)}
       action={view === 'organizing' || view === 'discover' ? <CreateRideLink className="button button-outline" /> : <Link className="button button-outline" to="/">{t('browse')}</Link>}
-    /> : <div className="ride-list">{query.data.rides.map((ride) => <RideCard key={ride.id} ride={ride} />)}</div>}
+    /> : <div className={`ride-list${featured ? ' ride-list-featured' : ''}`}>{query.data.rides.map((ride, index) => <RideCard key={ride.id} ride={ride} featured={featured && index === 0} />)}</div>}
     {!query.isError && <Pagination page={page} busy={query.isFetching} hasNext={!!query.data?.next_cursor} previous={() => goToCursor(cursors.slice(0, -1))} next={() => { if (query.data?.next_cursor) goToCursor([...cursors, query.data.next_cursor]) }} />}
   </section>
 }
 
+const sameFilters = (a: Filters, b: Filters) => a.q === b.q && a.city === b.city && a.from === b.from && a.to === b.to
+
 function RideFilters({ filters }: { filters: Filters }) {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const [params, setParams] = useSearchParams()
+  const form = useRef<HTMLFormElement>(null)
   const [draft, setDraft] = useState(filters)
+  const [shown, setShown] = useState(filters)
   const [invalidRange, setInvalidRange] = useState(false)
+  const [datesOpen, setDatesOpen] = useState(!!filters.from || !!filters.to)
+  // The form stays mounted when the URL filters change, so keyboard focus stays on Apply.
+  // New filters from the URL (Apply, Clear, history, links) replace the draft and reset the date popover.
+  if (!sameFilters(shown, filters)) {
+    setShown(filters); setDraft(filters); setInvalidRange(false); setDatesOpen(!!filters.from || !!filters.to)
+  }
   function apply(values: Filters) {
     const next = new URLSearchParams(params)
     next.delete('cursor')
@@ -110,36 +123,53 @@ function RideFilters({ filters }: { filters: Filters }) {
     event.preventDefault()
     const invalid = !!draft.from && !!draft.to && draft.from > draft.to
     setInvalidRange(invalid)
-    if (!invalid) apply(draft)
+    if (invalid) setDatesOpen(true)
+    else apply(draft)
   }
   function clear() {
     const empty = { q: '', city: '', from: '', to: '' }
     setDraft(empty)
     setInvalidRange(false)
     apply(empty)
+    // The Clear button goes away with the filters; continue from the search field.
+    form.current?.querySelector<HTMLInputElement>('input[type="search"]')?.focus()
   }
-  return <form className="ride-filters" aria-label={t('rideFilters')} onSubmit={submit}>
+  const dateLabel = filters.from || filters.to ? dateRangeLabel(filters.from, filters.to, locale) : t('allDates')
+  return <form ref={form} className="ride-filters" aria-label={t('rideFilters')} onSubmit={submit}>
     <div className="ride-filter-main">
-      <Field label={t('rideSearch')} type="search" value={draft.q} onChange={(event) => setDraft({ ...draft, q: event.target.value })} maxLength={200} placeholder={t('rideSearchPlaceholder')} />
-      <CitySelector value={draft.city} onChange={(city) => setDraft({ ...draft, city })} label={t('city')} placeholder={t('allCities')} hint="" maxLength={160} />
+      <div className="ride-filter-search"><Search className="ride-filter-icon" size={19} /><Field label={t('rideSearch')} type="search" value={draft.q} onChange={(event) => setDraft({ ...draft, q: event.target.value })} maxLength={200} placeholder={t('rideSearch')} /></div>
+      <div className="ride-filter-city"><MapPin className="ride-filter-icon" size={19} /><CitySelector value={draft.city} onChange={(city) => setDraft({ ...draft, city })} label={t('city')} placeholder={t('city')} hint="" /></div>
     </div>
-    <div className="ride-filter-actions"><button type="submit" className="button button-dark"><SlidersHorizontal size={17} />{t('applyFilters')}</button><button type="button" className="text-button" onClick={clear}>{t('clearFilters')}</button></div>
-    <details className="ride-date-filters" open={!!filters.from || !!filters.to || invalidRange}>
-      <summary><CalendarDotsIcon size={16} />{t('fromDate')} / {t('toDate')}</summary>
-      <div className="ride-filter-fields">
-        <Field label={t('fromDate')} type="date" value={draft.from} onChange={(event) => setDraft({ ...draft, from: event.target.value })} max={draft.to || undefined} />
-        <Field label={t('toDate')} type="date" value={draft.to} onChange={(event) => setDraft({ ...draft, to: event.target.value })} min={draft.from || undefined} />
+    <details className="ride-date-filters" open={datesOpen} onToggle={(event) => setDatesOpen(event.currentTarget.open)}>
+      <summary><CalendarDotsIcon size={17} />{dateLabel}</summary>
+      <div className="ride-date-panel">
+        <div className="ride-filter-fields">
+          <Field label={t('fromDate')} type="date" value={draft.from} onChange={(event) => setDraft({ ...draft, from: event.target.value })} max={draft.to || undefined} />
+          <Field label={t('toDate')} type="date" value={draft.to} onChange={(event) => setDraft({ ...draft, to: event.target.value })} min={draft.from || undefined} />
+        </div>
+        <p className="ride-filter-note">{t('rideDatesHint')}</p>
       </div>
-      <p className="ride-filter-note"><Search size={14} />{t('rideDatesHint')}</p>
     </details>
+    <div className="ride-filter-actions"><button type="submit" className="button button-primary apply-filters"><span className="apply-label">{t('applyFilters')}</span><ArrowRightIcon className="apply-icon" size={20} weight="bold" /></button></div>
+    {Object.values(filters).some(Boolean) && <button type="button" className="text-button clear-filters" onClick={clear}><XIcon size={15} />{t('clearFilters')}</button>}
     {invalidRange && <ErrorNotice text={t('rideDateRangeInvalid')} />}
   </form>
 }
 
-function RideCard({ ride }: { ride: Ride }) {
+export function RideCard({ ride, featured = false }: { ride: Ride; featured?: boolean }) {
   const { t, locale } = useI18n()
   const cities = useCityOptions()
-  const date = dateParts(ride.date, locale)
+  const city = cityLabel(ride.city, locale, cities.data?.cities ?? [])
   const state = ride.participation_state
-  return <Link to={`/rides/${ride.id}`} className="ride-card"><div className="date-block"><strong>{date.day}</strong><span>{date.month}</span></div><div className="ride-card-copy"><div className="ride-card-top"><span className="city-label"><MapPin size={14} />{cityLabel(ride.city, locale, cities.data?.cities ?? [])}</span>{ride.status === 'cancelled' && <span className="status-pill cancelled">{t('cancelled')}</span>}{ride.can_manage && <span className="status-pill">{t('organizer')}</span>}{state === 'requested' && <span className="status-pill pending">{t('requested')}</span>}{state === 'approved' && !ride.can_manage && <span className="status-pill approved"><Check size={12} />{t('approved')}</span>}</div><h3>{ride.description}</h3><span className="card-policy">{formatCalendarDate(ride.date, locale)}</span></div><span className="card-arrow" aria-label={t('viewRide')}><ArrowUpRight size={22} /></span></Link>
+  const member = ride.can_manage || state === 'approved'
+  return <Link to={`/rides/${ride.id}`} className={`ride-card${ride.status === 'cancelled' ? ' is-cancelled' : ''}`}>
+    <RideCoverImage ride={ride} className="ride-card-cover" priority={featured} />
+    <CityArt city={city} />
+    <DatePlate date={ride.date} locale={locale} />
+    <span className="ride-card-status">{ride.status === 'cancelled' && <span className="status-pill cancelled">{t('cancelled')}</span>}{ride.can_manage && <span className="status-pill">{t('organizer')}</span>}{state === 'requested' && <span className="status-pill pending"><ClockIcon size={13} />{t('requested')}</span>}{state === 'approved' && !ride.can_manage && <span className="status-pill approved"><Check size={13} weight="bold" />{t(goingLabel(ride))}</span>}</span>
+    <span className="ride-card-body">
+      <h3>{ride.description}</h3>
+      <span className="ride-card-meta"><span className="ride-card-city"><MapPin size={16} />{city}</span><span><CalendarDotsIcon size={16} />{dateParts(ride.date, locale).full}</span>{!member && ride.status !== 'cancelled' && <span><LockKeyIcon size={16} />{t('planAfterApproval')}</span>}</span>
+    </span>
+  </Link>
 }

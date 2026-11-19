@@ -47,11 +47,12 @@ export function ModelReference({ bike, variant = 'detail', showUnavailable = fal
   return <ReferencePhoto key={`${bike.model_id}:${bike.year}:${reference.image.url}`} reference={reference} variant={variant} showUnavailable={showUnavailable} />
 }
 
+// Cards already name the motorcycle, so their caption keeps only the reference label and the credits.
 function ReferencePhoto({ reference, variant, showUnavailable }: { reference: Reference; variant: 'card' | 'detail' | 'form'; showUnavailable: boolean }) {
   const { t } = useI18n()
   const [failed, setFailed] = useState(false)
   if (failed) return showUnavailable ? <p className="model-reference-unavailable">{t('modelReferenceUnavailable')}</p> : null
   const { image, model } = reference
   const years = image.year_from === image.year_to ? String(image.year_from) : `${image.year_from}–${image.year_to}`
-  return <figure className={`model-reference model-reference-${variant}`}><div className="model-reference-frame"><img src={image.url} width={image.width} height={image.height} alt={t('modelReferenceAlt', { make: model.make, model: model.model, years })} loading={variant === 'card' ? 'lazy' : 'eager'} decoding="async" referrerPolicy="no-referrer" onError={() => setFailed(true)} /></div><figcaption><p>{t('modelReferenceLabel', { years })}<span>{model.make} {model.model}</span></p><div className="model-reference-credits"><span>{t('modelReferenceAuthor', { author: image.author })}</span><a href={safeExternalUrl(image.source_url)} target="_blank" rel="noopener noreferrer">{t('modelReferenceSource')}</a><a href={safeExternalUrl(image.license_url)} target="_blank" rel="noopener noreferrer">{image.license}</a></div></figcaption></figure>
+  return <figure className={`model-reference model-reference-${variant}`}><div className="model-reference-frame"><img src={image.url} width={image.width} height={image.height} alt={t('modelReferenceAlt', { make: model.make, model: model.model, years })} loading={variant === 'card' ? 'lazy' : 'eager'} decoding="async" referrerPolicy="no-referrer" onError={() => setFailed(true)} /></div><figcaption><p>{t('modelReferenceLabel', { years })}{variant !== 'card' && <span>{model.make} {model.model}</span>}</p><div className="model-reference-credits"><span>{t('modelReferenceAuthor', { author: image.author })}</span><a href={safeExternalUrl(image.source_url)} target="_blank" rel="noopener noreferrer">{t('modelReferenceSource')}</a><a href={safeExternalUrl(image.license_url)} target="_blank" rel="noopener noreferrer">{image.license}</a></div></figcaption></figure>
 }

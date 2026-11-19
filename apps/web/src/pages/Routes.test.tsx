@@ -58,6 +58,15 @@ describe('community routes', () => {
     const cached = client.getQueriesData<{ routes: Record<string, unknown>[] }>({ queryKey: ['community-routes'] })[0][1]!
     expect(cached.routes[0]).not.toHaveProperty('segments')
     expect(cached.routes[0]).not.toHaveProperty('source_track_id')
+    // Both filters show their labels, so no placeholder says something else.
+    expect(screen.getByRole('searchbox', { name: 'Search routes' })).not.toHaveAttribute('placeholder')
+    expect(screen.getByRole('combobox', { name: 'Route city' })).not.toHaveAttribute('placeholder')
+    // The city filter checks the same 160-byte limit as the feed and clubs filters: 80 Cyrillic letters fit.
+    const routeCity = screen.getByRole('combobox', { name: 'Route city' })
+    fireEvent.change(routeCity, { target: { value: 'Ж'.repeat(80) } })
+    expect(routeCity).not.toHaveAttribute('aria-invalid')
+    fireEvent.change(routeCity, { target: { value: 'Ж'.repeat(81) } })
+    expect(routeCity).toHaveAttribute('aria-invalid', 'true')
     fireEvent.change(screen.getByRole('searchbox', { name: 'Search routes' }), { target: { value: ' Gravel ' } })
     fireEvent.change(screen.getByRole('combobox', { name: 'Route city' }), { target: { value: 'Astana' } })
     await userEvent.click(screen.getByRole('button', { name: 'Apply filters' }))

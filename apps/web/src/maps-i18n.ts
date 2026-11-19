@@ -12,7 +12,7 @@ export const mapsEn = {
   mapRoadsNote: 'Check road conditions and access before riding.', mapRouteStale: 'The points changed. Calculate the updated route.',
   mapServiceUnavailable: 'Maps are unavailable right now. You can still use text details.',
   mapPrivate: 'The map and exact route are shared only with approved participants.',
-  mapRouteNoDestination: 'Add a destination to calculate a motorcycle route.', mapClearPin: 'Clear selected location',
+  mapRouteNoDestination: 'Add a destination to calculate a motorcycle route.',
   mapPlace: 'Place', mapStreet: 'Street', mapHouse: 'Address', mapCity: 'City', mapState: 'Region',
 }
 
@@ -30,7 +30,7 @@ export const mapsRu: Record<keyof typeof mapsEn, string> = {
   mapRoadsNote: 'Перед поездкой проверьте состояние дорог и доступность проезда.', mapRouteStale: 'Точки изменились. Постройте маршрут заново.',
   mapServiceUnavailable: 'Карта сейчас недоступна. Места можно указать текстом.',
   mapPrivate: 'Карта и точный маршрут доступны только одобренным участникам.',
-  mapRouteNoDestination: 'Добавьте пункт назначения, чтобы построить маршрут.', mapClearPin: 'Убрать выбранную точку',
+  mapRouteNoDestination: 'Добавьте пункт назначения, чтобы построить маршрут.',
   mapPlace: 'Место', mapStreet: 'Улица', mapHouse: 'Адрес', mapCity: 'Город', mapState: 'Регион',
 }
 
@@ -48,6 +48,6 @@ export const mapsKk: Record<keyof typeof mapsEn, string> = {
   mapRoadsNote: 'Сапар алдында жол жағдайын және өту мүмкіндігін тексеріңіз.', mapRouteStale: 'Нүктелер өзгерді. Бағытты қайта құрыңыз.',
   mapServiceUnavailable: 'Карта қазір қолжетімсіз. Орындарды мәтінмен көрсетуге болады.',
   mapPrivate: 'Карта мен нақты бағыт тек мақұлданған қатысушыларға көрсетіледі.',
-  mapRouteNoDestination: 'Бағыт құру үшін баратын орынды қосыңыз.', mapClearPin: 'Таңдалған нүктені алып тастау',
+  mapRouteNoDestination: 'Бағыт құру үшін баратын орынды қосыңыз.',
   mapPlace: 'Орын', mapStreet: 'Көше', mapHouse: 'Мекенжай', mapCity: 'Қала', mapState: 'Өңір',
 }

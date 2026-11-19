@@ -14,8 +14,10 @@ import { BikersRideDemo } from '../components/ride-demo/BikersRideDemo'
 <BikersRideDemo locale={locale} />
 ```
 
-The component imports its own scoped CSS. It uses the host's Night Ride semantic
-tokens and local font. It requires no new application dependency. It is intended
+The component imports its own scoped CSS. It maps the kit's variables to the
+host's photo-led semantic tokens in `src/theme.css` and uses the host's
+self-hosted Fira Sans (`--font-body`) and Fira Sans Extra Condensed
+(`--font-display`). It requires no new application dependency. It is intended
 for the dedicated development preview, not the production home card.
 
 The normal scene is 358 × 342 CSS pixels; the compact scene is 320 × 308.

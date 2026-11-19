@@ -26,6 +26,7 @@ type rideRepository struct {
 	participants                      []models.Participant
 	notifications                     []models.NotificationIntent
 	includePending                    bool
+	covers                            *memoryRideCovers
 }
 
 func (r *rideRepository) ListRides(_ context.Context, query database.RideListQuery) ([]models.RideListing, error) {
@@ -168,7 +169,7 @@ func rideFixture(t *testing.T) (*Manager, *rideRepository, *rideEvents, models.U
 	owner := models.User{ID: uuid.NewString(), OnboardingComplete: true}
 	repo := &rideRepository{ride: models.Ride{RideSummary: models.RideSummary{ID: uuid.NewString(), City: "Almaty", Date: "2026-11-05", Description: "Public preview", Status: "published"}, Title: "Private title", MeetingPoint: "Private place", StartsAt: time.Date(2026, 11, 5, 5, 0, 0, 0, time.UTC), Timezone: "Asia/Almaty", OrganizerID: owner.ID, Capacity: 2, PlanVersion: 1}, states: map[string]string{owner.ID: "approved"}}
 	events := &rideEvents{t: t, repo: repo}
-	return New(repo, events, func() time.Time { return time.Date(2026, 11, 3, 0, 0, 0, 0, time.UTC) }, nil), repo, events, owner
+	return New(repo, events, func() time.Time { return time.Date(2026, 11, 3, 0, 0, 0, 0, time.UTC) }, nil, nil), repo, events, owner
 }
 func requireFault(t *testing.T, err error, code string) {
 	t.Helper()

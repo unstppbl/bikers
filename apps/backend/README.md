@@ -7,7 +7,7 @@ Club membership requests notify the current owner, and approval/rejection/remova
 notify the affected rider. These transitions and their inbox/push work commit
 atomically. Push payloads remain generic and open `/inbox`.
 
-This executable requires schema 13; its source implementation is
+This executable requires schema 14; its source implementation is
 separate from the currently deployed release. Migration is explicit and must be
 coordinated with the matching app. See [Operations](../../docs/operations.md).
 Photo bytes remain in bounded PostgreSQL `bytea` storage; the persistent media
@@ -30,7 +30,7 @@ records ownership, dependency direction, transaction callbacks, and test placeme
 | `database` | Repository interfaces and transaction callback types |
 | `database/postgres` | Queries, mappings, migrations, transactions, and locks |
 | `managers/accounts` | OTP, sessions, profiles, authentication limits, and provider request/phone/status binding |
-| `managers/rides` | Plans, visibility, participation, organizer decisions and private calendar access |
+| `managers/rides` | Plans, visibility, participation, organizer decisions, private calendar access and public ride covers |
 | `managers/routes` | Community route publication, private GPS recordings and collections, dated condition reports, visibility and quotas |
 | `managers/rooms` | Room access, messages, history, and foreground events |
 | `managers/garage` | Bike ownership/sharing, curated lookup, private maintenance, bike-photo access/reservations/covers, validation, and pagination |
@@ -100,9 +100,10 @@ avatars/ride media, trust/admin state and notifications/preferences/push; versio
 ride reminder state; version 10 adds private ride map plans; version 11 adds
 public places and moderated submissions; version 12 adds community routes,
 private tracks/collections and dated conditions; version 13 adds the speed-camera
-place category. Versions 1–12 remain unchanged. Applied receipts are verified
-before proceeding; unknown versions or changed checksums fail. Readiness
-requires all thirteen receipts.
+place category; version 14 adds public ride covers, the current-cover reference
+and the `ride_cover` moderation target. Versions 1–13 remain unchanged. Applied
+receipts are verified before proceeding; unknown versions or changed checksums
+fail. Readiness requires all fourteen receipts.
 Run `migrate` with the new executable before serving an older installation.
 
 ## API behavior
@@ -113,10 +114,12 @@ returns the current token and `{ "user": null }` when signed out. Cookies and
 CSRF values belong to the PWA transport, while domain authorization remains on
 the backend for future clients.
 
-Public ride responses contain only ID, city, local date, short description, and
-status. Signed-in users can additionally see their own participation state and
+Public ride responses contain only ID, city, local date, short description,
+status and, when the ride has a visible cover, the public `cover` metadata.
+Signed-in users can additionally see their own participation state and
 management flag. Exact plans, rosters, history, and event subscriptions require
-approved participation; organizers are inserted as approved participants.
+approved participation; organizers are inserted as approved participants. Only
+the organizer of a ride that still accepts edits receives `cover_version`.
 Ride discovery returns upcoming published summaries in pages of 20. `view` selects
 `discover` (default), `organizing`, `joined`, `pending`, or `past`; personal views
 require a session. `city`, inclusive ride-local `from`/`to` calendar dates and
@@ -191,6 +194,22 @@ permissions stay unchanged. Bike and club images share processing slots, upload
 attempts, and payload quotas; stored club bytes remain attributed to the original
 uploader after transfer. See the [club-image API](../../docs/development.md#club-images).
 
+A ride can have one public cover photo; rides without one keep the city card.
+Only the organizer, with an active account, can upload, replace or remove it,
+and only while the ride accepts edits: cancelled rides keep their cover but
+reject cover changes. Cover metadata (`GET /api/v1/rides/{id}/cover`) and
+content follow ride visibility: signed-out visitors and other riders can read
+the cover wherever they can read the public summary, and a moderated ride
+limits it to the organizer and approved participants. Every ride summary (feed
+cards, public preview, club-linked rides and the full ride) carries `cover`;
+the organizer's full ride and cover metadata also carry the cover version for
+`POST /cover?version=N` and `DELETE /cover` with `{version}`. A cover hidden by
+moderation is omitted from ride summaries and served to no one; the organizer
+still sees its metadata so it can be replaced or removed. Covers share the
+processing slots, upload attempts and payload quotas of bike, club, avatar and
+album images, and stale pending covers expire with them. The cover never
+carries plan details such as the title, time, meeting point or route.
+
 Club owners can link their own published rides and unlink any association in
 their club. Linked results contain public ride summaries only, up to 100 with
 upcoming published rides first. A link, club membership, or club ownership
@@ -233,13 +252,16 @@ idempotency and ordering, plan versions, WebSocket revocation, and public HTML.
 Garage/club regressions cover public bike projections, private log ownership and
 cross-bike IDs, cursor pages, model aliases, club approval/transfer/closure,
 concurrent transfer versus leaving, and public-only ride associations. Migration
-tests cover historical upgrades through version 8, replay, receipt drift, and unsupported versions.
+tests cover historical upgrades through version 14, replay, receipt drift, and unsupported versions.
 Photo regressions cover visibility/content authorization, cover reset, deletion
 cascades, processing limits/metadata stripping, competing global reservations,
 uploader quotas, lazy expiry, and failed-attempt limits across application restart.
 Club-image checks also cover public closed-club reads, atomic replacement/removal,
 transfer and closure during uploads, and combined bike/club slots, quotas, and
-attempts.
+attempts. Ride-cover checks cover organizer-only writes, public reads across
+every ride shape, moderated rides and covers, cancelled rides, stale versions,
+busy reservations, shared slots, attempts, owner/global quotas and expiry, and
+the schema-13 upgrade.
 
 An application-replacement regression also closes the HTTP server and database
 pool, constructs fresh instances, and verifies persisted sessions, outstanding

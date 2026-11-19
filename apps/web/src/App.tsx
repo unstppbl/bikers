@@ -1,18 +1,19 @@
-import { lazy, Suspense, useEffect, useId, useRef, useState } from 'react'
-import { PathIcon, MapPinIcon, ArrowUpRightIcon as ArrowUpRight, BellIcon as Bell, CalendarDotsIcon as CalendarDays, SignOutIcon as LogOut, ListIcon as Menu, MotorcycleIcon as Motorbike, PlusIcon as Plus, GearSixIcon as Settings, ShieldCheckIcon as ShieldCheck, UserCircleIcon as UserRound, UsersThreeIcon as Users, WrenchIcon as Wrench, XIcon as X, LightningIcon as Zap } from '@phosphor-icons/react'
-import { Link, NavLink, Route, Routes, useLocation, useNavigate, useNavigationType } from 'react-router-dom'
+import { lazy, Suspense, useEffect, useRef } from 'react'
+import type { ReactNode } from 'react'
+import { BellIcon as Bell, MapTrifoldIcon as MapIcon, MotorcycleIcon as Motorbike, PlusIcon as Plus, RoadHorizonIcon as Road, UserCircleIcon as UserRound, UsersThreeIcon as Users, XIcon as X } from '@phosphor-icons/react'
+import { Link, matchRoutes, useLocation, useNavigationType, useRoutes } from 'react-router-dom'
 import { useRegisterSW } from 'virtual:pwa-register/react'
-import { mutation } from './api'
 import { bindRecorderAccount } from './route-recorder'
 import { useI18n } from './i18n'
-import { useSession, useSessionGuard, RequireUser } from './session'
-import { ErrorNotice, Loading, useOnline } from './ui'
+import { useSession, RequireUser } from './session'
+import { Loading, useOnline } from './ui'
+import { useRevealFocus } from './useRevealFocus'
 import { LoginPage, ProfilePage } from './pages/Auth'
 import { BrowsePage, RideFormPage } from './pages/Rides'
 import { RideDetailPage } from './pages/RideDetail'
 import { MyRidesPage } from './pages/RideList'
+import { MePage } from './pages/Me'
 import { Avatar } from './components/Avatar'
-import { useTrust } from './components/Trust'
 import { NotificationBadge, useUnreadNotifications } from './components/NotificationBadge'
 import type { Locale } from './types'
 
@@ -41,27 +42,76 @@ const RideFlowPreview = import.meta.env.DEV
   ? lazy(() => import('./pages/RideFlowPreview').then((module) => ({ default: module.RideFlowPreview })))
   : null
 
+// The part of the app a page belongs to. The top bar links Map, Routes and Motorcycles separately. The phone tab bar
+// groups Routes under Map, and keeps Me current on Motorcycles and the other pages reached from the Me page.
+type PageSection ='rides' | 'create' | 'places' | 'routes' | 'clubs' | 'bikes' | 'me'
+type TabSection = 'rides' | 'map' | 'create' | 'clubs' | 'me'
+const sectionTab: Record<PageSection, TabSection> = { rides: 'rides', create: 'create', places: 'map', routes: 'map', clubs: 'clubs', bikes: 'me', me: 'me' }
+
+interface AppRoute { path: string; section?: PageSection; element: ReactNode }
+
+// Pages keyed by the account start fresh when another rider signs in.
+function appRoutes(userId?: string): AppRoute[] {
+  return [
+    { path: '/', section: 'rides', element: <BrowsePage /> },
+    { path: '/me', section: 'me', element: <MePage /> },
+    { path: '/my-rides', section: 'me', element: <RequireUser><MyRidesPage /></RequireUser> },
+    { path: '/login', element: <LoginPage /> },
+    { path: '/profile', section: 'me', element: <RequireUser allowOnboarding><ProfilePage /></RequireUser> },
+    { path: '/inbox', section: 'me', element: <RequireUser><InboxPage key={userId} /></RequireUser> },
+    { path: '/routes', section: 'routes', element: <RoutesPage /> },
+    { path: '/routes/new', section: 'routes', element: <RequireUser><RouteFormPage key={userId} /></RequireUser> },
+    { path: '/routes/record', section: 'routes', element: <RequireUser><TrackRecorderPage key={userId} /></RequireUser> },
+    { path: '/routes/:routeId/edit', section: 'routes', element: <RequireUser><RouteFormPage key={userId} edit /></RequireUser> },
+    { path: '/routes/:routeId', section: 'routes', element: <RouteDetailPage /> },
+    { path: '/places', section: 'places', element: <PlacesPage /> },
+    { path: '/places/new', section: 'places', element: <RequireUser><PlaceSubmissionPage key={userId} /></RequireUser> },
+    { path: '/places/:placeId/suggest', section: 'places', element: <RequireUser><PlaceSubmissionPage key={userId} /></RequireUser> },
+    { path: '/places/submissions', section: 'places', element: <RequireUser><MyPlaceSubmissionsPage key={userId} /></RequireUser> },
+    { path: '/admin', section: 'me', element: <RequireUser><AdminPage key={userId} /></RequireUser> },
+    { path: '/settings', section: 'me', element: <RequireUser allowOnboarding><SettingsPage /></RequireUser> },
+    { path: '/install', section: 'me', element: <InstallPage /> },
+    ...RideFlowPreview ? [{ path: '/preview/ride-flow', element: <RideFlowPreview /> }] : [],
+    { path: '/rides/new', section: 'create', element: <RequireUser><RideFormPage /></RequireUser> },
+    { path: '/rides/:rideId/edit', section: 'rides', element: <RequireUser><RideFormPage edit /></RequireUser> },
+    { path: '/rides/:rideId', section: 'rides', element: <RideDetailPage /> },
+    { path: '/garage', section: 'me', element: <RequireUser><GaragePage key={userId} /></RequireUser> },
+    { path: '/garage/new', section: 'me', element: <RequireUser><BikeFormPage /></RequireUser> },
+    { path: '/garage/:bikeId/edit', section: 'me', element: <RequireUser><BikeFormPage edit /></RequireUser> },
+    { path: '/garage/:bikeId', section: 'me', element: <RequireUser><BikeOwnerPage /></RequireUser> },
+    { path: '/bikes/:bikeId', section: 'bikes', element: <PublicBikePage /> },
+    { path: '/bikes', section: 'bikes', element: <BikesPage /> },
+    { path: '/clubs', section: 'clubs', element: <ClubsPage /> },
+    { path: '/my-clubs', section: 'me', element: <RequireUser><MyClubsPage /></RequireUser> },
+    { path: '/clubs/new', section: 'clubs', element: <RequireUser><ClubFormPage /></RequireUser> },
+    { path: '/clubs/:clubId/edit', section: 'clubs', element: <RequireUser><ClubFormPage edit /></RequireUser> },
+    { path: '/clubs/:clubId', section: 'clubs', element: <ClubDetailPage /> },
+    { path: '*', element: <NotFoundPage /> },
+  ]
+}
+
+// The section of the route that renders the path, so unknown paths, nested ones included, select nothing.
+export function pageSection(pathname: string) {
+  return matchRoutes(appRoutes(), pathname)?.[0]?.route.section
+}
+
+function NotFoundPage() {
+  const { t } = useI18n()
+  return <div className="page-content not-found-page"><Motorbike size={64} /><div className="page-heading"><h1>{t('notFound')}</h1></div><Link className="button button-primary" to="/">{t('back')}</Link></div>
+}
+
 export function App() {
   const { t, locale, setLocale } = useI18n()
-  const { user, loading: sessionLoading, clear } = useSession()
+  const { user, loading: sessionLoading } = useSession()
   useEffect(() => { if (!sessionLoading) bindRecorderAccount(user?.id ?? null) }, [user?.id, sessionLoading])
-  const trust = useTrust()
   const unread = useUnreadNotifications()
   const unreadCount = user && !unread.isError ? unread.data ?? 0 : 0
-  const captureSession = useSessionGuard()
-  const [menuOpen, setMenuOpen] = useState(false)
-  const [logoutError, setLogoutError] = useState<unknown>()
-  const [signingOut, setSigningOut] = useState(false)
   const online = useOnline()
-  const navigate = useNavigate()
   const location = useLocation()
   const mapWorkspace = /^\/places\/?$/.test(location.pathname)
   const navigationType = useNavigationType()
-  const navigationId = useId()
   const mainRef = useRef<HTMLElement>(null)
-  const sidebarRef = useRef<HTMLElement>(null)
-  const menuTriggerRef = useRef<HTMLButtonElement>(null)
-  const menuCloseRef = useRef<HTMLButtonElement>(null)
+  const { topbarRef, tabBarRef } = useRevealFocus()
   const previousLocation = useRef(location)
   const { needRefresh: [needRefresh, setNeedRefresh], updateServiceWorker } = useRegisterSW()
   useEffect(() => {
@@ -79,119 +129,45 @@ export function App() {
     window.scrollTo(0, 0)
     mainRef.current?.focus({ preventScroll: true })
   }, [location, navigationType])
-  useEffect(() => {
-    if (!menuOpen) return
-    const previousOverflow = document.body.style.overflow
-    const trigger = menuTriggerRef.current
-    document.body.style.overflow = 'hidden'
-    menuCloseRef.current?.focus()
-    function keydown(event: KeyboardEvent) {
-      if (event.key === 'Escape') { event.preventDefault(); setMenuOpen(false); return }
-      if (event.key !== 'Tab') return
-      const controls = sidebarRef.current?.querySelectorAll<HTMLElement>('a[href],button:not(:disabled),[tabindex]:not([tabindex="-1"])')
-      if (!controls?.length) return
-      const first = controls[0], last = controls[controls.length - 1]
-      if (!sidebarRef.current?.contains(document.activeElement)) { event.preventDefault(); first.focus() }
-      else if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
-      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
-    }
-    const close = () => setMenuOpen(false)
-    const resize = () => { if (window.innerWidth > 900) close() }
-    document.addEventListener('keydown', keydown)
-    window.addEventListener('popstate', close)
-    window.addEventListener('resize', resize)
-    return () => {
-      document.removeEventListener('keydown', keydown)
-      window.removeEventListener('popstate', close)
-      window.removeEventListener('resize', resize)
-      document.body.style.overflow = previousOverflow
-      if (trigger?.isConnected) trigger.focus({ preventScroll: true })
-    }
-  }, [menuOpen])
-  async function signOut() {
-    const currentSession = captureSession()
-    setSigningOut(true)
-    setLogoutError(undefined)
-    try { await mutation('/session', 'DELETE'); if (!currentSession()) return; clear(); setMenuOpen(false); void navigate('/') }
-    catch (error) { setLogoutError(error) }
-    finally { setSigningOut(false) }
-  }
+  const routes = appRoutes(user?.id)
+  const page = useRoutes(routes)
+  const section = matchRoutes(routes, location)?.[0]?.route.section
+  const current = (name: PageSection) => section === name ? 'page' as const : undefined
+  const currentTab = (name: TabSection) => section && sectionTab[section] === name ? 'page' as const : undefined
+  // The current tab also fills its icon, so it is not shown by colour alone. The create plate gets a rim instead.
+  const tabIcon = (name: TabSection) => currentTab(name) ? 'fill' as const : 'regular' as const
   return <div className={`app-shell${mapWorkspace ? ' app-shell-map' : ''}`}>
     <a className="skip-link" href="#main-content">{t('skipToContent')}</a>
-    <aside id={navigationId} ref={sidebarRef} className={`sidebar ${menuOpen ? 'sidebar-open' : ''}`} aria-label={t('menu')} role={menuOpen ? 'dialog' : undefined} aria-modal={menuOpen || undefined}>
-      <Link className="wordmark" to="/" onClick={() => setMenuOpen(false)}>BIKERS<span>.KZ</span><span className="wordmark-mark"><Zap size={19} fill="currentColor" /></span></Link>
-      <button ref={menuCloseRef} className="icon-button sidebar-close" aria-label={t('close')} onClick={() => setMenuOpen(false)}><X size={23} /></button>
-      <nav className="side-navigation">
-        <span className="nav-group-label">{t('navExplore')}</span>
-        <NavLink to="/" end onClick={() => setMenuOpen(false)}><Motorbike size={20} />{t('rides')}<ArrowUpRight className="nav-arrow" size={17} /></NavLink>
-        <NavLink to="/clubs" end onClick={() => setMenuOpen(false)}><Users size={20} />{t('clubs')}</NavLink>
-        <NavLink to="/bikes" onClick={() => setMenuOpen(false)}><Motorbike size={20} />{t('bikeCatalogue')}</NavLink>
-        <NavLink to="/places" onClick={() => setMenuOpen(false)}><MapPinIcon size={20} />{t('placesTitle')}</NavLink>
-        <NavLink to="/routes" onClick={() => setMenuOpen(false)}><PathIcon size={20} />{t('routesTitle')}</NavLink>
-        <span className="nav-group-label">{t('navYourSpace')}</span>
-        <NavLink to="/my-rides" onClick={() => setMenuOpen(false)}><CalendarDays size={20} />{t('myRides')}</NavLink>
-        <NavLink to="/garage" onClick={() => setMenuOpen(false)}><Wrench size={20} />{t('garage')}</NavLink>
-        <NavLink to="/my-clubs" onClick={() => setMenuOpen(false)}><Users size={20} />{t('myClubs')}</NavLink>
-        <NavLink to="/inbox" onClick={() => setMenuOpen(false)}><Bell size={20} />{t('inbox')}<NotificationBadge count={unreadCount} /></NavLink>
-        <span className="nav-group-label">{t('navAccount')}</span>
-        {trust.data?.is_admin && <NavLink to="/admin" onClick={() => setMenuOpen(false)}><ShieldCheck size={20} />{t('admin')}</NavLink>}
-        <NavLink to="/profile" onClick={() => setMenuOpen(false)}><UserRound size={20} />{t('profile')}</NavLink>
-        <NavLink to="/settings" onClick={() => setMenuOpen(false)}><Settings size={20} />{t('settings')}</NavLink>
-      </nav>
-      {user && <button className="sidebar-logout" onClick={() => void signOut()} disabled={signingOut || !online}><LogOut size={17} />{t('signOut')}</button>}
-    </aside>
-    {menuOpen && <button aria-label={t('close')} aria-hidden="true" tabIndex={-1} className="menu-scrim" onClick={() => setMenuOpen(false)} />}
-    <div className={`workspace${mapWorkspace ? ' workspace-map' : ''}`} inert={menuOpen} aria-hidden={menuOpen || undefined}>
-      <header className="topbar">
-        <div className="mobile-brand"><button ref={menuTriggerRef} className="icon-button" aria-label={t('menu')} aria-controls={navigationId} aria-expanded={menuOpen} aria-haspopup="dialog" onClick={() => setMenuOpen(true)}><Menu size={22} /></button><Link to="/">BIKERS<span>.KZ</span></Link></div>
-        <span className="topbar-country"><span className="status-dot" />{t('country')}<span className="topbar-divider">/</span>{t('community')}</span>
-        <div className="topbar-actions"><label className="locale-select"><span className="sr-only">{t('locale')}</span><select aria-label={t('locale')} value={locale} onChange={(event) => setLocale(event.target.value as Locale)}><option value="en">EN</option><option value="ru">RU</option><option value="kk">KZ</option></select></label>
-          {user && <Link to="/inbox" className="icon-button topbar-inbox" aria-label={unreadCount ? t('notificationUnreadLabel', { count: unreadCount }) : t('inbox')}><Bell size={20} /><span aria-hidden="true"><NotificationBadge count={unreadCount} /></span></Link>}
-          {user ? <Link to="/profile" className="avatar-link" aria-label={t('profile')} title={user.profile.display_name}><Avatar userId={user.id} name={user.profile.display_name} className="avatar-dark" /></Link> : <Link className="topbar-login" to="/login">{t('signIn')}<ArrowUpRight size={16} /></Link>}
-          <Link className="button button-outline topbar-create" to="/rides/new"><Plus size={17} />{t('newRide')}</Link>
+    <header className="topbar" ref={topbarRef}>
+      <div className="topbar-inner">
+        <Link className="wordmark" to="/" aria-label="BIKERS.KZ"><span>BIKERS</span><span className="wordmark-plate">KZ</span></Link>
+        <nav className="primary-nav" aria-label={t('navMain')}>
+          <Link aria-current={current('rides')} to="/">{t('rides')}</Link>
+          <Link aria-current={current('places')} to="/places">{t('placesTitle')}</Link>
+          <Link aria-current={current('routes')} to="/routes">{t('routesTitle')}</Link>
+          <Link aria-current={current('clubs')} to="/clubs">{t('clubs')}</Link>
+          <Link aria-current={current('bikes')} to="/bikes">{t('bikeCatalogue')}</Link>
+        </nav>
+        <div className="topbar-actions">
+          <label className="locale-select"><span className="sr-only">{t('locale')}</span><select aria-label={t('locale')} value={locale} onChange={(event) => setLocale(event.target.value as Locale)}><option value="en">EN</option><option value="ru">RU</option><option value="kk">KZ</option></select></label>
+          {user && <Link to="/inbox" className="icon-button topbar-inbox" aria-label={unreadCount ? t('notificationUnreadLabel', { count: unreadCount }) : t('inbox')}><Bell size={22} /><span aria-hidden="true"><NotificationBadge count={unreadCount} /></span></Link>}
+          {user ? <Link to="/me" className="avatar-link" aria-label={t('meHubLabel')} title={user.profile.display_name}><Avatar userId={user.id} name={user.profile.display_name} /></Link> : <Link className="topbar-login" to="/login">{t('signIn')}</Link>}
+          <Link className="button button-primary topbar-create" to="/rides/new" aria-label={t('newRideLabel')}><Plus size={18} weight="bold" />{t('newRideShort')}</Link>
         </div>
-      </header>
-      {!online && <div className="connection-banner" role="status">{t('offline')}</div>}
-      {logoutError != null && <ErrorNotice error={logoutError} />}
-      {needRefresh && <div className="update-banner" role="status"><span>{t('updateReady')}</span><button className="text-button" onClick={() => void updateServiceWorker(true)}>{t('updateNow')}</button><button className="icon-button" aria-label={t('later')} onClick={() => setNeedRefresh(false)}><X size={17} /></button></div>}
-      <main id="main-content" ref={mainRef} tabIndex={-1}>
-        <Suspense fallback={<Loading />}><Routes>
-          <Route path="/" element={<BrowsePage />} />
-          <Route path="/my-rides" element={<RequireUser><MyRidesPage /></RequireUser>} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/profile" element={<RequireUser allowOnboarding><ProfilePage /></RequireUser>} />
-          <Route path="/inbox" element={<RequireUser><InboxPage key={user?.id} /></RequireUser>} />
-          <Route path="/routes" element={<RoutesPage />} />
-          <Route path="/routes/new" element={<RequireUser><RouteFormPage key={user?.id} /></RequireUser>} />
-          <Route path="/routes/record" element={<RequireUser><TrackRecorderPage key={user?.id} /></RequireUser>} />
-          <Route path="/routes/:routeId/edit" element={<RequireUser><RouteFormPage key={user?.id} edit /></RequireUser>} />
-          <Route path="/routes/:routeId" element={<RouteDetailPage />} />
-          <Route path="/places" element={<PlacesPage />} />
-          <Route path="/places/new" element={<RequireUser><PlaceSubmissionPage key={user?.id} /></RequireUser>} />
-          <Route path="/places/:placeId/suggest" element={<RequireUser><PlaceSubmissionPage key={user?.id} /></RequireUser>} />
-          <Route path="/places/submissions" element={<RequireUser><MyPlaceSubmissionsPage key={user?.id} /></RequireUser>} />
-          <Route path="/admin" element={<RequireUser><AdminPage key={user?.id} /></RequireUser>} />
-          <Route path="/settings" element={<RequireUser allowOnboarding><SettingsPage /></RequireUser>} />
-          <Route path="/install" element={<InstallPage />} />
-          {RideFlowPreview && <Route path="/preview/ride-flow" element={<RideFlowPreview />} />}
-          <Route path="/rides/new" element={<RequireUser><RideFormPage /></RequireUser>} />
-          <Route path="/rides/:rideId/edit" element={<RequireUser><RideFormPage edit /></RequireUser>} />
-          <Route path="/rides/:rideId" element={<RideDetailPage />} />
-          <Route path="/garage" element={<RequireUser><GaragePage key={user?.id} /></RequireUser>} />
-          <Route path="/garage/new" element={<RequireUser><BikeFormPage /></RequireUser>} />
-          <Route path="/garage/:bikeId/edit" element={<RequireUser><BikeFormPage edit /></RequireUser>} />
-          <Route path="/garage/:bikeId" element={<RequireUser><BikeOwnerPage /></RequireUser>} />
-          <Route path="/bikes/:bikeId" element={<PublicBikePage />} />
-          <Route path="/bikes" element={<BikesPage />} />
-          <Route path="/clubs" element={<ClubsPage />} />
-          <Route path="/my-clubs" element={<RequireUser><MyClubsPage /></RequireUser>} />
-          <Route path="/clubs/new" element={<RequireUser><ClubFormPage /></RequireUser>} />
-          <Route path="/clubs/:clubId/edit" element={<RequireUser><ClubFormPage edit /></RequireUser>} />
-          <Route path="/clubs/:clubId" element={<ClubDetailPage />} />
-          <Route path="*" element={<div className="page-content not-found-page"><span className="eyebrow">BIKERS.KZ / 404</span><Motorbike size={64} /><h1>{t('notFound')}</h1><Link className="button button-primary" to="/">{t('back')}<ArrowUpRight size={18} /></Link></div>} />
-        </Routes></Suspense>
-      </main>
-      <footer className="app-footer"><span>BIKERS.KZ</span><span>{t('sidebarNote')}</span></footer>
-    </div>
+      </div>
+    </header>
+    {!online && <div className="connection-banner" role="status">{t('offline')}</div>}
+    {needRefresh && <div className="update-banner" role="status"><span>{t('updateReady')}</span><button className="text-button" onClick={() => void updateServiceWorker(true)}>{t('updateNow')}</button><button className="icon-button" aria-label={t('later')} onClick={() => setNeedRefresh(false)}><X size={17} /></button></div>}
+    <main id="main-content" ref={mainRef} tabIndex={-1}>
+      <Suspense fallback={<Loading />}>{page}</Suspense>
+    </main>
+    <footer className="app-footer"><Link className="wordmark" to="/" aria-label="BIKERS.KZ"><span>BIKERS</span><span className="wordmark-plate">KZ</span></Link><span>{t('sidebarNote')}</span></footer>
+    <nav className="tab-bar" ref={tabBarRef} aria-label={t('navTabs')}>
+      <Link className="tab-link" aria-current={currentTab('rides')} to="/"><Road size={24} weight={tabIcon('rides')} /><span>{t('rides')}</span></Link>
+      <Link className="tab-link" aria-current={currentTab('map')} to="/places"><MapIcon size={24} weight={tabIcon('map')} /><span>{t('placesTitle')}</span></Link>
+      <Link className="tab-link tab-create" aria-current={currentTab('create')} to="/rides/new" aria-label={t('newRideLabel')}><span className="tab-create-plate"><Plus size={24} weight="bold" /></span><span>{t('newRideShort')}</span></Link>
+      <Link className="tab-link" aria-current={currentTab('clubs')} to="/clubs"><Users size={24} weight={tabIcon('clubs')} /><span>{t('clubs')}</span></Link>
+      <Link className="tab-link" aria-current={currentTab('me')} to="/me"><span className="tab-me-icon"><UserRound size={24} weight={tabIcon('me')} />{unreadCount > 0 && <span className="tab-dot" aria-hidden="true" />}</span><span>{t('tabMe')}</span></Link>
+    </nav>
   </div>
 }

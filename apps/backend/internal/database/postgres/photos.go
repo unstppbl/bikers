@@ -127,6 +127,9 @@ func expirePendingPhotos(ctx context.Context, tx pgx.Tx, now time.Time) error {
 	if _, err := tx.Exec(ctx, "DELETE FROM club_images WHERE state='pending' AND expires_at<=$1", now); err != nil {
 		return repositoryError(err)
 	}
+	if _, err := tx.Exec(ctx, "DELETE FROM ride_covers WHERE state='pending' AND expires_at<=$1", now); err != nil {
+		return repositoryError(err)
+	}
 	if _, err := tx.Exec(ctx, "DELETE FROM avatars WHERE state='pending' AND expires_at<=$1", now); err != nil {
 		return repositoryError(err)
 	}
@@ -139,7 +142,7 @@ func prunePhotoAttempts(ctx context.Context, tx pgx.Tx, before time.Time) error 
 }
 func photoStorageTotals(ctx context.Context, tx pgx.Tx, owner string) (int64, int64, error) {
 	var ownerBytes, globalBytes int64
-	err := tx.QueryRow(ctx, `SELECT COALESCE(SUM(reserved_bytes) FILTER(WHERE owner_id=$1),0),COALESCE(SUM(reserved_bytes),0) FROM (SELECT owner_id,reserved_bytes FROM bike_photos UNION ALL SELECT owner_id,reserved_bytes FROM club_images UNION ALL SELECT owner_id,reserved_bytes FROM avatars UNION ALL SELECT owner_id,reserved_bytes FROM ride_photos) AS photos`, owner).Scan(&ownerBytes, &globalBytes)
+	err := tx.QueryRow(ctx, `SELECT COALESCE(SUM(reserved_bytes) FILTER(WHERE owner_id=$1),0),COALESCE(SUM(reserved_bytes),0) FROM (SELECT owner_id,reserved_bytes FROM bike_photos UNION ALL SELECT owner_id,reserved_bytes FROM club_images UNION ALL SELECT owner_id,reserved_bytes FROM ride_covers UNION ALL SELECT owner_id,reserved_bytes FROM avatars UNION ALL SELECT owner_id,reserved_bytes FROM ride_photos) AS photos`, owner).Scan(&ownerBytes, &globalBytes)
 	return ownerBytes, globalBytes, repositoryError(err)
 }
 

@@ -22,7 +22,7 @@ These editable Markdown copies mirror the native BIKERS.KZ Space pages. This sna
 
 [Model reference photographs](model-reference-images.md) records the verified model-year coverage, source credits, and image licenses.
 
-[Night Ride design review](design-review.md) records the approved visual direction, Unslop usability improvements and development-only Stageshow walkthrough.
+[Design review](design-review.md) records each approved visual direction, from Night Ride to the current photo-led redesign, along with the Unslop usability improvements and the development-only Stageshow walkthrough.
 
 [Motorcycle photo API research](motorcycle-photo-api-research.md) compares official API coverage, costs, storage rights, and generated-image limitations.
 

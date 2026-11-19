@@ -27,7 +27,7 @@ DELETE FROM schema_migrations WHERE version=12`)
 func oldRouteRows(t *testing.T, pool *pgxpool.Pool) map[string]string {
 	t.Helper()
 	ctx := context.Background()
-	rows, err := pool.Query(ctx, `SELECT tablename FROM pg_tables WHERE schemaname=current_schema() AND tablename NOT IN ('community_routes','route_tracks','route_collections','route_collection_items','route_conditions','route_daily_limits') ORDER BY tablename`)
+	rows, err := pool.Query(ctx, `SELECT tablename FROM pg_tables WHERE schemaname=current_schema() AND tablename NOT IN ('community_routes','route_tracks','route_collections','route_collection_items','route_conditions','route_daily_limits','ride_covers') ORDER BY tablename`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,7 +50,7 @@ func oldRouteRows(t *testing.T, pool *pgxpool.Pool) map[string]string {
 			filter = " WHERE version<=11"
 		}
 		var value string
-		if err = pool.QueryRow(ctx, `SELECT coalesce(jsonb_agg(r ORDER BY r::text),'[]'::jsonb)::text FROM (SELECT to_jsonb(t) r FROM `+pgx.Identifier{name}.Sanitize()+` t`+filter+`) rows`).Scan(&value); err != nil {
+		if err = pool.QueryRow(ctx, `SELECT coalesce(jsonb_agg(r ORDER BY r::text),'[]'::jsonb)::text FROM (SELECT to_jsonb(t)-'cover_version'-'current_cover_id' r FROM `+pgx.Identifier{name}.Sanitize()+` t`+filter+`) rows`).Scan(&value); err != nil {
 			t.Fatal(err)
 		}
 		out[name] = value

@@ -30,6 +30,9 @@ func TestReportedTargetAccessKeepsPrivateMediaAndAvatarsScoped(t *testing.T) {
 		{"private ready image outsider", models.TrustTargetRecord{Target: models.TrustTarget{Type: "bike_photo"}, OwnerID: "other", State: "ready", Visibility: "private"}, false},
 		{"old club image", models.TrustTargetRecord{Target: models.TrustTarget{Type: "club_image"}, State: "ready", Current: false}, false},
 		{"current club image", models.TrustTargetRecord{Target: models.TrustTarget{Type: "club_image"}, State: "ready", Current: true}, true},
+		{"pending ride cover", models.TrustTargetRecord{Target: models.TrustTarget{Type: "ride_cover"}, OwnerID: "viewer", State: "pending", Current: false}, false},
+		{"old ride cover", models.TrustTargetRecord{Target: models.TrustTarget{Type: "ride_cover"}, OwnerID: "other", State: "ready", Current: false}, false},
+		{"current ride cover outsider", models.TrustTargetRecord{Target: models.TrustTarget{Type: "ride_cover"}, OwnerID: "other", State: "ready", Current: true}, true},
 		{"avatar outsider", models.TrustTargetRecord{Target: models.TrustTarget{Type: "avatar"}, OwnerID: "other", State: "ready", Current: true, AuthorStatus: "active"}, false},
 		{"avatar own", models.TrustTargetRecord{Target: models.TrustTarget{Type: "avatar"}, OwnerID: "viewer", State: "ready", Current: true, AuthorStatus: "active"}, true},
 		{"avatar shared ride", models.TrustTargetRecord{Target: models.TrustTarget{Type: "avatar"}, OwnerID: "other", State: "ready", Current: true, AuthorStatus: "active", SharedRides: 1}, true},
@@ -136,7 +139,7 @@ type hiddenContextTx struct {
 
 func (t hiddenContextTx) Hidden(kind, id string) (bool, error) { return t.hidden[kind+":"+id], nil }
 func TestReportContextRejectsGuessedChildrenOfUnavailableParents(t *testing.T) {
-	tx := hiddenContextTx{hidden: map[string]bool{"bike:parent": true, "club:parent": true, "user:author": true}}
+	tx := hiddenContextTx{hidden: map[string]bool{"bike:parent": true, "club:parent": true, "ride:parent": true, "user:author": true}}
 	for _, tc := range []struct {
 		name    string
 		record  models.TrustTargetRecord
@@ -149,6 +152,10 @@ func TestReportContextRejectsGuessedChildrenOfUnavailableParents(t *testing.T) {
 		{"hidden club owner", models.TrustTargetRecord{Target: models.TrustTarget{Type: "club_image", ScopeID: "parent"}, OwnerID: "viewer"}, true},
 		{"hidden user avatar", models.TrustTargetRecord{Target: models.TrustTarget{Type: "avatar", AuthorID: "author"}, OwnerID: "viewer"}, false},
 		{"approved ride coordination", models.TrustTargetRecord{Target: models.TrustTarget{Type: "ride_photo", ScopeID: "parent"}, Participation: "approved"}, true},
+		{"hidden ride cover outsider", models.TrustTargetRecord{Target: models.TrustTarget{Type: "ride_cover", ScopeID: "parent"}, OwnerID: "other", Participation: "requested"}, false},
+		{"hidden ride cover approved rider", models.TrustTargetRecord{Target: models.TrustTarget{Type: "ride_cover", ScopeID: "parent"}, OwnerID: "other", Participation: "approved"}, true},
+		{"hidden ride cover organizer", models.TrustTargetRecord{Target: models.TrustTarget{Type: "ride_cover", ScopeID: "parent"}, OwnerID: "viewer"}, true},
+		{"visible ride cover outsider", models.TrustTargetRecord{Target: models.TrustTarget{Type: "ride_cover", ScopeID: "visible"}, OwnerID: "other"}, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			err := reportContextVisible(tx, tc.record, "viewer")
@@ -156,5 +163,56 @@ func TestReportContextRejectsGuessedChildrenOfUnavailableParents(t *testing.T) {
 				t.Fatalf("allowed=%v err=%v", tc.allowed, err)
 			}
 		})
+	}
+}
+
+// reportTx answers one ride-cover report. The reporter and the organizer
+// block each other, which must not stop reports of public content.
+type reportTx struct {
+	database.TrustTransaction
+	target   models.TrustTargetRecord
+	hidden   map[string]bool
+	inserted []models.Report
+}
+
+func (t *reportTx) Account(id string) (models.TrustAccount, error) {
+	return models.TrustAccount{ID: id, Status: "active"}, nil
+}
+func (t *reportTx) Target(kind, id, _ string, _ bool) (models.TrustTargetRecord, error) {
+	if kind != t.target.Target.Type || id != t.target.Target.ID {
+		return models.TrustTargetRecord{}, database.ErrNotFound
+	}
+	return t.target, nil
+}
+func (t *reportTx) Hidden(kind, id string) (bool, error) { return t.hidden[kind+":"+id], nil }
+func (t *reportTx) Blocked(string, string) (bool, error) { return true, nil }
+func (t *reportTx) OpenReport(string, string, string) (models.Report, error) {
+	return models.Report{}, database.ErrNotFound
+}
+func (t *reportTx) ReportCount(string, time.Time) (int, error) { return 0, nil }
+func (t *reportTx) InsertReport(r models.Report) error {
+	t.inserted = append(t.inserted, r)
+	return nil
+}
+
+func TestRideCoverIsReportableHideableAndReviewablePublicContent(t *testing.T) {
+	if !validKind("ride_cover") || !imageKind("ride_cover") {
+		t.Fatal("ride covers must be reportable, hideable and reviewable images")
+	}
+	cover, ride := uuid.NewString(), uuid.NewString()
+	record := models.TrustTargetRecord{Target: models.TrustTarget{Type: "ride_cover", ID: cover, AuthorID: "organizer", ScopeID: ride, MediaURL: "/api/v1/rides/" + ride + "/cover/" + cover + "/content"}, OwnerID: "organizer", State: "ready", Current: true}
+	actor := models.User{ID: uuid.NewString()}
+	input := models.ReportInput{TargetType: "ride_cover", TargetID: cover, Reason: "spam"}
+	tx := &reportTx{target: record, hidden: map[string]bool{}}
+	m := New(&decisionRepo{tx: tx}, nil, nil)
+	if _, err := m.Report(context.Background(), actor, input); err != nil || len(tx.inserted) != 1 || tx.inserted[0].Snapshot.MediaURL != record.Target.MediaURL {
+		t.Fatalf("blocked rider could not report a public ride cover: %v", err)
+	}
+	for _, hidden := range []string{"ride_cover:" + cover, "ride:" + ride} {
+		tx = &reportTx{target: record, hidden: map[string]bool{hidden: true}}
+		m = New(&decisionRepo{tx: tx}, nil, nil)
+		if _, err := m.Report(context.Background(), actor, input); err == nil || len(tx.inserted) != 0 {
+			t.Fatalf("report revealed a cover behind %s", hidden)
+		}
 	}
 }

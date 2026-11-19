@@ -116,6 +116,10 @@ func New(settings Settings, managers Managers) *Server {
 	m.HandleFunc("GET /api/v1/rides/{rideID}/album/photos/{photoID}/content", s.ridePhotoContent)
 	m.HandleFunc("POST /api/v1/rides/{rideID}/album/videos", s.addRideVideo)
 	m.HandleFunc("DELETE /api/v1/rides/{rideID}/album/videos/{videoID}", s.deleteRideVideo)
+	m.HandleFunc("GET /api/v1/rides/{rideID}/cover", s.rideCover)
+	m.HandleFunc("POST /api/v1/rides/{rideID}/cover", s.uploadRideCover)
+	m.HandleFunc("DELETE /api/v1/rides/{rideID}/cover", s.removeRideCover)
+	m.HandleFunc("GET /api/v1/rides/{rideID}/cover/{coverID}/content", s.rideCoverContent)
 	m.HandleFunc("GET /api/v1/rides/{id}/announcements", s.announcements)
 	m.HandleFunc("POST /api/v1/rides/{id}/announcements", s.announcements)
 	m.HandleFunc("GET /api/v1/me/trust", s.meTrust)
@@ -188,7 +192,7 @@ func New(settings Settings, managers Managers) *Server {
 			w.Header().Set("Cache-Control", "no-store")
 			if r.URL.Path != "/api/v1/events" {
 				timeout := 20 * time.Second
-				if r.Method == http.MethodPost && (strings.HasSuffix(r.URL.Path, "/photos") || strings.HasSuffix(r.URL.Path, "/image") || strings.HasSuffix(r.URL.Path, "/avatar")) {
+				if r.Method == http.MethodPost && (strings.HasSuffix(r.URL.Path, "/photos") || strings.HasSuffix(r.URL.Path, "/image") || strings.HasSuffix(r.URL.Path, "/cover") || strings.HasSuffix(r.URL.Path, "/avatar")) {
 					timeout = 45 * time.Second
 				}
 				ctx, cancel := context.WithTimeout(r.Context(), timeout)
@@ -282,7 +286,7 @@ func failure(w http.ResponseWriter, err error) {
 		status = 404
 	case "route_limited", "track_limited", "collection_limited":
 		status = 409
-	case "profile_required", "ride_cancelled", "ride_unavailable", "stale_plan", "capacity_too_small", "organizer_cannot_leave", "participation_changed", "ride_full", "message_id_conflict", "stale_version", "club_closed", "owner_transfer_required", "membership_changed", "invalid_owner", "photo_limit", "photo_storage_limit", "photo_upload_expired", "club_image_busy", "avatar_upload_busy", "album_photo_limit", "album_video_limit", "block_limit", "action_id_conflict", "announcement_id_conflict", "user_blocked", "push_subscription_limit", "push_subscription_in_use":
+	case "profile_required", "ride_cancelled", "ride_unavailable", "stale_plan", "capacity_too_small", "organizer_cannot_leave", "participation_changed", "ride_full", "message_id_conflict", "stale_version", "club_closed", "owner_transfer_required", "membership_changed", "invalid_owner", "photo_limit", "photo_storage_limit", "photo_upload_expired", "club_image_busy", "ride_cover_busy", "avatar_upload_busy", "album_photo_limit", "album_video_limit", "block_limit", "action_id_conflict", "announcement_id_conflict", "user_blocked", "push_subscription_limit", "push_subscription_in_use":
 		status = 409
 	case "invalid_phone", "invalid_profile", "invalid_ride", "invalid_decision", "invalid_message", "invalid_cursor", "invalid_bike", "invalid_maintenance", "invalid_query", "invalid_club", "invalid_photo", "invalid_photo_choice", "invalid_video_link", "invalid_report", "invalid_block", "invalid_admin_action", "invalid_announcement", "invalid_reminders", "invalid_preferences", "invalid_push_subscription", "invalid_map", "route_not_found", "invalid_place", "invalid_submission", "invalid_route", "invalid_track", "invalid_collection", "invalid_condition", "publication_consent_required":
 		status = 422

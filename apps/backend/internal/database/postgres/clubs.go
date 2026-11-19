@@ -162,14 +162,27 @@ func (t *clubTransaction) LinkedRides(now time.Time, limit int) ([]models.RideSu
 	}
 	defer rows.Close()
 	out := []models.RideSummary{}
+	ids := []string{}
 	for rows.Next() {
 		var ride models.RideSummary
 		if err := rows.Scan(&ride.ID, &ride.City, &ride.Date, &ride.Description, &ride.Status); err != nil {
 			return nil, repositoryError(err)
 		}
 		out = append(out, ride)
+		ids = append(ids, ride.ID)
 	}
-	return out, repositoryError(rows.Err())
+	if err := rows.Err(); err != nil {
+		return nil, repositoryError(err)
+	}
+	rows.Close()
+	covers, err := rideCovers(t.ctx, t.tx, ids)
+	if err != nil {
+		return nil, err
+	}
+	for i := range out {
+		out[i].Cover = covers[out[i].ID]
+	}
+	return out, nil
 }
 func (t *clubTransaction) RideForLink(id string) (models.ClubRideCandidate, error) {
 	var ride models.ClubRideCandidate

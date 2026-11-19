@@ -6,10 +6,13 @@ import { IconContext } from '@phosphor-icons/react'
 import { App } from './App'
 import { I18nProvider } from './i18n'
 import { SessionProvider } from './session'
+import './fonts'
 import './theme.css'
 import './styles.css'
 import './shell.css'
 import './discovery.css'
+import './pages/ride-detail.css'
+import './collections.css'
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, staleTime: 15_000, refetchOnWindowFocus: true }, mutations: { retry: false } } })
 

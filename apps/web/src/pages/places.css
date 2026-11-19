@@ -10,7 +10,7 @@
 .places-search input { width: 100%; min-width: 0; min-height: 40px; padding: 8px 12px 8px 0; border: 0; background: transparent; color: var(--text); font: var(--type-body-3); }
 .places-search input:focus-visible { outline: none; }
 .places-search-row > .button { font: var(--type-button-sm); padding: 8px 12px; }
-.places-filter-count { display: grid; place-items: center; min-width: 20px; height: 20px; border-radius: var(--radius-sm); color: var(--accent); background: var(--surface-hover); font: var(--type-caption-3); }
+.places-filter-count { display: grid; place-items: center; min-width: 20px; height: 20px; border-radius: var(--radius-sm); color: var(--text); background: var(--surface-hover); font: var(--type-caption-3); }
 .places-filter-panel { display: grid; grid-template-columns: minmax(160px, .6fr) minmax(0, 1.4fr); gap: 12px 16px; padding: 16px; margin-top: 8px; max-height: min(38dvh, 300px); overflow-y: auto; overscroll-behavior: contain; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); }
 .places-filter-panel[hidden] { display: none; }
 .places-filter-panel .field { margin: 0; }
@@ -42,7 +42,7 @@
 .places-pagination .button { min-width: 0; padding: 8px; font: var(--type-button-sm); white-space: normal; }
 .places-page-cap { padding: 12px 12px 0; font: var(--type-caption-5); color: var(--text-muted); }
 .places-back-results { margin: 4px 12px; font: var(--type-button-sm); }
-.places-detail-view:focus-visible { outline-offset: -3px; }
+.places-detail-view:focus-visible { outline: 3px solid var(--focus); outline-offset: -3px; }
 .place-details { padding: 0 12px 16px; overflow-wrap: anywhere; }
 .places-detail-view .place-details { border: 0; border-radius: 0; box-shadow: none; }
 .place-details h2 { font: var(--type-heading-6); margin: 0 0 12px; }
@@ -50,10 +50,12 @@
 .place-details .button { font: var(--type-button-sm); white-space: normal; }
 .place-category { display: flex; align-items: center; gap: 8px; color: var(--text-muted); font: var(--type-caption-1); }
 .place-facts { display: grid; gap: 8px; font: var(--type-body-6); }
-.place-facts > div { display: grid; grid-template-columns: minmax(80px, .65fr) minmax(0, 1fr); gap: 12px; }
+/* Baseline alignment keeps a label level with a taller link beside it. */
+.place-facts > div { display: grid; grid-template-columns: minmax(80px, .65fr) minmax(0, 1fr); align-items: baseline; gap: 12px; }
 .place-facts dt { color: var(--text-muted); }
 .place-facts dd { margin: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
-.place-facts a { display: inline-flex; gap: 4px; align-items: center; }
+/* The website link: at least 24px high, and 44px for touch (below). */
+.place-facts a { display: inline-flex; gap: 4px; align-items: center; min-height: 24px; }
 .place-source { font: var(--type-caption-5); color: var(--text-muted); overflow-wrap: anywhere; }
 .places-map-column { display: flex; flex-direction: column; min-height: 0; min-width: 0; border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; background: var(--surface); }
 .places-area-action { display: flex; flex-shrink: 0; justify-content: center; padding: 4px 8px; border-bottom: 1px solid var(--border); }
@@ -66,9 +68,12 @@
 .places-map-unavailable > .button { display: none; }
 .place-map-marker { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; background: var(--surface-raised); color: var(--text); border: 1px solid var(--border-strong); border-radius: 50%; cursor: pointer; box-shadow: 0 2px 4px #0006; font: var(--type-button-sm); font-variant-numeric: tabular-nums; }
 .place-map-marker.selected { background: var(--accent); border-color: var(--on-accent); color: var(--on-accent); z-index: 2; }
-.place-map-marker:hover { background: var(--surface-hover); color: var(--accent); }
+/* Hover leaves the selected marker as it is. :where keeps this rule as specific as the cluster's hover rule below. */
+.place-map-marker:hover:where(:not(.selected)) { background: var(--surface-hover); color: var(--accent); }
 .place-map-marker:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; z-index: 3; }
 .place-map-cluster { width: 44px; height: 44px; border-width: 2px; border-color: var(--accent-border); color: var(--accent); }
+/* The count is text: orange on the hover surface is below 4.5:1, so it turns bone. */
+.place-map-cluster:hover { color: var(--text); }
 .place-cluster-chooser { position: absolute; inset: 8px 64px auto 8px; z-index: 2; display: grid; max-height: calc(100% - 64px); overflow-y: auto; border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--surface); padding: 8px; box-shadow: var(--shadow-floating); }
 .place-cluster-chooser button { min-height: 40px; text-align: start; padding: 8px; color: var(--text); background: transparent; font: var(--type-body-6); }
 .place-cluster-chooser button:hover { background: var(--surface-hover); }
@@ -83,6 +88,8 @@
 .place-submission-meta { display: flex; flex-wrap: wrap; gap: 12px; color: var(--text-muted); font: var(--type-caption-2); }
 .place-submission-reason { white-space: pre-wrap; overflow-wrap: anywhere; }
 .place-review { display: grid; gap: 24px; }
+.admin-places > h2 { margin: 24px 0 16px; font: var(--type-heading-6); }
+.admin-places > .place-review, .admin-places > .success-message { margin-top: 16px; }
 .place-review-panes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
 .place-review-panes > section { padding: 16px; border: 1px solid var(--border); border-radius: 8px; min-width: 0; }
 .place-review-panes h3 { font: var(--type-title-3); }
@@ -134,7 +141,6 @@
   .place-cluster-chooser { top: 68px; right: 8px; max-height: calc(100% - 120px); }
 }
 @media (pointer: coarse) {
-  .places-search input, .places-search-row > .button, .place-category-filter, .places-view-switch button, .places-area-action .button, .places-area-note .text-button, .place-cluster-chooser button { min-height: 44px; }
+  .places-search input, .places-search-row > .button, .place-category-filter, .places-view-switch button, .places-area-action .button, .places-area-note .text-button, .place-cluster-chooser button, .place-facts a { min-height: 44px; }
   .place-map-marker { width: 44px; height: 44px; }
-  .map-canvas-controls button { width: 44px; height: 44px; }
 }

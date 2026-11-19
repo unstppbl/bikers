@@ -84,10 +84,10 @@ func New(cfg config.Config, repository database.Repository, gateway accounts.Gat
 	}
 	mapManager := geo.New(geocoder, router, cfg.MapsArchiveURL, now)
 	a := accounts.New(repository, gateway, events, accounts.Options{Now: now, DailyBudget: cfg.OTPDailyBudget})
-	r := rides.New(repository, events, now, mapManager)
+	photoProcessing := photos.New(nil)
+	r := rides.New(repository, events, now, mapManager, photoProcessing)
 	rm := rooms.New(repository, events, now)
 	sy := system.New(repository, cfg.MediaDir)
-	photoProcessing := photos.New(nil)
 	g := garage.New(repository, now, photoProcessing)
 	c := clubs.New(repository, now, photoProcessing)
 	md := media.New(repository, now, photoProcessing)

@@ -1,0 +1,558 @@
+/* Ride detail: a hero with the date plate, then the plan, group updates and chat beside the rider list. */
+
+.ride-detail {
+  max-width: 1360px;
+}
+
+.ride-hero {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  min-height: 360px;
+  margin-top: 4px;
+  padding: 36px 40px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  isolation: isolate;
+  container-type: inline-size;
+}
+
+.ride-hero .city-art {
+  top: 28px;
+  --city-art-left: 40px;
+  right: -8px;
+  --city-art-max: 240px;
+}
+
+/* A cover photo gets more height, like the featured card. */
+.ride-hero:has(.ride-hero-cover) {
+  min-height: 440px;
+}
+
+.ride-hero-cover {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ride-hero:has(.ride-hero-cover) .city-art {
+  display: none;
+}
+
+.ride-hero:has(.ride-hero-cover)::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--scrim);
+}
+
+.ride-hero.is-cancelled .ride-hero-cover {
+  filter: grayscale(1);
+}
+
+.ride-hero:has(.ride-hero-cover) h1 {
+  text-shadow: 0 1px 12px color-mix(in srgb, var(--canvas) 70%, transparent);
+}
+
+.ride-hero-body {
+  display: flex;
+  align-items: flex-end;
+  gap: 28px;
+  min-width: 0;
+}
+
+.date-plate-hero {
+  flex-shrink: 0;
+  min-width: 92px;
+  padding: 10px 18px 11px;
+}
+
+.date-plate-hero strong {
+  font-size: 72px;
+}
+
+.date-plate-hero span {
+  font-size: 19px;
+}
+
+.ride-hero-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  max-width: 880px;
+}
+
+.ride-hero-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ride-hero-status:empty {
+  display: none;
+}
+
+.ride-hero h1 {
+  font: var(--type-heading-2);
+  overflow-wrap: anywhere;
+}
+
+.ride-hero.is-cancelled h1 {
+  color: var(--text-muted);
+}
+
+.ride-hero .detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  color: var(--text-muted);
+  font: var(--type-body-5);
+}
+
+.ride-hero .detail-meta > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.ride-hero .detail-meta > span:first-child {
+  color: var(--text);
+}
+
+.ride-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 16px 0 28px;
+}
+
+.ride-toolbar .share-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ride-toolbar .button {
+  min-height: 44px;
+  padding: 8px 16px;
+  font: var(--type-button-sm);
+  border-radius: var(--radius-pill);
+}
+
+/* Sharing and editing sit together on the left, the report controls on the right. */
+.ride-toolbar-reports {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: flex-start;
+  gap: 0 20px;
+  margin-left: auto;
+}
+
+.ride-toolbar-reports:empty {
+  display: none;
+}
+
+/* An open report form drops into its own row under both report buttons, aligned to the right. */
+.ride-toolbar-reports:has(.report-control-open) {
+  flex-basis: 100%;
+}
+
+.ride-toolbar-reports > .report-control-open {
+  display: contents;
+}
+
+/* A full-width empty item breaks the line after the buttons, so the form always starts a new row. */
+.ride-toolbar-reports:has(.report-control-open)::after {
+  content: '';
+  flex-basis: 100%;
+}
+
+.ride-toolbar-reports .report-form {
+  order: 1;
+  width: 100%;
+  max-width: 520px;
+  margin: 12px 0 0 auto;
+}
+
+.ride-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+  gap: 32px;
+  align-items: start;
+}
+
+/* The aside scrolls with the page and is not sticky: for an organizer it is taller
+   than the viewport, and a pinned aside would keep its lower controls out of view. */
+.ride-main, .ride-aside {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
+}
+
+.ride-main > .surface, .ride-aside > .surface {
+  margin: 0;
+}
+
+.ride-detail .ride-description {
+  margin: 0;
+  max-width: 720px;
+  color: var(--text-muted);
+  font: var(--type-body-3);
+  font-size: var(--text-lg);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ride-detail .ride-lead {
+  color: var(--text);
+  font-size: 20px;
+}
+
+/* The plan as a route: a dashed line joins the stops. */
+.plan-card {
+  padding: 24px;
+}
+
+.plan-card > h2 {
+  font: var(--type-heading-5);
+  margin-bottom: 20px;
+}
+
+.roadbook {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.roadbook > li {
+  position: relative;
+  display: flex;
+  gap: 16px;
+  padding-bottom: 22px;
+}
+
+.roadbook > li:last-child {
+  padding-bottom: 0;
+}
+
+.roadbook > li:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 19px;
+  top: 42px;
+  bottom: 4px;
+  border-left: 2px dashed var(--border-strong);
+}
+
+.roadbook-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--accent);
+}
+
+.plan-locked .roadbook-marker {
+  border-color: var(--border-strong);
+  color: var(--text-subtle);
+}
+
+.roadbook-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+  padding-top: 1px;
+}
+
+.roadbook-label {
+  color: var(--text-subtle);
+  font: var(--type-caption-3);
+  font-size: 13px;
+}
+
+.roadbook-time {
+  font: 800 34px/1 var(--font-display);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.roadbook-sub {
+  color: var(--text-subtle);
+  font: var(--type-body-6);
+}
+
+.roadbook-copy > p {
+  font: var(--type-body-2);
+  overflow-wrap: anywhere;
+}
+
+.roadbook-copy .inline-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  /* A full 44px target; the negative margins keep the roadbook's spacing as tight as the text. */
+  min-height: 44px;
+  margin: -2px 0 -6px;
+  color: var(--accent);
+  font: var(--type-button-sm);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.roadbook-locked {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-subtle);
+  font: var(--type-body-5);
+}
+
+.plan-facts {
+  margin: 22px 0 0;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.plan-facts > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+}
+
+.plan-facts dt {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-subtle);
+  font: var(--type-body-5);
+}
+
+.plan-facts dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin: 0;
+  font: 800 24px/1 var(--font-display);
+}
+
+.plan-facts dd small {
+  color: var(--text-subtle);
+  font: var(--type-caption-5);
+}
+
+.plan-card .expectations {
+  margin-top: 18px;
+}
+
+/* Preview: the join card leads, the locked plan follows. */
+.access-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 4px 18px;
+  align-items: start;
+  padding: 24px;
+  text-align: left;
+  border-color: var(--accent-border);
+  background: linear-gradient(var(--accent-surface), var(--accent-surface)) padding-box;
+}
+
+.access-icon {
+  grid-row: span 2;
+  width: 52px;
+  height: 52px;
+  margin: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.access-copy h2 {
+  font: var(--type-heading-6);
+}
+
+.access-copy p {
+  margin: 6px 0 0;
+  max-width: 560px;
+  color: var(--text-muted);
+  font: var(--type-body-3);
+}
+
+.access-card > .button {
+  grid-column: 2;
+  justify-self: start;
+  margin-top: 16px;
+  min-height: 52px;
+  padding: 12px 28px;
+  font: var(--type-button-lg);
+}
+
+.access-footnote {
+  grid-column: 2;
+  margin-top: 12px;
+  color: var(--text-subtle);
+}
+
+.ride-preview .ride-aside {
+  padding: 4px;
+}
+
+/* The ride chat gets more room and quieter chrome. */
+.ride-detail .room-heading {
+  padding: 18px 20px;
+}
+
+.ride-detail .room-heading h2 {
+  font: var(--type-heading-5);
+}
+
+.ride-detail .messages {
+  padding: 20px;
+}
+
+.ride-detail .message-content > p {
+  border-radius: 4px var(--radius-lg) var(--radius-lg) var(--radius-lg);
+  background: var(--surface-raised);
+}
+
+.ride-detail .own-message .message-content > p {
+  background: var(--accent-surface);
+  border-color: var(--accent-border);
+}
+
+.ride-detail .message-composer {
+  padding: 14px 16px;
+  background: var(--surface);
+}
+
+.ride-detail .message-composer textarea {
+  border-radius: var(--radius-lg);
+  background: var(--canvas);
+  border-color: var(--border-strong);
+}
+
+.ride-detail .send-button {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+}
+
+.ride-lower-actions {
+  justify-content: center;
+  padding-top: 0;
+}
+
+.ride-lower-actions .text-button {
+  color: var(--text-subtle);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.ride-lower-actions .text-button.danger-text {
+  color: var(--danger);
+}
+
+@media (max-width: 1100px) {
+  .ride-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 760px) {
+  .ride-hero {
+    min-height: 300px;
+    padding: 20px 18px;
+    border-radius: var(--radius-lg);
+  }
+
+  .ride-hero-body {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 18px;
+  }
+
+  /* The plate stacks above the title here and can share the top row with the city name, so the name starts
+     clear of it, as on the cards: 18px padding, the plate's widest 78px, its 3.5px ring and a 12px gap. */
+  .ride-hero .city-art {
+    top: 18px;
+    --city-art-left: 112px;
+  }
+
+  .ride-hero:has(.ride-hero-cover) {
+    min-height: 340px;
+  }
+
+  .date-plate-hero {
+    min-width: 72px;
+    padding: 8px 14px 9px;
+  }
+
+  .date-plate-hero strong {
+    font-size: 54px;
+  }
+
+  .date-plate-hero span {
+    font-size: 16px;
+  }
+
+  .ride-hero h1 {
+    font: var(--type-heading-4);
+  }
+
+  .ride-toolbar {
+    margin: 12px 0 20px;
+  }
+
+  .ride-layout, .ride-main, .ride-aside {
+    gap: 20px;
+  }
+
+  .ride-detail .ride-description {
+    font-size: var(--text-base);
+  }
+
+  .ride-detail .ride-lead {
+    font-size: var(--text-lg);
+  }
+
+  .plan-card {
+    padding: 20px 18px;
+  }
+
+  .access-card {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 20px;
+  }
+
+  .access-icon {
+    grid-row: auto;
+    margin-bottom: 8px;
+  }
+
+  .access-card > .button, .access-footnote {
+    grid-column: 1;
+  }
+
+  .access-card > .button {
+    justify-self: stretch;
+  }
+}

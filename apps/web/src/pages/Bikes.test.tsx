@@ -80,19 +80,21 @@ describe('public motorcycle catalogue', () => {
     vi.stubGlobal('fetch', fetch)
     mount('/bikes?q=Honda&cursor=old-page')
     await screen.findByRole('heading', { name: 'Honda' })
-    expect(screen.getByLabelText('Search motorcycles')).toHaveValue('Honda')
-    fireEvent.change(screen.getByLabelText('Search motorcycles'), { target: { value: '  Yamaha MT  ' } })
+    expect(screen.getByLabelText('Search by make or model')).toHaveValue('Honda')
+    // The placeholder is the only visible label, so the accessible name says the same.
+    expect(screen.getByRole('searchbox', { name: 'Search by make or model' })).toHaveAttribute('placeholder', 'Search by make or model')
+    fireEvent.change(screen.getByLabelText('Search by make or model'), { target: { value: '  Yamaha MT  ' } })
     await userEvent.click(screen.getByRole('button', { name: 'Apply filters' }))
     await screen.findByRole('heading', { name: 'Yamaha MT' })
     expect(Object.fromEntries(parsed(fetch.mock.calls.filter(([url]) => isList(url)).at(-1)![0]).searchParams)).toEqual({ q: 'Yamaha MT' })
     await userEvent.click(screen.getByRole('button', { name: 'History back' }))
     await screen.findByRole('heading', { name: 'Honda' })
-    expect(screen.getByLabelText('Search motorcycles')).toHaveValue('Honda')
+    expect(screen.getByLabelText('Search by make or model')).toHaveValue('Honda')
     await userEvent.click(screen.getByRole('button', { name: 'History forward' }))
     await screen.findByRole('heading', { name: 'Yamaha MT' })
     await userEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
     await screen.findByRole('heading', { name: 'All makes' })
-    expect(screen.getByLabelText('Search motorcycles')).toHaveValue('')
+    expect(screen.getByLabelText('Search by make or model')).toHaveValue('')
     expect(screen.getByTestId('location')).toHaveTextContent('/bikes')
   })
 
@@ -178,8 +180,8 @@ describe('public motorcycle catalogue', () => {
   })
 
   it.each([
-    ['ru', 'Мотоциклы', 'Мотоциклы', 'Поиск мотоциклов'],
-    ['kk', 'Мотоциклдер', 'Мотоциклдер', 'Мотоциклдерді іздеу'],
+    ['ru', 'Мотоциклы', 'Мотоциклы', 'Поиск по марке или модели'],
+    ['kk', 'Мотоциклдер', 'Мотоциклдер', 'Маркасы немесе моделі бойынша іздеу'],
   ])('localizes the public navigation and catalogue in %s', async (locale, navigation, title, search) => {
     localStorage.setItem('bikerskz.locale', locale)
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
@@ -190,7 +192,7 @@ describe('public motorcycle catalogue', () => {
     mount('/bikes', true)
     await screen.findByRole('heading', { name: title })
     expect(screen.getByRole('link', { name: navigation })).toHaveAttribute('href', '/bikes')
-    expect(screen.getByRole('searchbox', { name: search })).toBeInTheDocument()
+    expect(screen.getByRole('searchbox', { name: search })).toHaveAttribute('placeholder', search)
   })
 
   it.each(['publish', 'hide', 'edit', 'delete'] as const)('invalidates a fresh catalogue after an owner chooses to %s a bike', async (operation) => {
@@ -211,6 +213,8 @@ describe('public motorcycle catalogue', () => {
     client.setQueryData(key, { bikes: [bike(1, 'CB500X')], next_cursor: '' })
     expect(client.getQueryState(key)?.isInvalidated).toBe(false)
     if (operation === 'edit') {
+      // The edit form leads back to the motorcycle it edits, not to the garage list.
+      expect(screen.getByRole('link', { name: 'Back to motorcycle' })).toHaveAttribute('href', `/garage/${owned.id}`)
       fireEvent.change(screen.getByLabelText(/^Model \*/), { target: { value: 'CB650R' } })
       await userEvent.click(screen.getByRole('button', { name: 'Save motorcycle' }))
     } else {

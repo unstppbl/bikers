@@ -19,7 +19,7 @@ export function useTrust() {
   return useQuery({ queryKey: ['trust', user?.id], queryFn: ({ signal }) => request<{ is_admin: boolean }>('/me/trust', { signal }), enabled: !!user && !loading && !error, meta: { private: true }, retry: false, staleTime: 30_000, refetchInterval: user ? 30_000 : false })
 }
 export interface ReportActionTarget {
-  targetType: ReportTarget; targetId: string; label: 'report' | 'reportMessage' | 'reportRider' | 'reportAvatar'
+  targetType: ReportTarget; targetId: string; label: 'report' | 'reportMessage' | 'reportRider' | 'reportAvatar' | 'reportCover' | 'reportClubImage'
 }
 // Keep operation state outside ephemeral menus. Existing inline report controls
 // and message menus share the same payload, session guards and feedback.
@@ -54,7 +54,7 @@ export function useReportAction({ focusOnOpen = false, onClose }: { focusOnOpen?
   const content = <>{sent && <span className="success-message" role="status">{t('reportSent')}</span>}{open && target && <form className="surface report-form" onSubmit={(event) => void submit(event)}><h3>{t(target.label)}</h3><p>{t('reportHint')}</p><Field label={t('reportReason')}><select ref={reasonRef} value={reason} disabled={busy} onChange={(event) => setReason(event.target.value as typeof reason)}>{reportReasons.map((value) => <option key={value} value={value}>{t(('reason_' + value) as 'reason_spam' | 'reason_harassment' | 'reason_dangerous_content' | 'reason_other')}</option>)}</select></Field><TextArea label={t('reportDetails')} value={details} onChange={setDetails} maxLength={4000} rows={3} />{error != null && <ErrorNotice error={error} />}<div className="form-actions"><button className="button button-outline" type="button" disabled={busy} onClick={close}>{t('cancel')}</button><button className="button button-primary" type="submit" disabled={busy || !online}>{t(busy ? 'sending' : 'reportSubmit')}</button></div></form>}</>
   return { open, busy, show, close, content }
 }
-export function ReportButton({ targetType, targetId, label = 'report' }: { targetType: ReportTarget; targetId: string; label?: 'report' | 'reportRider' | 'reportAvatar' }) {
+export function ReportButton({ targetType, targetId, label = 'report' }: { targetType: ReportTarget; targetId: string; label?: ReportActionTarget['label'] }) {
   const { user, loading, error } = useSession()
   if (!user || loading || error) return null
   return <ReportForm key={user.id + ':' + getSessionEpoch() + ':' + targetType + ':' + targetId} targetType={targetType} targetId={targetId} label={label} />

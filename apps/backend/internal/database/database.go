@@ -28,7 +28,11 @@ type AccountsRepository interface {
 	RevokeSession(context.Context, []byte, time.Time) error
 	UpdateProfile(context.Context, string, ProfileDecision) (models.User, error)
 }
+
+// Ride reads (ListRides, Ride and WithRide) attach the current ready cover
+// to the summary and omit covers hidden by moderation.
 type RidesRepository interface {
+	RideCoverRepository
 	ContentHidden(context.Context, string, string) (bool, error)
 	ListRides(context.Context, RideListQuery) ([]models.RideListing, error)
 	Ride(context.Context, string) (models.Ride, error)

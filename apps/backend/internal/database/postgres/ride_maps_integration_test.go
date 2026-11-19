@@ -31,7 +31,7 @@ func TestVersionNineMapUpgradePreservesRideAndOldReceipts(t *testing.T) {
 	if _, err := pool.Exec(ctx, `INSERT INTO rides(id,organizer_id,city,description,title,starts_at,timezone,meeting_point,destination,route_url,capacity,plan_version,created_at) VALUES($1,$2,'Almaty','Public preview','Private plan',now()+interval '1 day','Asia/Almaty','Meeting text','Destination text','https://example.com/ride',5,7,now())`, id, owner); err != nil {
 		t.Fatal(err)
 	}
-	const retained = `SELECT jsonb_build_object('ride',(SELECT to_jsonb(r)-'map_plan' FROM rides r WHERE id=$1),'receipts',(SELECT jsonb_agg(to_jsonb(m) ORDER BY version) FROM schema_migrations m WHERE version<=9))::text`
+	const retained = `SELECT jsonb_build_object('ride',(SELECT to_jsonb(r)-'map_plan'-'cover_version'-'current_cover_id' FROM rides r WHERE id=$1),'receipts',(SELECT jsonb_agg(to_jsonb(m) ORDER BY version) FROM schema_migrations m WHERE version<=9))::text`
 	var before, after string
 	if err := pool.QueryRow(ctx, retained, id).Scan(&before); err != nil {
 		t.Fatal(err)
