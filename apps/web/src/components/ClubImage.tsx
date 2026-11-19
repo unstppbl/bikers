@@ -97,13 +97,16 @@ function ImageEditor({ club, metadata, queryKey, reload }: { club: Club; metadat
       const result = await command(controller.signal)
       if (!current()) return
       const next = safeClubImage(result, club.id, true)
+      // An image read that started before this change would otherwise land after it and restore the old version.
+      await queryClient.cancelQueries({ queryKey, exact: true })
+      if (!current()) return
       queryClient.setQueryDefaults(queryKey, { meta: { private: true } })
       queryClient.setQueryData(queryKey, next)
       setFile(null); setUnconfirmed(false)
       void queryClient.invalidateQueries({ queryKey: ['club-image', club.id], refetchType: 'none' })
     } catch (value) {
       if (!current()) return
-      if (kind === 'upload' && value instanceof ApiError && (value.status === 0 || value.status >= 500)) { setUnconfirmed(true); setValidation(t('clubImageUnconfirmed')) }
+      if (kind === 'upload' && value instanceof ApiError && (value.status === 0 || value.status >= 500)) setUnconfirmed(true)
       else setError(value)
       if (value instanceof ApiError && ([401, 403, 404].includes(value.status) || ['stale_version', 'club_closed'].includes(value.code))) { refreshClub(); void reload() }
     } finally {
@@ -112,7 +115,7 @@ function ImageEditor({ club, metadata, queryKey, reload }: { club: Club; metadat
   }
   function cancel() {
     active.current?.abort(); active.current = null
-    setBusy(''); setFile(null); setValidation(''); setError(undefined); setUnconfirmed(false)
+    setBusy(''); setFile(null); setValidation(''); setError(undefined)
     if (currentOwner()) void reload()
   }
   async function remove() {
@@ -126,21 +129,24 @@ function ImageEditor({ club, metadata, queryKey, reload }: { club: Club; metadat
     if (currentSession() && currentOwner() && result && typeof result === 'object' && 'isError' in result && !result.isError) { setUnconfirmed(false); setValidation(''); setError(undefined) }
   }
   const specificError = error instanceof ApiError && error.code === 'invalid_photo_choice' ? t('clubImageChanged') : error instanceof ApiError && error.code === 'photo_limit' ? t('clubImageBusy') : undefined
-  return <section className="surface photo-upload-panel club-image-section">{dialog}<div className="club-image-editor-heading"><ClubEmblem club={club} variant="editor" ownerView /><div><h2>{t('clubImage')}</h2><p>{t(metadata.image ? 'clubImageReplacement' : 'clubImageEmpty')}</p></div>{metadata.image && <button className="text-button danger-text" disabled={!!busy || !online} onClick={() => void remove()}><Trash2 size={15} />{t('clubImageRemove')}</button>}</div><div className="inline-note club-image-public-note"><Globe size={18} /><p>{t('clubImagePublic')}</p></div><div className="photo-upload-heading"><span className="panel-icon"><ImagePlus size={22} /></span><div><label className="photo-picker-label" htmlFor={`club-image-file-${club.id}`}>{t('choosePhoto')}</label><p>{t('clubImageHint')}</p></div></div><input id={`club-image-file-${club.id}`} className="photo-file-input" type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" disabled={!!busy || !online} onChange={(event) => {
+  return <section className="surface photo-upload-panel club-image-section">{dialog}<div className="club-image-editor-heading"><ClubEmblem club={club} variant="editor" ownerView /><div><h2>{t('clubImage')}</h2><p>{t(metadata.image ? 'clubImageReplacement' : 'clubImageEmpty')}</p></div>{metadata.image && <button className="text-button danger-text" disabled={!!busy || !online} onClick={() => void remove()}><Trash2 size={15} />{t('clubImageRemove')}</button>}</div><div className="inline-note club-image-public-note"><Globe size={18} /><p>{t('clubImagePublic')}</p></div><div className="photo-upload-heading"><span className="panel-icon"><ImagePlus size={22} /></span><div><label className="button button-outline photo-picker-label" htmlFor={`club-image-file-${club.id}`}>{t('choosePhoto')}</label><p>{t('clubImageHint')}</p></div></div><input id={`club-image-file-${club.id}`} className="photo-file-input" type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" disabled={!!busy || !online} onChange={(event) => {
       const chosen = event.target.files?.[0]
       event.target.value = ''
-      setFile(null); setValidation(''); setError(undefined); setUnconfirmed(false)
+      // An unconfirmed upload stays blocked until the image is reloaded, whichever photo comes next.
+      setFile(null); setValidation(''); setError(undefined)
       if (!chosen) return
       const invalid = photoFileError(chosen)
       if (invalid) { setValidation(t(invalid)); return }
       setFile(chosen)
     }} />
     {file && <><LocalPhotoPreview key={`${file.name}:${file.size}:${file.lastModified}`} file={file} /><div className="photo-upload-actions">{busy === 'upload' ? <><div className="photo-upload-progress" role="progressbar" aria-label={t('uploadingPhoto')}><span className="spinner" />{t('uploadingPhoto')}</div><button className="button button-outline" onClick={cancel}><X size={15} />{t('cancelUpload')}</button></> : <><button className="button button-primary" disabled={!!busy || !online || unconfirmed} onClick={() => void operate('upload', (signal) => uploadFile(`/clubs/${club.id}/image?version=${metadata.version}`, file, signal))}><Upload size={15} />{t(metadata.image ? 'clubImageReplace' : 'clubImageUpload')}</button><button className="text-button" disabled={!!busy} onClick={() => setFile(null)}>{t('cancel')}</button></>}</div></>}
-    {validation && <ErrorNotice text={validation} retry={unconfirmed ? () => void refresh() : undefined} />}{error != null && <ErrorNotice {...(specificError ? { text: specificError } : { error })} retry={() => void refresh()} />}
+    {unconfirmed && <ErrorNotice text={t('clubImageUnconfirmed')} retry={() => void refresh()} />}{validation && <ErrorNotice text={validation} />}{error != null && <ErrorNotice {...(specificError ? { text: specificError } : { error })} retry={() => void refresh()} />}
   </section>
 }
 
+// The club's own report control sits beside this one, so this control names the image. Owners manage the image instead.
 export function ClubImageReport({ club }: { club: ClubSummary }) {
   const { query, ready } = useClubImage(club, false)
-  return ready && !query.isError && query.data?.image ? <ReportButton targetType="club_image" targetId={query.data.image.id} /> : null
+  const image = ready && !query.isError ? query.data?.image : null
+  return image && !club.can_manage ? <ReportButton targetType="club_image" targetId={image.id} label="reportClubImage" /> : null
 }

@@ -15,6 +15,15 @@ function findCity(value: string, cities: readonly CityOption[]) {
   return cities.find((city) => [city.value, ...Object.values(city.names), ...city.aliases].some((name) => cityKey(name) === key))
 }
 
+// The API accepts a normalized city (a catalogue value, or the trimmed text) of up to 160 UTF-8 bytes in every
+// form and filter. An input's maxLength counts UTF-16 units, so the selector checks the normalized value instead.
+const cityMaxBytes = 160
+const encoder = new TextEncoder()
+
+export function cityTooLong(normalized: string) {
+  return encoder.encode(normalized).length > cityMaxBytes
+}
+
 export function normalizeCity(value: string, cities: readonly CityOption[]) {
   return findCity(value, cities)?.value ?? value.trim()
 }
@@ -30,8 +39,8 @@ export function cityCenter(value: string, cities: readonly CityOption[]) {
   return { lat: center.lat, lon: center.lon }
 }
 
-export const cityCopy: Record<Locale, { hint: string; unavailable: string }> = {
-  en: { hint: 'Choose a suggested city or enter another city.', unavailable: 'City suggestions are unavailable. You can still enter a city.' },
-  ru: { hint: 'Выберите город из списка или введите другой.', unavailable: 'Список городов недоступен. Вы можете ввести город вручную.' },
-  kk: { hint: 'Тізімнен қаланы таңдаңыз немесе басқа қаланы енгізіңіз.', unavailable: 'Қалалар тізімі қолжетімсіз. Қаланы қолмен енгізуге болады.' },
+export const cityCopy: Record<Locale, { hint: string; unavailable: string; tooLong: string }> = {
+  en: { hint: 'Choose a suggested city or enter another city.', unavailable: 'City suggestions are unavailable. You can still enter a city.', tooLong: 'This city name is too long. Shorten it to save.' },
+  ru: { hint: 'Выберите город из списка или введите другой.', unavailable: 'Список городов недоступен. Вы можете ввести город вручную.', tooLong: 'Название города слишком длинное. Сократите его, чтобы сохранить.' },
+  kk: { hint: 'Тізімнен қаланы таңдаңыз немесе басқа қаланы енгізіңіз.', unavailable: 'Қалалар тізімі қолжетімсіз. Қаланы қолмен енгізуге болады.', tooLong: 'Қала атауы тым ұзын. Сақтау үшін оны қысқартыңыз.' },
 }

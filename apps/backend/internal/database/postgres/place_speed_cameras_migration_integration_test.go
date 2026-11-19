@@ -13,6 +13,7 @@ import (
 
 func removeSpeedCameras(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
+	removeRideCovers(t, pool)
 	if _, err := pool.Exec(context.Background(), `ALTER TABLE places DROP CONSTRAINT places_category_check;
 ALTER TABLE places ADD CONSTRAINT places_category_check CHECK(category IN ('fuel','workshop','tires','motorcycle_shop','parking','meeting_spot'));
 DELETE FROM schema_migrations WHERE version=13`); err != nil {

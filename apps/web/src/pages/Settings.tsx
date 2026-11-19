@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeftIcon as ArrowLeft, ArrowUpRightIcon as ArrowUpRight, CheckIcon as Check, GlobeIcon as Globe } from '@phosphor-icons/react'
+import { ArrowLeftIcon as ArrowLeft, CheckIcon as Check } from '@phosphor-icons/react'
 import { Link } from 'react-router-dom'
 import { ApiError, request } from '../api'
 import { useI18n } from '../i18n'
@@ -25,7 +25,7 @@ export function SettingsPage() {
   const { user } = useSession()
   const { t } = useI18n()
   const query = useQuery({ queryKey: ['preferences', user?.id], queryFn: async ({ signal }) => safePreferences(await request('/me/preferences', { signal })), enabled: !!user, meta: { private: true }, retry: false })
-  return <div className="page-content narrow-page"><Link className="back-link" to="/"><ArrowLeft size={17} />{t('back')}</Link><div className="page-heading"><h1>{t('preferencesTitle')}</h1><p>{t('preferencesText')}</p></div>{query.isPending ? <Loading /> : query.isError ? <ErrorNotice error={query.error} retry={() => void query.refetch()} /> : <><PreferencesForm key={user?.id} preferences={query.data} /><PushCategorySettings key={`categories:${user?.id}`} categories={query.data.push_categories} /></>}<PushSettings key={`push:${user?.id}`} /><BlockedUsersPanel key={`blocks:${user?.id}`} /><Link className="surface settings-link" to="/install"><span><Globe size={20} />{t('installApp')}</span><ArrowUpRight size={18} /></Link></div>
+  return <div className="page-content narrow-page"><Link className="back-link" to="/me"><ArrowLeft size={17} />{t('backToMe')}</Link><div className="page-heading"><h1>{t('preferencesTitle')}</h1><p>{t('preferencesText')}</p></div>{query.isPending ? <Loading /> : query.isError ? <ErrorNotice error={query.error} retry={() => void query.refetch()} /> : <><PreferencesForm key={user?.id} preferences={query.data} /><PushCategorySettings key={`categories:${user?.id}`} categories={query.data.push_categories} /></>}<PushSettings key={`push:${user?.id}`} /><BlockedUsersPanel key={`blocks:${user?.id}`} /></div>
 }
 
 function PreferencesForm({ preferences }: { preferences: Preferences }) {

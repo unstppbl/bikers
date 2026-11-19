@@ -106,8 +106,10 @@ function MapSurface({ points, geometry, segments, archiveUrl, locale, onPick, di
       else {
         map.addSource('ride-route', { type: 'geojson', data })
         const belowLabels = map.getStyle().layers.find((layer) => layer.type === 'symbol')?.id
-        map.addLayer({ id: 'ride-route-casing', type: 'line', source: 'ride-route', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#181818', 'line-width': 8 } }, belowLabels)
-        map.addLayer({ id: 'ride-route-line', type: 'line', source: 'ride-route', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#d2ed75', 'line-width': 4 } }, belowLabels)
+        // MapLibre paints concrete colours, so the route reads them from the theme tokens.
+        const theme = getComputedStyle(map.getContainer())
+        map.addLayer({ id: 'ride-route-casing', type: 'line', source: 'ride-route', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': theme.getPropertyValue('--canvas').trim(), 'line-width': 8 } }, belowLabels)
+        map.addLayer({ id: 'ride-route-line', type: 'line', source: 'ride-route', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': theme.getPropertyValue('--accent').trim(), 'line-width': 4 } }, belowLabels)
       }
       for (const [index, point] of points.entries()) {
         if (!validCoordinate(point.lon, point.lat)) continue

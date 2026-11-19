@@ -23,6 +23,7 @@ var _ database.Repository = (*Store)(nil)
 
 type querier interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
+	Query(context.Context, string, ...any) (pgx.Rows, error)
 }
 
 func repositoryError(err error) error {

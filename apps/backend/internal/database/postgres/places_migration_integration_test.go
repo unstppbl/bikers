@@ -20,7 +20,7 @@ func removePlaces(t *testing.T, pool *pgxpool.Pool) {
 func oldPlaceMigrationRows(t *testing.T, pool *pgxpool.Pool) map[string]string {
 	t.Helper()
 	ctx := context.Background()
-	rows, err := pool.Query(ctx, `SELECT tablename FROM pg_tables WHERE schemaname=current_schema() AND tablename NOT IN ('places','place_submissions','community_routes','route_tracks','route_collections','route_collection_items','route_conditions','route_daily_limits') ORDER BY tablename`)
+	rows, err := pool.Query(ctx, `SELECT tablename FROM pg_tables WHERE schemaname=current_schema() AND tablename NOT IN ('places','place_submissions','community_routes','route_tracks','route_collections','route_collection_items','route_conditions','route_daily_limits','ride_covers') ORDER BY tablename`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +44,7 @@ func oldPlaceMigrationRows(t *testing.T, pool *pgxpool.Pool) map[string]string {
 			filter = " WHERE version<=10"
 		}
 		var snapshot string
-		if err = pool.QueryRow(ctx, `SELECT coalesce(jsonb_agg(r ORDER BY r::text),'[]'::jsonb)::text FROM (SELECT to_jsonb(t) r FROM `+table+` t`+filter+`) rows`).Scan(&snapshot); err != nil {
+		if err = pool.QueryRow(ctx, `SELECT coalesce(jsonb_agg(r ORDER BY r::text),'[]'::jsonb)::text FROM (SELECT to_jsonb(t)-'cover_version'-'current_cover_id' r FROM `+table+` t`+filter+`) rows`).Scan(&snapshot); err != nil {
 			t.Fatal(err)
 		}
 		out[name] = snapshot

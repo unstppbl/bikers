@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ApiError, request } from '../../api'
-import { intlLocale, useI18n } from '../../i18n'
+import { useI18n } from '../../i18n'
 import { kindLabels, validReason } from '../../places'
 import { useSession } from '../../session'
 import { useSessionTask } from '../../useSessionTask'
-import { ErrorNotice, Loading, Pagination, TextArea, useOnline } from '../../ui'
+import { ErrorNotice, formatRideDateTime, Loading, Pagination, TextArea, useOnline } from '../../ui'
 import type { Place, PlaceSubmission } from '../../types'
 import { PlaceInformation } from './shared'
 import '../../pages/places.css'
@@ -14,7 +14,7 @@ export function AdminPlacesQueue() {
   const page = cursors.length - 1
   const query = useQuery({ queryKey: ['place-submissions', 'admin', user?.id, cursors[page]], queryFn: ({ signal }) => request<{ submissions: PlaceSubmission[]; next_cursor: string }>('/admin/place-submissions?status=pending' + (cursors[page] ? '&after=' + encodeURIComponent(cursors[page]) : ''), { signal }), meta: { private: true }, gcTime: 0, retry: false })
   const submission = query.data?.submissions.find((item) => item.id === selected)
-  return <section aria-label={t('placesReviewTitle')}><h2>{t('placesReviewTitle')}</h2>{query.isPending ? <Loading /> : query.isError ? <ErrorNotice error={query.error} retry={() => void query.refetch()} /> : <><div className="place-submission-list">{query.data.submissions.length ? query.data.submissions.map((item) => <button type="button" className={'surface place-list-item ' + (selected === item.id ? 'selected' : '')} key={item.id} aria-pressed={selected === item.id} onClick={() => setSelected(item.id)}><span><strong>{item.place?.name ?? t('placesClosed')}</strong><small>{t(kindLabels[item.kind])} · {new Date(item.created_at).toLocaleString(intlLocale(locale))}</small></span></button>) : <p className="surface empty-panel">{t('placesNoPending')}</p>}</div><Pagination page={page} busy={query.isFetching} hasNext={!!query.data.next_cursor} previous={() => { setCursors((v) => v.slice(0, -1)); setSelected('') }} next={() => { if (query.data.next_cursor) { setCursors((v) => [...v, query.data.next_cursor]); setSelected('') } }} /></>}{submission && <PlaceReview key={submission.id + ':' + submission.version} submission={submission} refresh={() => void query.refetch()} />}</section>
+  return <section className="admin-places" aria-label={t('placesReviewTitle')}><h2>{t('placesReviewTitle')}</h2>{query.isPending ? <Loading /> : query.isError ? <ErrorNotice error={query.error} retry={() => void query.refetch()} /> : <><div className="report-queue">{query.data.submissions.length ? query.data.submissions.map((item) => <button type="button" className={'surface report-queue-item ' + (selected === item.id ? 'selected' : '')} key={item.id} aria-pressed={selected === item.id} onClick={() => setSelected(item.id)}><span><strong>{item.place?.name ?? t(kindLabels[item.kind])}</strong>{item.place && <> · {t(kindLabels[item.kind])}</>}</span><small><time dateTime={item.created_at}>{formatRideDateTime(item.created_at, 'Asia/Almaty', locale)}</time></small></button>) : <p className="surface empty-panel">{t('placesNoPending')}</p>}</div><Pagination page={page} busy={query.isFetching} hasNext={!!query.data.next_cursor} previous={() => { setCursors((v) => v.slice(0, -1)); setSelected('') }} next={() => { if (query.data.next_cursor) { setCursors((v) => [...v, query.data.next_cursor]); setSelected('') } }} /></>}{submission && <PlaceReview key={submission.id + ':' + submission.version} submission={submission} refresh={() => void query.refetch()} />}</section>
 }
 function PlaceReview({ submission, refresh }: { submission: PlaceSubmission; refresh: () => void }) {
   const { t } = useI18n(), start = useSessionTask(), client = useQueryClient(), online = useOnline()

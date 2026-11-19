@@ -92,6 +92,7 @@ export function publicRide(ride: import('./types').Ride): import('./types').Ride
     status: ride.status,
     participation_state: undefined,
     can_manage: false,
+    cover: ride.cover,
   }
 }
 

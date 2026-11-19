@@ -1,6 +1,7 @@
+/* The first column takes the avatar's own width, so the name keeps the full gap after it. */
 .participant.participant-with-actions {
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr) 44px;
+  grid-template-columns: auto minmax(0, 1fr) 44px;
   column-gap: 12px;
   row-gap: 0;
   align-items: start;

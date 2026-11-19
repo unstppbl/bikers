@@ -75,10 +75,10 @@ Activation atomically changes only `APP_IMAGE` in the private runtime file and
 runs Compose with an explicit environment path, checkout directory and project
 name. The default app-only mode replaces the app with `--no-deps --no-build --wait`
 and never runs migrations or starts/recreates the database. The explicit
-[schema-13 speed-camera mode](#speed-camera-category-schema-upgrade) coordinates its schema cutover. It verifies retained environment,
+[schema-14 ride-cover mode](#ride-cover-schema-upgrade) coordinates its schema cutover. It verifies retained environment,
 ports and media mounts, an unchanged database container/start time, and a
 healthy non-root/read-only app. App-only failures, or migration failures with
-confirmed unchanged schema 12, restore the previous environment bytes and app
+confirmed unchanged schema 13, restore the previous environment bytes and app
 image using the resolved configuration held in memory. A committed or unknown
 schema upgrade keeps the app stopped for roll-forward recovery. It does
 not create environment copies, database dumps or backups.
@@ -116,8 +116,8 @@ stay outside the checkout.
 The completed club-notification release upgraded schema 7 to 8. The subsequent
 community follow-up upgraded schema 8 to 9, adding preferences, reminders and
 calendar behavior while preserving all prior data. These transitions are
-historical; the current deployment helper supports only the reviewed 12-to-13
-speed-camera category transition described below. It never silently applies an older or future
+historical; the current deployment helper supports only the reviewed 13-to-14
+ride-cover transition described below. It never silently applies an older or future
 migration.
 
 ## Configure and start
@@ -134,7 +134,7 @@ make up
 `make up` and `make migrate` create or validate the internal `bikerskz_gis`
 network used by the app. This does not start GIS services or enable map APIs.
 
-Migrations are explicit. Version 5 adds avatars and ride media, version 6 adds moderation, blocks, roles and badges, version 7 adds preferences, announcements, inboxes and push delivery, version 8 adds club membership notification targets, version 9 adds push categories and explicit ride reminders, version 10 adds nullable typed ride map plans, version 11 adds useful places and moderated submissions, version 12 adds community routes, private GPS tracks and collections, and dated condition reports, and version 13 expands the place-category constraint to include speed cameras. All thirteen receipts and their checksums are checked by readiness. Previously applied SQL is immutable. Unknown versions and mismatched checksums fail closed.
+Migrations are explicit. Version 5 adds avatars and ride media, version 6 adds moderation, blocks, roles and badges, version 7 adds preferences, announcements, inboxes and push delivery, version 8 adds club membership notification targets, version 9 adds push categories and explicit ride reminders, version 10 adds nullable typed ride map plans, version 11 adds useful places and moderated submissions, version 12 adds community routes, private GPS tracks and collections, and dated condition reports, version 13 expands the place-category constraint to include speed cameras, and version 14 adds public ride covers and the `ride_cover` moderation target. All fourteen receipts and their checksums are checked by readiness. Previously applied SQL is immutable. Unknown versions and mismatched checksums fail closed.
 
 ## GIS serving and data refresh
 
@@ -319,8 +319,8 @@ The initial schema-9 to schema-10 GIS cutover completed on 5 November with the
 reviewed source at `13774c43f276f74a964e08a422e1069f0d24159e`. Its exact receipts,
 retained-state parity and mixed-service/browser acceptance are recorded in
 [#18](https://github.com/unstppbl/bikers/issues/18). Current source no longer
-offers that historical migration mode; the supported upgrade is schema 12 to
-13 below. An archive URL change at the current schema still uses the explicit
+offers that historical migration mode; the supported upgrade is schema 13 to
+14 below. An archive URL change at the current schema still uses the explicit
 `--configure-gis` flag after both automatic-deployment controls are paused.
 
 The GIS flag permits only the two exact private service URLs, a versioned
@@ -397,8 +397,8 @@ fingerprinted every retained table row and sequence, including private ride
 map plans, while requiring the new places/submission tables to start empty.
 Its unchanged-schema recovery and live acceptance evidence remain in #22.
 The current helper no longer accepts that historical migration target or the
-subsequent schema-12 Routes transition. Its supported upgrade is
-[schema 12 to 13](#speed-camera-category-schema-upgrade). No GIS environment, network, edge or service restart was needed for
+subsequent schema-12 Routes and schema-13 speed-camera transitions. Its supported upgrade is
+[schema 13 to 14](#ride-cover-schema-upgrade). No GIS environment, network, edge or service restart was needed for
 places.
 
 The historical initial country data was extracted from the retained verified PBF, using pinned
@@ -435,7 +435,7 @@ The reviewed 11-to-12 transition built the clean pushed image before stopping
 only the app, then fingerprinted every earlier table row and sequence. It
 excluded only the six newly created route tables and receipt 12, requiring
 those tables to start empty. That transition is historical; the current helper
-accepts only the schema-13 category upgrade below. Never start a schema-11
+accepts only the schema-14 ride-cover upgrade below. Never start a schema-11
 binary against schema 12.
 
 ## Speed-camera category schema upgrade
@@ -447,39 +447,65 @@ camera records, publish pending submissions, or change provenance. Rider
 camera suggestions follow the same authenticated contribution and moderator
 review flow as other places.
 
+The reviewed 12-to-13 transition built the clean pushed image before stopping
+only the app, fingerprinted every existing table and sequence, excluded only
+receipt 13 from parity and applied the constraint change. That transition is historical; the
+current helper accepts only the schema-14 ride-cover upgrade below. A database
+still at schema 12 must first complete the speed-camera upgrade with the helper
+from the release that introduced it (`55f16e3`). Never start a schema-12 binary
+against schema 13.
+
+## Ride cover schema upgrade
+
+[Issue #46](https://github.com/unstppbl/bikers/issues/46) adds one public cover
+photo per ride; rides without one keep the typographic city card. Additive
+migration 14 adds `rides.cover_version` (default 1) and the nullable
+`rides.current_cover_id`, creates the empty `ride_covers` table with its
+pending/ready, reservation, size and dimension checks and a deferred
+current-cover reference, and adds `ride_cover` to the moderation and report
+target constraints. It does not rewrite existing ride rows or assign covers.
+Cover bytes count against the existing 100 MiB per-uploader and 1 GiB global
+image budgets, and the existing 13 MiB edge request limit covers the 12 MiB
+upload limit.
+
 The following is the prepared rollout procedure, not evidence of production
-execution. Before merging a revision that requires schema 13, preserve a
+execution. Before merging a revision that requires schema 14, preserve a
 private database dump, its matching image and private `.env`, validate the
 dump, and pause **both** [automatic deployment controls](github-actions-deployment.md#pause-retry-and-recovery).
 After the intended main push CI passes, use the clean pushed source on Jarvis:
 
 ```sh
 cd /home/user/apps/bikerskz/repo
-make deploy-jarvis DEPLOY_ARGS='--migrate-to 13'
+make deploy-jarvis DEPLOY_ARGS='--migrate-to 14'
 ```
 
-The helper requires exact source-matching receipts 1–12 and exactly source
-migrations 1–13 before building. It builds before stopping only the app. With
+The helper requires exact source-matching receipts 1–13 and exactly source
+migrations 1–14 before building. It builds before stopping only the app. With
 writes quiesced, it fingerprints every existing table and sequence, including
-all route/track/collection tables, published places and private submissions.
-Only the new receipt 13 is excluded from parity. It applies the constraint
-change, verifies exact receipts 1–13 and unchanged retained data, then activates
-the target app while preserving runtime settings, ports, mounts, networks and
-the database container/start time. No GIS configuration, network, edge or GIS
-service restart is required.
+private ride map plans, route/track/collection tables, published places and
+private submissions. Only the new `ride_covers` table, the two new ride columns
+(`cover_version`, `current_cover_id`) and receipt 14 are excluded from parity.
+After the migration it verifies exact receipts 1–14 and unchanged retained
+data, then requires an empty `ride_covers` table, no ride with a current cover
+and every cover version at 1. Only then does it activate the target app,
+preserving runtime settings, ports, mounts, networks and the database
+container/start time. The receipt records these counts as
+`migration_new_state`. No GIS configuration, network, edge or GIS service
+restart is required.
 
 Classify an unsuccessful migration command only after its container has
-terminated and receipts are readable. Confirmed unchanged schema 12 permits
-restoring the previous image/environment. A committed schema 13 or an unknown
-outcome keeps the app stopped with the target image selected for explicit
-roll-forward recovery. Never start a schema-12 binary against schema 13 or
-restore an old database merely to recover an executable.
+terminated and receipts are readable. Confirmed unchanged schema 13 permits
+restoring the previous image/environment. A committed schema 14, an unexpected
+new-state count or an unknown outcome keeps the app stopped with the target
+image selected for explicit roll-forward recovery. Never start a schema-13
+binary against schema 14 or restore an old database merely to recover an
+executable.
 
 Install `deploy-tested-main.py` and `deploy-jarvis.py` together in the existing
 host `bin` directory after the reviewed rollout. Verify successful main CI,
 the private deployment result, exact live Git revision and release/schema
 receipts, retained data/container state and public readiness before resuming
-both automatic controls. The automatic path never applies migration 13; it
+both automatic controls. The automatic path never applies migration 14; it
 refuses releases while the database receipts differ from the source.
 
 ## Administrator access
@@ -556,7 +582,7 @@ Before upgrades, retain the previous image tag, a private database dump and the 
 
 Monitor `/health/live`, `/health/ready`, app/container restarts, private disk/WAL/backup capacity, database health, tunnel/proxy reachability, Telegram budget/delivery, and `push_dispatch_failed`. Container logs rotate. Do not log session tokens, OTP codes, phone numbers, push endpoints, key material or report evidence.
 
-Image payload defaults are 100 MiB per original uploader and 1 GiB globally across bike photos, club images, avatars and ride albums, including reservations. Two shared processing slots and twelve reserved attempts per uploader per hour limit image work. A ride permits 24 photos (six per uploader) and twelve external video links (three per uploader). Images are normalized to fresh JPEG up to 1,920 pixels per edge and 4 MiB, with metadata discarded. These caps do not bound database indexes, WAL, text records or backups; monitor total storage and define retention before a public pilot.
+Image payload defaults are 100 MiB per original uploader and 1 GiB globally across bike photos, club images, ride covers, avatars and ride albums, including reservations. Two shared processing slots and twelve reserved attempts per uploader per hour limit image work. A ride permits 24 photos (six per uploader) and twelve external video links (three per uploader). Images are normalized to fresh JPEG up to 1,920 pixels per edge and 4 MiB, with metadata discarded. These caps do not bound database indexes, WAL, text records or backups; monitor total storage and define retention before a public pilot.
 
 Country, currency and UI language are independent preferences, defaulting to KZ/KZT/en. The city selector suggests localized Kazakhstan cities and also accepts manual entry without location permission. Distances/mileage use metric units. There is no commerce or exchange-rate behavior.
 

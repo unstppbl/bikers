@@ -6,7 +6,7 @@
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   background: var(--surface-raised);
 }
 
@@ -109,13 +109,18 @@
   font: var(--type-caption-5);
 }
 
+/* The attribution sits 8px in from the map's rounded corner. The width limit belongs to this control group:
+   it is placed against the map, so 100% is the map's width. On the shrink-to-fit attribution box itself a
+   percentage resolves against the box's own width and wraps the text onto two lines. */
 .map-canvas .maplibregl-ctrl-bottom-left {
   /* Attribution stays above selected and keyboard-focused pins. */
   z-index: 4;
+  bottom: 8px;
+  left: 8px;
+  max-width: calc(100% - 16px);
 }
 
 .map-canvas .maplibregl-ctrl-attrib {
-  max-width: calc(100% - 24px);
   padding: 4px 8px;
   border-radius: var(--radius-sm);
   background: var(--surface);
@@ -135,4 +140,8 @@
 
 @media (max-height: 520px) {
   .map-canvas-controls { flex-direction: row; }
+}
+
+@media (pointer: coarse) {
+  .map-canvas-controls button { width: 44px; height: 44px; }
 }

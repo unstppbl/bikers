@@ -49,7 +49,40 @@ describe('public community map', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Filters' }))
     expect(screen.queryByRole('combobox', { name: 'City' })).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Filters' }))
-    expect(screen.getByRole('combobox', { name: 'City' })).toBeInTheDocument()
+    // The city field shows its label, so no placeholder says something else.
+    expect(screen.getByRole('combobox', { name: 'City' })).not.toHaveAttribute('placeholder')
+    // The search field hides its label, so its placeholder says the same as its name.
+    expect(screen.getByRole('searchbox', { name: 'Search places' })).toHaveAttribute('placeholder', 'Search places')
+  })
+  it('opens on the map with collapsed filters on phones and keeps focus on the applied control', async () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({ matches: query === '(max-width: 900px)', media: query }))
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => url.includes('/places?') ? response({ places: [], next_cursor: '' }) : ancillary(url, null) ?? response({})))
+    mount('/places')
+    const toggle = await screen.findByRole('button', { name: 'Filters' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByRole('combobox', { name: 'City' })).not.toBeInTheDocument()
+    await userEvent.click(toggle)
+    await userEvent.click(screen.getByRole('button', { name: 'Fuel' }))
+    const apply = screen.getByRole('button', { name: 'Apply filters' })
+    await userEvent.click(apply)
+    expect(screen.getByTestId('location')).toHaveTextContent('category=fuel')
+    expect(screen.getByRole('button', { name: 'Filters (1)' })).toHaveAttribute('aria-expanded', 'true')
+    expect(apply).toHaveFocus()
+  })
+  it('opens collapsed filters to show a city that is too long when Search is pressed', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => url.includes('/places?') ? response({ places: [], next_cursor: '' }) : ancillary(url, null) ?? response({})))
+    mount('/places')
+    const toggle = await screen.findByRole('button', { name: 'Filters' })
+    const city = screen.getByRole('combobox', { name: 'City' })
+    await userEvent.click(city)
+    await userEvent.paste('Ж'.repeat(81))
+    expect(city).toHaveAttribute('aria-invalid', 'true')
+    await userEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    await userEvent.click(screen.getByRole('button', { name: 'Search' }))
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByText('Text is too long. Search and city allow 160 UTF8 bytes each.')).toBeInTheDocument()
+    expect(screen.getByText('This city name is too long. Shorten it to save.')).toBeVisible()
   })
   it('focuses a selected city with no results and clears the previous geographic area when the city changes', async () => {
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
@@ -78,6 +111,8 @@ describe('public community map', () => {
     })
     vi.stubGlobal('fetch', fetch); mount('/places')
     await userEvent.click(await screen.findByRole('button', { name: /Road workshop/ }))
+    // The count reads correctly for one place as well as many.
+    expect(screen.getByText('Places on this page: 1')).toBeInTheDocument()
     expect(await screen.findByRole('heading', { name: place.name })).toBeInTheDocument()
     expect(screen.getByText('2026-11-01')).toBeInTheDocument()
     expect(screen.getByText(/Directory information is not verified/)).toBeInTheDocument()
@@ -187,21 +222,33 @@ describe('places moderation', () => {
     expect(fetch.mock.calls.some(([url]) => url.includes('/admin/place-submissions'))).toBe(false)
   })
   it('reviews the explicit pending version and reason', async () => {
-    let review: Record<string, unknown> | undefined
-    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
-      if (url.endsWith('/me/trust')) return response({ is_admin: true })
-      if (url.includes('/admin/reports')) return response({ reports: [], next_cursor: '' })
-      if (url.includes('/admin/place-submissions?')) return response({ submissions: [proposal], next_cursor: '' })
-      if (url.endsWith('/review')) { review = JSON.parse(String(init?.body)); return response({ submission: { ...proposal, status: 'approved' } }) }
-      return ancillary(url) ?? response({})
-    }))
-    mount('/admin')
-    await userEvent.click(await screen.findByRole('button', { name: 'Map' }))
-    await userEvent.click(await screen.findByRole('button', { name: /Updated workshop/ }))
-    expect(await screen.findByText('Current published place')).toBeInTheDocument()
-    await userEvent.type(screen.getByRole('textbox', { name: /Review reason/ }), 'Checked the submitted evidence')
-    await userEvent.click(screen.getByRole('button', { name: 'Approve suggestion' }))
-    await waitFor(() => expect(review).toEqual({ version: 2, status: 'approved', reason: 'Checked the submitted evidence' }))
+    // Dates from the current year omit the year, so the clock is fixed to the fixture's year.
+    vi.setSystemTime(new Date('2026-11-19T06:00:00Z'))
+    try {
+      let review: Record<string, unknown> | undefined
+      vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+        if (url.endsWith('/me/trust')) return response({ is_admin: true })
+        if (url.includes('/admin/reports')) return response({ reports: [], next_cursor: '' })
+        if (url.includes('/admin/place-submissions?')) return response({ submissions: [proposal], next_cursor: '' })
+        if (url.endsWith('/review')) { review = JSON.parse(String(init?.body)); return response({ submission: { ...proposal, status: 'approved' } }) }
+        return ancillary(url) ?? response({})
+      }))
+      mount('/admin')
+      const tab = await screen.findByRole('button', { name: 'Map' })
+      expect(screen.getByRole('button', { name: 'Reports' })).toHaveAttribute('aria-pressed', 'true')
+      expect(tab).toHaveAttribute('aria-pressed', 'false')
+      await userEvent.click(tab)
+      expect(tab).toHaveAttribute('aria-pressed', 'true')
+      expect(screen.getByRole('button', { name: 'Reports' })).toHaveAttribute('aria-pressed', 'false')
+      const item = await screen.findByRole('button', { name: /Updated workshop · Suggest a correction/ })
+      expect(within(item).getByText('5 November, 05:00')).toHaveAttribute('datetime', proposal.created_at)
+      await userEvent.click(item)
+      expect(item).toHaveAttribute('aria-pressed', 'true')
+      expect(await screen.findByText('Current published place')).toBeInTheDocument()
+      await userEvent.type(screen.getByRole('textbox', { name: /Review reason/ }), 'Checked the submitted evidence')
+      await userEvent.click(screen.getByRole('button', { name: 'Approve suggestion' }))
+      await waitFor(() => expect(review).toEqual({ version: 2, status: 'approved', reason: 'Checked the submitted evidence' }))
+    } finally { vi.useRealTimers() }
   })
 })
 
@@ -275,6 +322,15 @@ describe('suggestion rebase and translated directory', () => {
     mount('/places')
     expect(await screen.findByRole('heading', { name: title })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: category })).toBeInTheDocument()
+  })
+  it.each([['en', 'Workshops'], ['ru', 'Мастерские'], ['kk', 'Шеберханалар']])('names each %s list button by its visible text, address included', async (locale, category) => {
+    localStorage.setItem('bikerskz.locale', locale)
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => url.includes('/places?') ? response({ places: [place], next_cursor: '' }) : ancillary(url, null) ?? response({})))
+    mount('/places')
+    const button = await screen.findByRole('button', { name: /^Road workshop/ })
+    expect(button).not.toHaveAttribute('aria-label')
+    expect(button).toHaveTextContent(`Road workshop${category}Almaty · Abay avenue`)
+    expect(button).toHaveAccessibleName(button.textContent ?? '')
   })
 })
 
@@ -353,7 +409,7 @@ describe('compact map workspace', () => {
     await userEvent.click(screen.getByRole('button', { name: 'List' }))
     expect(screen.getByTestId('location')).toHaveTextContent('q=repair&place=place-a')
     await userEvent.click(screen.getByRole('button', { name: 'Back to results' }))
-    expect(screen.getByRole('button', { name: 'Select Road workshop, Workshops' })).toHaveFocus()
+    expect(screen.getByRole('button', { name: /^Road workshop/ })).toHaveFocus()
     expect(screen.getByTestId('location')).not.toHaveTextContent('place=')
     await userEvent.click(screen.getByRole('button', { name: 'Map' }))
     await userEvent.click(screen.getByRole('button', { name: 'Map Road workshop' }))

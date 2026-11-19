@@ -1,50 +1,33 @@
-import { lazy, Suspense, useState } from 'react'
+import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeftIcon as ArrowLeft, CaretRightIcon as ChevronRight, CompassIcon as Compass, LockKeyIcon as LockKeyhole, ShieldCheckIcon as ShieldCheck } from '@phosphor-icons/react'
+import { ArrowLeftIcon as ArrowLeft, CaretRightIcon as ChevronRight, CompassIcon as Compass, ImageSquareIcon as ImageSquare, LockKeyIcon as LockKeyhole, ShieldCheckIcon as ShieldCheck } from '@phosphor-icons/react'
 import { fromZonedTime, formatInTimeZone } from 'date-fns-tz'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { mutation, publicRide, request, safeExternalUrl } from '../api'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { mutation, request, safeExternalUrl } from '../api'
 import { useI18n } from '../i18n'
 import { useSession, useSessionGuard } from '../session'
-import { CreateRideLink, ErrorNotice, Field, Loading, PrivacyNote, TextArea, useOnline } from '../ui'
-import type { Ride, RideInput, RidePage } from '../types'
-import { CitySelector } from '../components/CitySelector'
+import { ErrorNotice, Field, Loading, PrivacyNote, TextArea, useOnline } from '../ui'
+import type { Ride, RideInput } from '../types'
+import { CitySelector, useCityOptions } from '../components/CitySelector'
+import { RideCoverEditor } from '../components/RideCover'
+import { cityLabel } from '../cities'
 import { RideList } from './RideList'
 import { MapPlanEditor } from '../components/maps/MapPlanEditor'
 import type { MapDraft } from '../components/maps/MapPlanEditor'
 
-const RidesDesignPrototype = import.meta.env.DEV
-  ? lazy(() => import('./RidesDesignPrototype'))
-  : null
-
 export function BrowsePage() {
   const { t } = useI18n()
-  const { user, loading, error } = useSession()
-  const [filter, setFilter] = useState('')
-  const [searchParams] = useSearchParams()
-  const prototype = !!RidesDesignPrototype && ['A', 'B', 'C'].includes(searchParams.get('variant') ?? '')
-  const ridesQuery = useQuery({ queryKey: ['rides', user?.id ?? 'guest', 'prototype'], enabled: prototype && !loading && !error, queryFn: async ({ signal }) => {
-    const result = await request<RidePage>('/rides?view=discover', { signal })
-    return user ? result : { rides: result.rides.map(publicRide) }
-  }, meta: { private: true } })
-  const rides = ridesQuery.data?.rides ?? []
-  if (RidesDesignPrototype && ['A', 'B', 'C'].includes(searchParams.get('variant') ?? '')) {
-    return <Suspense fallback={<Loading />}><RidesDesignPrototype rides={rides} filter={filter} onFilterChange={setFilter} loading={ridesQuery.isPending} error={ridesQuery.error ?? undefined} /></Suspense>
-  }
   return <div className="page-content browse-page">
-    <section className="browse-hero">
-      <div className="hero-copy">
-        <h1>{t('rides')}</h1>
-        <p>{t('heroText')}</p>
-      </div>
-      <CreateRideLink className="button button-primary" />
-    </section>
+    <header className="browse-hero">
+      <h1>{t('rides')}</h1>
+      <p>{t('ridesFeedText')}</p>
+    </header>
     <RideList view="discover" />
     <details className="browse-guide">
       <summary><Compass size={18} />{t('howItWorks')}</summary>
       <div className="browse-guide-content">
-        <section className="how-card"><ol>{(['One', 'Two', 'Three'] as const).map((step, index) => <li key={step}><span className="step-number">0{index + 1}</span><div><strong>{t(`step${step}`)}</strong><p>{t(`step${step}Text`)}</p></div></li>)}</ol></section>
+        <section className="how-card"><ol>{(['One', 'Two', 'Three'] as const).map((step, index) => <li key={step}><span className="step-number">{index + 1}</span><div><strong>{t(`step${step}`)}</strong><p>{t(`step${step}Text`)}</p></div></li>)}</ol></section>
         <PrivacyNote />
       </div>
     </details>
@@ -70,7 +53,8 @@ export function localRideTime(value?: string, timezone = 'Asia/Almaty') {
 export function rideTimeToInstant(value: string, timezone: string) { return fromZonedTime(value, timezone) }
 
 function RideForm({ ride, reload }: { ride?: Ride; reload: () => void }) {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
+  const cities = useCityOptions()
   const { user } = useSession()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -107,8 +91,10 @@ function RideForm({ ride, reload }: { ride?: Ride; reload: () => void }) {
     } catch (value) { setError(value) }
     finally { setBusy(false) }
   }
-  return <div className="page-content form-page"><Link className="back-link" to={ride ? `/rides/${ride.id}` : '/'}><ArrowLeft size={17} />{t('back')}</Link><div className="page-heading"><span className="eyebrow">{t('createEyebrow')}</span><h1>{t(ride ? 'editTitle' : 'createTitle')}</h1><p>{t('createText')}</p></div>
-    <form onSubmit={(event) => void submit(event)} noValidate><section className="surface form-section"><div className="form-section-heading"><span className="form-section-number">01</span><div><h2>{t('publicFields')}</h2><p>{t('publicFieldsHint')}</p></div><Compass size={22} /></div><CitySelector label={t('city')} value={form.city} onChange={(city) => update('city', city)} placeholder={t('cityPlaceholder')} maxLength={100} required disabled={busy} /><TextArea label={t('description')} value={form.description} onChange={(value) => update('description', value)} placeholder={t('descriptionPlaceholder')} maxLength={500} required rows={3} /></section>
+  return <div className="page-content form-page"><Link className="back-link" to={ride ? `/rides/${ride.id}` : '/'}><ArrowLeft size={17} />{t(ride ? 'backToRide' : 'back')}</Link><div className="page-heading"><span className="eyebrow">{t('createEyebrow')}</span><h1>{t(ride ? 'editTitle' : 'createTitle')}</h1><p>{t('createText')}</p></div>
+    {/* The cover uploads on its own, so it sits outside the ride form. A new ride gets one after it is created. */}
+    {ride && <RideCoverEditor ride={ride} city={cityLabel(ride.city, locale, cities.data?.cities ?? [])} />}
+    <form onSubmit={(event) => void submit(event)} noValidate><section className="surface form-section"><div className="form-section-heading"><span className="form-section-number">01</span><div><h2>{t('publicFields')}</h2><p>{t('publicFieldsHint')}</p></div><Compass size={22} /></div><CitySelector label={t('city')} value={form.city} onChange={(city) => update('city', city)} placeholder={t('cityPlaceholder')} required disabled={busy} /><TextArea label={t('description')} value={form.description} onChange={(value) => update('description', value)} placeholder={t('descriptionPlaceholder')} maxLength={500} required rows={3} />{!ride && <div className="inline-note ride-cover-note"><ImageSquare size={20} /><p>{t('rideCoverAfterCreate')}</p></div>}</section>
       <section className="surface form-section"><div className="form-section-heading"><span className="form-section-number">02</span><div><h2>{t('privateFields')}</h2><p>{t('privateFieldsHint')}</p></div><LockKeyhole size={21} /></div><Field label={t('title')} value={form.title} onChange={(event) => update('title', event.target.value)} placeholder={t('titlePlaceholder')} maxLength={150} required disabled={busy} /><div className="form-grid"><Field label={t('startsAt')} hint={ride?.timezone && ride.timezone !== 'Asia/Almaty' ? ride.timezone : t('timezoneHint')} type="datetime-local" value={form.starts_at} onChange={(event) => update('starts_at', event.target.value)} required disabled={busy} /><Field label={t('capacity')} hint={t('capacityHint')} type="number" min="1" max="1000" inputMode="numeric" value={form.capacity} onChange={(event) => update('capacity', event.target.value)} required disabled={busy} /></div><MapPlanEditor initialPlan={ride?.map_plan} meeting={form.meeting_point} destination={form.destination} onMeeting={(value) => update('meeting_point', value)} onDestination={(value) => update('destination', value)} onChange={setMapDraft} disabled={busy} startWithMap={!ride} /><Field label={`${t('route')} · ${t('optional')}`} type="url" value={form.route_url} onChange={(event) => update('route_url', event.target.value)} placeholder={t('routePlaceholder')} maxLength={2000} disabled={busy} /><TextArea label={`${t('expectations')} · ${t('optional')}`} value={form.expectations} onChange={(value) => update('expectations', value)} placeholder={t('expectationsPlaceholder')} maxLength={1000} rows={3} /><div className="inline-note"><ShieldCheck size={20} /><p>{t('approvalNote')}</p></div></section>
       {validation && <ErrorNotice text={validation} />}{error != null && <ErrorNotice error={error} retry={ride ? reload : undefined} />}
       <div className="form-actions"><Link className="button button-outline" to={ride ? `/rides/${ride.id}` : '/'}>{t('notNow')}</Link><button className="button button-primary" type="submit" disabled={busy || !online}>{busy ? t('saving') : t(ride ? 'savePlan' : 'create')}<ChevronRight size={18} /></button></div>

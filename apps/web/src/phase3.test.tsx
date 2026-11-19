@@ -65,6 +65,7 @@ describe('cookie-bound public views', () => {
     vi.stubGlobal('fetch', fetch)
     mount(`/clubs/${club.id}`)
     await screen.findByRole('heading', { name: club.name })
+    expect(screen.getByText('Public club preview')).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Club members' })).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Owner tools' })).not.toBeInTheDocument()
     expect(fetch.mock.calls.some(([url]) => url.endsWith('/members'))).toBe(false)
@@ -325,9 +326,58 @@ describe('club owner transitions and private access', () => {
     expect(client.getQueriesData({ queryKey: ['club-members', club.id] }).every(([, value]) => value === undefined)).toBe(true)
     expect(window.confirm).not.toHaveBeenCalled()
   })
+
+  it.each([
+    ['owner', club, ['Remove', 'Report rider', 'Block rider']],
+    ['member', { ...club, owner_id: other.id, can_manage: false }, ['Report rider', 'Block rider']],
+  ])('gathers each other member’s actions in one menu for the %s', async (viewer, current, items) => {
+    const decisions: string[] = []
+    vi.stubGlobal('fetch', vi.fn(async (url: string, options?: RequestInit) => {
+      if (url.endsWith('/session')) return response(signedIn())
+      if (url.endsWith('/me/trust')) return response({ is_admin: false })
+      if (url.endsWith('/me/blocks')) return response({ blocks: [], next_cursor: '' })
+      if (url.endsWith('/badge')) return response({ badge: null })
+      if (url.includes('/avatars/')) return response({ image: null })
+      if (url.endsWith(`/clubs/${club.id}`)) return response({ club: current })
+      if (url.endsWith(`/clubs/${club.id}/image`)) return response({ image: null, version: 1 })
+      if (url.endsWith('/members')) return response({ members: [{ user_id: rider.id, display_name: 'Rider A', state: 'approved', role: current.owner_id === rider.id ? 'owner' : 'member' }, { user_id: other.id, display_name: 'Rider B', state: 'approved', role: current.owner_id === other.id ? 'owner' : 'member' }] })
+      if (url.endsWith(`/members/${other.id}/decision`)) { decisions.push(JSON.parse(options!.body as string).decision); return response({ ok: true }) }
+      if (new URL(url, 'https://bikers.kz').pathname === '/api/v1/rides') return response({ rides: [], next_cursor: '' })
+      if (url.endsWith('/rides')) return response({ rides: [] })
+      throw new Error(`Unexpected API ${url} ${options?.method}`)
+    }))
+    mount(`/clubs/${club.id}`)
+    const actor = userEvent.setup()
+    const trigger = await screen.findByRole('button', { name: 'Rider actions for Rider B' })
+    // Members see the full club, not the public preview.
+    expect(screen.queryByText('Public club preview')).not.toBeInTheDocument()
+    // The viewer's own row has no menu, and no rider action sits loose in the roster.
+    expect(screen.queryByRole('button', { name: 'Rider actions for Rider A' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^(Report rider|Block rider|Remove)/ })).not.toBeInTheDocument()
+    await actor.click(trigger)
+    const menu = await screen.findByRole('menu', { name: 'Rider actions for Rider B' })
+    expect(within(menu).getAllByRole('menuitem').map((item) => item.textContent)).toEqual(items)
+    if (viewer !== 'owner') return
+    await actor.click(within(menu).getByRole('menuitem', { name: 'Remove' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Remove' })
+    expect(dialog).toHaveTextContent('Remove this member?')
+    await actor.click(within(dialog).getByRole('button', { name: 'Remove' }))
+    await waitFor(() => expect(decisions).toEqual(['remove']))
+  })
 })
 
 describe('session completion boundaries', () => {
+  it('leads back to the club, not the club list, from the edit form', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url.endsWith('/session')) return response(signedIn())
+      if (url.endsWith('/cities')) return response({ cities: [] })
+      if (url.endsWith(`/clubs/${club.id}`)) return response({ club })
+      throw new Error(`Unexpected API ${url}`)
+    }))
+    mount(`/clubs/${club.id}/edit`)
+    expect(await within(await screen.findByRole('main')).findByRole('link', { name: 'Back to club' })).toHaveAttribute('href', `/clubs/${club.id}`)
+  })
+
   it('discards a late club creation in the logout epoch before the session cache has caught up', async () => {
     let finish: (value: Response) => void = () => { throw new Error('not started') }
     const pending = new Promise<Response>((resolve) => { finish = resolve })

@@ -80,6 +80,8 @@ type RideSummary struct {
 	Status             string `json:"status"`
 	ParticipationState string `json:"participation_state,omitempty"`
 	CanManage          *bool  `json:"can_manage,omitempty"`
+	// Cover is the current public cover photo; moderation-hidden covers are omitted.
+	Cover *Photo `json:"cover,omitempty"`
 }
 type Ride struct {
 	RideSummary
@@ -94,6 +96,8 @@ type Ride struct {
 	PlanVersion  int64     `json:"plan_version"`
 	OrganizerID  string    `json:"organizer_id"`
 	MapPlan      *MapPlan  `json:"map_plan,omitempty"`
+	// CoverVersion is sent only to the organizer while the cover may change.
+	CoverVersion int64 `json:"cover_version,omitempty"`
 }
 type RideInput struct {
 	City         string     `json:"city"`

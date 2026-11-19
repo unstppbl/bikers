@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ImageSquareIcon as ImagePlus, ShieldCheckIcon as ShieldCheck, TrashIcon as Trash2, UploadSimpleIcon as Upload, XIcon as X } from '@phosphor-icons/react'
+import { ImageSquareIcon as ImagePlus, ShieldCheckIcon as ShieldCheck, TrashIcon as Trash2, UploadSimpleIcon as Upload, UserIcon, XIcon as X } from '@phosphor-icons/react'
 import { ApiError, getSessionEpoch, request, uploadFile } from '../api'
 import { useI18n } from '../i18n'
 import { useSession } from '../session'
@@ -32,15 +32,17 @@ export function useAvatarMetadata(userId: string, scope?: AvatarScope) {
   const query = useQuery({ queryKey, queryFn: async ({ signal }) => safeAvatar(await request(base, { signal }), base, self), enabled: ready, meta: { private: true }, retry: false, staleTime: 30_000 })
   return { query, queryKey, ready, base }
 }
+// A rider who has not chosen a name yet gets a person icon instead of initials.
+const fallback = (name: string) => name.trim() ? initials(name) : <UserIcon size={18} />
 export function Avatar({ userId, name, scope, className = '' }: { userId: string; name: string; scope?: AvatarScope; className?: string }) {
   const { query, ready } = useAvatarMetadata(userId, scope)
   const image = ready && !query.isError ? query.data?.image : null
-  return <span className={`avatar ${className}`}>{image ? <AvatarImage key={image.id} image={image} name={name} /> : initials(name)}</span>
+  return <span className={`avatar ${className}`}>{image ? <AvatarImage key={image.id} image={image} name={name} /> : fallback(name)}</span>
 }
 function AvatarImage({ image, name }: { image: BikePhoto; name: string }) {
   const { t } = useI18n()
   const [failed, setFailed] = useState(false)
-  return failed ? initials(name) : <img src={image.url} width={image.width} height={image.height} alt={t('avatarAlt', { name })} loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={() => setFailed(true)} />
+  return failed ? fallback(name) : <img src={image.url} width={image.width} height={image.height} alt={t('avatarAlt', { name })} loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={() => setFailed(true)} />
 }
 export function AvatarEditor() {
   const { user } = useSession()
@@ -74,17 +76,25 @@ function AvatarForm({ metadata, queryKey, base, reload }: { metadata: AvatarMeta
     try {
       const result = remove ? await request(base, { method: 'DELETE', signal: task.signal, body: JSON.stringify({ version: metadata.version }) }) : await uploadFile(`${base}?version=${metadata.version}`, file!, task.signal)
       if (!task.current()) return
-      client.setQueryDefaults(queryKey, { meta: { private: true } }); client.setQueryData(queryKey, safeAvatar(result, base, true))
+      const next = safeAvatar(result, base, true)
+      // An avatar read that started before this change would otherwise land after it and restore the old photo.
+      await client.cancelQueries({ queryKey, exact: true })
+      if (!task.current()) return
+      client.setQueryDefaults(queryKey, { meta: { private: true } }); client.setQueryData(queryKey, next)
       void client.invalidateQueries({ queryKey: ['avatar'], refetchType: 'none' })
       setFile(null); setUncertain(false)
     } catch (value) {
       if (task.current()) {
-        if (!remove && value instanceof ApiError && (value.status === 0 || value.status >= 500)) { setUncertain(true); setValidation(t('photoUploadUnconfirmed')) } else setError(value)
+        if (!remove && value instanceof ApiError && (value.status === 0 || value.status >= 500)) setUncertain(true)
+        else setError(value)
         if (value instanceof ApiError && value.code === 'stale_version') void reload()
       }
     } finally { if (task.current()) setBusy(''); if (active.current === task) active.current = null; task.finish() }
   }
-  function cancel() { const task = start(); const refreshAllowed = task.current(); task.finish(); active.current?.abort(); active.current = null; setFile(null); setBusy(''); setValidation(''); setError(undefined); setUncertain(false); if (refreshAllowed) void reload() }
+  function cancel() { const task = start(); const refreshAllowed = task.current(); task.finish(); active.current?.abort(); active.current = null; setFile(null); setBusy(''); setValidation(''); setError(undefined); if (refreshAllowed) void reload() }
   async function refresh() { const task = start(); if (!task.current()) { task.finish(); return }; await reload(); if (task.current()) { setUncertain(false); setValidation(''); setError(undefined) } task.finish() }
-  return <section className="surface photo-upload-panel avatar-editor">{dialog}<div className="club-image-editor-heading"><Avatar userId={user!.id} name={user!.profile.display_name} className="avatar-large" /><div><h2>{t('avatarTitle')}</h2>{!metadata.image && <p>{t('avatarEmpty')}</p>}</div>{metadata.image && <button className="text-button danger-text" disabled={!!busy || !online} onClick={() => void operate(true)}><Trash2 size={15} />{t('avatarRemove')}</button>}</div><div className="inline-note"><ShieldCheck size={18} /><p>{t('avatarPrivacy')}</p></div><div className="photo-upload-heading"><span className="panel-icon"><ImagePlus size={22} /></span><div><label className="photo-picker-label" htmlFor="rider-photo-file">{t('choosePhoto')}</label><p>{t('clubImageHint')}</p></div></div><input id="rider-photo-file" className="photo-file-input" type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" disabled={!!busy || !online} onChange={(event) => { const chosen = event.target.files?.[0]; event.target.value = ''; setFile(null); setValidation(''); setError(undefined); setUncertain(false); if (chosen) { const invalid = photoFileError(chosen); if (invalid) setValidation(t(invalid)); else setFile(chosen) } }} />{file && <><LocalPhotoPreview file={file} /><div className="photo-upload-actions">{busy === 'upload' ? <><div role="progressbar" aria-label={t('uploadingPhoto')} className="photo-upload-progress"><span className="spinner" />{t('uploadingPhoto')}</div><button className="button button-outline" onClick={cancel}><X size={15} />{t('cancelUpload')}</button></> : <><button className="button button-primary" disabled={!!busy || !online || uncertain} onClick={() => void operate()}><Upload size={15} />{t(metadata.image ? 'avatarReplace' : 'avatarUpload')}</button><button className="text-button" disabled={!!busy} onClick={() => setFile(null)}>{t('cancel')}</button></>}</div></>}{validation && <ErrorNotice text={validation} retry={uncertain ? () => void refresh() : undefined} />}{error != null && <ErrorNotice error={error} retry={() => void refresh()} />}</section>
+  return <section className="surface photo-upload-panel avatar-editor">{dialog}<div className="club-image-editor-heading"><Avatar userId={user!.id} name={user!.profile.display_name} className="avatar-large" /><div><h2>{t('avatarTitle')}</h2>{!metadata.image && <p>{t('avatarEmpty')}</p>}</div>{metadata.image && <button className="text-button danger-text" disabled={!!busy || !online} onClick={() => void operate(true)}><Trash2 size={15} />{t('avatarRemove')}</button>}</div><div className="inline-note"><ShieldCheck size={18} /><p>{t('avatarPrivacy')}</p></div><div className="photo-upload-heading"><span className="panel-icon"><ImagePlus size={22} /></span><div><label className="button button-outline photo-picker-label" htmlFor="rider-photo-file">{t('choosePhoto')}</label><p>{t('clubImageHint')}</p></div></div><input id="rider-photo-file" className="photo-file-input" type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" disabled={!!busy || !online} onChange={(event) => {
+      const chosen = event.target.files?.[0]; event.target.value = ''
+      // An unconfirmed upload stays blocked until the photo is reloaded, whichever photo comes next.
+      setFile(null); setValidation(''); setError(undefined); if (chosen) { const invalid = photoFileError(chosen); if (invalid) setValidation(t(invalid)); else setFile(chosen) } }} />{file && <><LocalPhotoPreview file={file} /><div className="photo-upload-actions">{busy === 'upload' ? <><div role="progressbar" aria-label={t('uploadingPhoto')} className="photo-upload-progress"><span className="spinner" />{t('uploadingPhoto')}</div><button className="button button-outline" onClick={cancel}><X size={15} />{t('cancelUpload')}</button></> : <><button className="button button-primary" disabled={!!busy || !online || uncertain} onClick={() => void operate()}><Upload size={15} />{t(metadata.image ? 'avatarReplace' : 'avatarUpload')}</button><button className="text-button" disabled={!!busy} onClick={() => setFile(null)}>{t('cancel')}</button></>}</div></>}{uncertain && <ErrorNotice text={t('photoUploadUnconfirmed')} retry={() => void refresh()} />}{validation && <ErrorNotice text={validation} />}{error != null && <ErrorNotice error={error} retry={() => void refresh()} />}</section>
 }

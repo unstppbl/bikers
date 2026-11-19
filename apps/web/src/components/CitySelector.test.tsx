@@ -69,6 +69,41 @@ describe('city selector', () => {
     expect(client.getQueryCache().find({ queryKey: ['cities'] })?.meta?.private).toBe(false)
   })
 
+  // The API accepts a trimmed city of up to 160 UTF-8 bytes; Cyrillic letters take two bytes each.
+  it('flags a city longer than the API accepts, counted in UTF-8 bytes after trimming, without rewriting it', () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ cities }))))
+    renderSelector()
+    const input = screen.getByRole('combobox', { name: 'City' }) as HTMLInputElement
+    expect(input).not.toHaveAttribute('maxlength')
+    fireEvent.focus(input)
+    for (const fits of [' ' + 'a'.repeat(160) + ' ', ' ' + 'Ж'.repeat(80)]) {
+      fireEvent.change(input, { target: { value: fits } })
+      expect(input).toHaveValue(fits)
+      expect(screen.getByLabelText('Saved city').textContent).toBe(fits.trim())
+      expect(input).not.toHaveAttribute('aria-invalid')
+      expect(input.validity.valid).toBe(true)
+      expect(screen.queryByText('This city name is too long. Shorten it to save.')).not.toBeInTheDocument()
+    }
+    const tooLong = 'ЖЖ' + 'x' + 'Ж'.repeat(78)
+    fireEvent.change(input, { target: { value: tooLong } })
+    expect(input).toHaveValue(tooLong)
+    expect(input).toHaveAttribute('aria-invalid', 'true')
+    expect(input.validity.customError).toBe(true)
+    expect(input).toHaveAccessibleDescription(expect.stringContaining('This city name is too long. Shorten it to save.'))
+    fireEvent.change(input, { target: { value: 'Ж'.repeat(80) } })
+    expect(input).not.toHaveAttribute('aria-invalid')
+    expect(input.validity.valid).toBe(true)
+  })
+
+  // A parent can pass a raw value, for example from the URL; the API trims it before counting.
+  it('checks a raw value from the parent after normalizing it', () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ cities }))))
+    renderSelector(' ' + 'Ж'.repeat(80) + ' ')
+    const input = screen.getByRole('combobox', { name: 'City' }) as HTMLInputElement
+    expect(input).not.toHaveAttribute('aria-invalid')
+    expect(input.validity.valid).toBe(true)
+  })
+
   it('keeps manual entry usable if the suggested catalogue is unavailable', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
     renderSelector('Bishkek')

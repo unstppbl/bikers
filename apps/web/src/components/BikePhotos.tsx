@@ -55,11 +55,12 @@ export function BikeCover({ bike, variant = 'detail' }: { bike: PublicBike; vari
   return <UploadedCover key={`${bike.id}:${photo.id}:${photo.url}`} photo={photo} bike={bike} variant={variant} />
 }
 
+// A card names the motorcycle beside its photo, so only the detail view captions the rider's own photo.
 function UploadedCover({ photo, bike, variant }: { photo: BikePhoto; bike: PublicBike; variant: 'card' | 'detail' }) {
   const { t } = useI18n()
   const [failed, setFailed] = useState(false)
   if (failed) return <ModelReference bike={bike} variant={variant} />
-  return <figure className={`model-reference model-reference-${variant} uploaded-bike-cover`}><div className="model-reference-frame"><img src={photo.url} width={photo.width} height={photo.height} alt={t('photoAlt', { make: bike.make, model: bike.model })} loading={variant === 'card' ? 'lazy' : 'eager'} decoding="async" referrerPolicy="no-referrer" onError={() => setFailed(true)} /></div><figcaption><p>{t('photoOwnerLabel')}<span>{bike.make} {bike.model}</span></p></figcaption></figure>
+  return <figure className={`model-reference model-reference-${variant} uploaded-bike-cover`}><div className="model-reference-frame"><img src={photo.url} width={photo.width} height={photo.height} alt={t('photoAlt', { make: bike.make, model: bike.model })} loading={variant === 'card' ? 'lazy' : 'eager'} decoding="async" referrerPolicy="no-referrer" onError={() => setFailed(true)} /></div>{variant === 'detail' && <figcaption><p>{t('photoOwnerLabel')}<span>{bike.make} {bike.model}</span></p></figcaption>}</figure>
 }
 
 export function BikePhotos({ bike, owner = false }: { bike: PublicBike; owner?: boolean }) {
@@ -142,7 +143,7 @@ function OwnerPhotos({ bike, gallery, queryKey, reload }: { bike: PublicBike; ga
     if (currentSession() && result && typeof result === 'object' && 'isError' in result && !result.isError) { setUnconfirmed(false); setValidation(''); setError(undefined) }
   }
   return <section className="bike-photos-section">{dialog}<div className="section-header"><div><span className="eyebrow">{t('photoCount', { count: gallery.photos.length })}</span><h2>{t('bikePhotos')}</h2></div>{gallery.cover_photo_id ? <button className="button button-outline" onClick={() => cover('')} disabled={!!busy || !online}><RotateCcw size={15} />{t('restoreCatalogue')}</button> : <span className="photo-catalogue-label"><Check size={13} />{t('catalogueCoverActive')}</span>}</div><p className="section-intro">{t('bikePhotosText')}</p><p className="photo-default-note">{t('catalogueDefaultHint')}</p>
-    <div className="surface photo-upload-panel"><div className="photo-upload-heading"><span className="panel-icon"><ImagePlus size={22} /></span><div><label className="photo-picker-label" htmlFor={`photo-file-${bike.id}`}>{t('choosePhoto')}</label><p>{t('photoUploadHint')}</p></div></div><input id={`photo-file-${bike.id}`} className="photo-file-input" type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" disabled={!!busy || !online || gallery.photos.length >= MAX_PHOTOS} onChange={(event) => {
+    <div className="surface photo-upload-panel"><div className="photo-upload-heading"><span className="panel-icon"><ImagePlus size={22} /></span><div><label className="button button-outline photo-picker-label" htmlFor={`photo-file-${bike.id}`}>{t('choosePhoto')}</label><p>{t('photoUploadHint')}</p></div></div><input id={`photo-file-${bike.id}`} className="photo-file-input" type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" disabled={!!busy || !online || gallery.photos.length >= MAX_PHOTOS} onChange={(event) => {
       const chosen = event.target.files?.[0]
       event.target.value = ''
       setFile(null); setError(undefined); setValidation(''); setUnconfirmed(false)

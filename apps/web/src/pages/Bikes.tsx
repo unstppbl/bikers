@@ -81,12 +81,12 @@ function BikeSearch({ query }: { query: string }) {
   }
   function submit(event: FormEvent) { event.preventDefault(); apply(draft) }
   return <form className="ride-filters bike-catalogue-filters" aria-label={t('bikeFilters')} onSubmit={submit}>
-    <div className="ride-filter-fields"><Field label={t('bikeSearch')} type="search" value={draft} onChange={(event) => setDraft(event.target.value)} maxLength={200} placeholder={t('bikeSearchPlaceholder')} /></div>
+    <div className="ride-filter-fields"><Field label={t('bikeSearch')} type="search" value={draft} onChange={(event) => setDraft(event.target.value)} maxLength={200} placeholder={t('bikeSearch')} /></div>
     <div className="ride-filter-actions"><button className="button button-dark" type="submit">{t('applyFilters')}</button><button className="text-button" type="button" onClick={() => { setDraft(''); apply('') }}>{t('clearFilters')}</button></div>
   </form>
 }
 
 function PublicBikeCard({ bike }: { bike: PublicBike }) {
   const { t } = useI18n()
-  return <article className="surface bike-card catalogue-bike-card"><Link className="bike-card-main" to={`/bikes/${bike.id}`}><div className="bike-card-top"><span className="eyebrow">{bike.make}</span></div><div className="bike-identity"><h2>{bike.model}</h2><span>{bike.year}</span></div></Link><BikeCover bike={bike} variant="card" /><Link className="bike-card-bottom" to={`/bikes/${bike.id}`}><span>{t('viewMotorcycle')}</span><ArrowUpRight size={21} /></Link></article>
+  return <article className="surface bike-card catalogue-bike-card" data-make={bike.make}><Link className="bike-card-main" to={`/bikes/${bike.id}`}><div className="bike-card-top"><span className="eyebrow">{bike.make}</span></div><div className="bike-identity"><h2>{bike.model}</h2><span>{bike.year}</span></div></Link><BikeCover bike={bike} variant="card" /><Link className="bike-card-bottom" to={`/bikes/${bike.id}`}><span>{t('viewMotorcycle')}</span><ArrowUpRight size={21} /></Link></article>
 }

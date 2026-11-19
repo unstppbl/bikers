@@ -112,4 +112,15 @@ describe('club and ride inbox notifications', () => {
     expect(screen.getAllByRole('heading', { name: 'Inbox', level: 2 })).toHaveLength(2)
     expect(screen.getAllByRole('button', { name: 'Mark as read' })).toHaveLength(notices.length)
   })
+
+  it('dates notices from another year with their year', async () => {
+    vi.setSystemTime(new Date('2026-11-19T06:00:00Z'))
+    try {
+      const older: InboxNotification = { ...rideNotice, id: '00000000-0000-4000-8000-000000000021', created_at: '2025-11-04T12:00:00Z' }
+      vi.stubGlobal('fetch', vi.fn(async (url: string) => session(url) ?? response({ notifications: [rideNotice, older], next_cursor: '', unread_count: 2 })))
+      mount()
+      expect(await screen.findByText('4 November, 17:00')).toHaveAttribute('datetime', created_at)
+      expect(screen.getByText('4 November 2025, 17:00')).toHaveAttribute('datetime', older.created_at)
+    } finally { vi.useRealTimers() }
+  })
 })

@@ -23,6 +23,7 @@ type ClubTransaction interface {
 	Notify(models.NotificationIntent) error
 	UpdateClub(models.Club, time.Time) error
 	Members(bool) ([]models.ClubMember, error)
+	// LinkedRides attaches each ride's current cover, omitting moderated covers.
 	LinkedRides(time.Time, int) ([]models.RideSummary, error)
 	RideForLink(string) (models.ClubRideCandidate, error)
 	LinkRide(string, string, time.Time) error

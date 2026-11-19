@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"bikers.kz/backend/internal/database"
+	"bikers.kz/backend/internal/managers/photos"
 	"bikers.kz/backend/internal/models"
 	"github.com/google/uuid"
 )
@@ -26,13 +27,14 @@ type Manager struct {
 	now       func() time.Time
 	cursorKey [32]byte
 	planner   Planner
+	photos    *photos.Manager
 }
 
-func New(repo database.RidesRepository, events interface{ Publish(string, string) }, now func() time.Time, planner Planner) *Manager {
+func New(repo database.RidesRepository, events interface{ Publish(string, string) }, now func() time.Time, planner Planner, processor *photos.Manager) *Manager {
 	if now == nil {
 		now = time.Now
 	}
-	manager := &Manager{repo: repo, events: events, now: now, planner: planner}
+	manager := &Manager{repo: repo, events: events, now: now, planner: planner, photos: processor}
 	if _, err := rand.Read(manager.cursorKey[:]); err != nil {
 		panic("cannot initialize ride cursor signing key")
 	}
@@ -88,6 +90,9 @@ func (m *Manager) View(ctx context.Context, id string, session *models.Session) 
 		canManage := session.User.ID == ride.OrganizerID
 		ride.CanManage, ride.ParticipationState = &canManage, state
 		if canManage || state == "approved" {
+			if rideEditor(ride, session.User.ID) != nil {
+				ride.CoverVersion = 0
+			}
 			out = ride
 			return nil
 		}
@@ -207,12 +212,21 @@ func (m *Manager) Update(ctx context.Context, actor models.User, id string, patc
 	return result, nil
 }
 
-func editableRide(ride models.Ride, actor string, version int64) error {
+// rideEditor holds the rules shared by every organizer change to a ride,
+// including its cover.
+func rideEditor(ride models.Ride, actor string) error {
 	if ride.OrganizerID != actor {
 		return models.Fail("forbidden", "Organizer access required")
 	}
 	if ride.Status == "cancelled" {
 		return models.Fail("ride_cancelled", "Ride is cancelled")
+	}
+	return nil
+}
+
+func editableRide(ride models.Ride, actor string, version int64) error {
+	if err := rideEditor(ride, actor); err != nil {
+		return err
 	}
 	if version != ride.PlanVersion {
 		return models.Fail("stale_plan", "Ride plan changed; refresh and retry")
@@ -480,14 +494,19 @@ func (m *Manager) publish(ride, kind string) {
 	}
 }
 
+// publicSummary keeps only fields that anyone who can see the ride may read.
+// The cover is public; the repository omits covers hidden by moderation.
 func publicSummary(summary models.RideSummary) models.RideSummary {
-	return models.RideSummary{ID: summary.ID, City: summary.City, Date: summary.Date, Description: summary.Description, Status: summary.Status}
+	return models.RideSummary{ID: summary.ID, City: summary.City, Date: summary.Date, Description: summary.Description, Status: summary.Status, Cover: summary.Cover}
 }
 
 func ownerView(ride models.Ride) models.Ride {
 	yes := true
 	ride.CanManage = &yes
 	ride.ParticipationState = "approved"
+	if rideEditor(ride, ride.OrganizerID) != nil {
+		ride.CoverVersion = 0
+	}
 	return ride
 }
 

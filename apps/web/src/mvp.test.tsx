@@ -52,6 +52,86 @@ describe('MVP media boundaries', () => {
     await screen.findByRole('button', { name: 'Remove rider photo' })
     expect(screen.queryByText('Your initials are shown until you add a photo.')).not.toBeInTheDocument()
   })
+  it('keeps the uploaded avatar when an older avatar read finishes after it', async () => {
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, writable: true, value: vi.fn(() => 'blob:avatar-preview') })
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, writable: true, value: vi.fn() })
+    const avatar = (id: string) => ({ id, url: `/api/v1/me/avatar/${id}/content`, width: 200, height: 100, created_at })
+    let metadata = { image: avatar(photoId), version: 1 }
+    let holdRead = false
+    let finishRead: () => void = () => { throw new Error('not started') }
+    vi.stubGlobal('fetch', vi.fn(async (url: string, options?: RequestInit) => {
+      const auth = session(url); if (auth) return auth
+      if (options?.method === 'POST') { metadata = { image: avatar(reportId), version: 2 }; return response(metadata, 201) }
+      if (!holdRead) return response(metadata)
+      holdRead = false
+      const old = response(metadata)
+      return new Promise<Response>((resolve) => { finishRead = () => resolve(old) })
+    }))
+    const client = mount(<AvatarEditor />)
+    const actor = userEvent.setup()
+    await actor.upload(await screen.findByLabelText('Choose a photo'), new File(['bytes'], 'rider.webp', { type: 'image/webp' }))
+    // A background read of the old avatar is still running when the replacement succeeds.
+    holdRead = true
+    act(() => { void client.refetchQueries({ queryKey: ['avatar'] }) })
+    await waitFor(() => expect(holdRead).toBe(false))
+    await actor.click(screen.getByRole('button', { name: 'Replace rider photo' }))
+    const shown = () => screen.getByRole('img', { name: 'Photo of Rider' }).getAttribute('src')
+    await waitFor(() => expect(shown()).toBe(avatar(reportId).url))
+    await act(async () => { finishRead() })
+    await waitFor(() => expect(client.isFetching({ queryKey: ['avatar'] })).toBe(0))
+    expect(shown()).toBe(avatar(reportId).url)
+  })
+  it('blocks a second avatar upload until an unconfirmed result is reloaded', async () => {
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, writable: true, value: vi.fn(() => 'blob:avatar-preview') })
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, writable: true, value: vi.fn() })
+    vi.stubGlobal('fetch', vi.fn(async (url: string, options?: RequestInit) => {
+      const auth = session(url); if (auth) return auth
+      if (options?.method === 'POST') throw new TypeError('connection lost')
+      return response({ image: null, version: 1 })
+    }))
+    mount(<AvatarEditor />)
+    const actor = userEvent.setup()
+    const unconfirmed = 'The upload result could not be confirmed. Reload the photos before uploading again.'
+    await actor.upload(await screen.findByLabelText('Choose a photo'), new File(['bytes'], 'rider.jpg', { type: 'image/jpeg' }))
+    await actor.click(screen.getByRole('button', { name: 'Upload rider photo' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(unconfirmed)
+    expect(screen.getByRole('button', { name: 'Upload rider photo' })).toBeDisabled()
+    // Choosing another photo does not lift the block: the first upload may still have landed.
+    await actor.upload(screen.getByLabelText('Choose a photo'), new File(['other'], 'other.jpg', { type: 'image/jpeg' }))
+    await screen.findByRole('img', { name: 'Preview of the selected photo' })
+    expect(screen.getByRole('button', { name: 'Upload rider photo' })).toBeDisabled()
+    expect(screen.getByRole('alert')).toHaveTextContent(unconfirmed)
+    await actor.click(screen.getByRole('button', { name: 'Try again' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Upload rider photo' })).toBeEnabled())
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+  it.each(['cancels the chosen photo', 'chooses an invalid file'])('keeps an unconfirmed avatar upload blocked when the rider %s', async (step) => {
+    Object.defineProperty(URL, 'createObjectURL', { configurable: true, writable: true, value: vi.fn(() => 'blob:avatar-preview') })
+    Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, writable: true, value: vi.fn() })
+    vi.stubGlobal('fetch', vi.fn(async (url: string, options?: RequestInit) => {
+      const auth = session(url); if (auth) return auth
+      if (options?.method === 'POST') throw new TypeError('connection lost')
+      return response({ image: null, version: 1 })
+    }))
+    mount(<AvatarEditor />)
+    const actor = userEvent.setup()
+    const unconfirmed = 'The upload result could not be confirmed. Reload the photos before uploading again.'
+    await actor.upload(await screen.findByLabelText('Choose a photo'), new File(['bytes'], 'rider.jpg', { type: 'image/jpeg' }))
+    await actor.click(screen.getByRole('button', { name: 'Upload rider photo' }))
+    await screen.findByText(unconfirmed)
+    if (step === 'cancels the chosen photo') await actor.click(screen.getByRole('button', { name: 'Cancel' }))
+    else {
+      await actor.upload(screen.getByLabelText('Choose a photo'), new File([], 'empty.jpg', { type: 'image/jpeg' }))
+      expect(screen.getByText('Choose a photo that is not empty.')).toBeInTheDocument()
+    }
+    expect(screen.queryByRole('img', { name: 'Preview of the selected photo' })).not.toBeInTheDocument()
+    expect(screen.getByText(unconfirmed)).toBeInTheDocument()
+    // The next valid photo stays blocked: the first upload may still have landed.
+    await actor.upload(screen.getByLabelText('Choose a photo'), new File(['other'], 'other.jpg', { type: 'image/jpeg' }))
+    await screen.findByRole('img', { name: 'Preview of the selected photo' })
+    expect(screen.getByRole('button', { name: 'Upload rider photo' })).toBeDisabled()
+    expect(screen.getByText(unconfirmed)).toBeInTheDocument()
+  })
   it('rejects video credentials, executable schemes, and local addresses', () => {
     for (const value of ['javascript:alert(1)', 'http://video.example/watch', 'https://user:secret@video.example/watch', 'https://127.0.0.1/video', 'https://localhost/video', 'https://[::1]/video']) expect(safeVideoUrl(value)).toBeUndefined()
     expect(safeVideoUrl('https://youtu.be/example')).toBe('https://youtu.be/example')

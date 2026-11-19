@@ -10,11 +10,11 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-const rideColumns = "id::text,city,description,status,title,starts_at,timezone,meeting_point,destination,route_url,expectations,capacity,plan_version,organizer_id::text,to_char(starts_at AT TIME ZONE timezone,'YYYY-MM-DD'),map_plan"
+const rideColumns = "id::text,city,description,status,title,starts_at,timezone,meeting_point,destination,route_url,expectations,capacity,plan_version,organizer_id::text,to_char(starts_at AT TIME ZONE timezone,'YYYY-MM-DD'),map_plan,cover_version"
 
 func scanRide(row pgx.Row) (models.Ride, error) {
 	var ride models.Ride
-	err := row.Scan(&ride.ID, &ride.City, &ride.Description, &ride.Status, &ride.Title, &ride.StartsAt, &ride.Timezone, &ride.MeetingPoint, &ride.Destination, &ride.RouteURL, &ride.Expectations, &ride.Capacity, &ride.PlanVersion, &ride.OrganizerID, &ride.Date, &ride.MapPlan)
+	err := row.Scan(&ride.ID, &ride.City, &ride.Description, &ride.Status, &ride.Title, &ride.StartsAt, &ride.Timezone, &ride.MeetingPoint, &ride.Destination, &ride.RouteURL, &ride.Expectations, &ride.Capacity, &ride.PlanVersion, &ride.OrganizerID, &ride.Date, &ride.MapPlan, &ride.CoverVersion)
 	return ride, repositoryError(err)
 }
 func readParticipation(ctx context.Context, q querier, rideID, userID string) (string, error) {
@@ -60,6 +60,7 @@ func (s *Store) ListRides(ctx context.Context, query database.RideListQuery) ([]
 	}
 	defer rows.Close()
 	out := []models.RideListing{}
+	ids := []string{}
 	for rows.Next() {
 		var listing models.RideListing
 		v := &listing.Summary
@@ -67,9 +68,18 @@ func (s *Store) ListRides(ctx context.Context, query database.RideListQuery) ([]
 			return nil, repositoryError(err)
 		}
 		out = append(out, listing)
+		ids = append(ids, v.ID)
 	}
 	if err = rows.Err(); err != nil {
 		return nil, repositoryError(err)
+	}
+	rows.Close()
+	covers, err := rideCovers(ctx, s.pool, ids)
+	if err != nil {
+		return nil, err
+	}
+	for i := range out {
+		out[i].Summary.Cover = covers[out[i].Summary.ID]
 	}
 	return out, nil
 }
@@ -81,7 +91,11 @@ func listAfterID(id string) any {
 	return id
 }
 func (s *Store) Ride(ctx context.Context, id string) (models.Ride, error) {
-	return scanRide(s.pool.QueryRow(ctx, "SELECT "+rideColumns+" FROM rides WHERE id=$1", id))
+	ride, err := scanRide(s.pool.QueryRow(ctx, "SELECT "+rideColumns+" FROM rides WHERE id=$1", id))
+	if err != nil {
+		return ride, err
+	}
+	return ride, attachRideCover(ctx, s.pool, &ride.RideSummary)
 }
 func (s *Store) Participation(ctx context.Context, rideID, userID string) (string, error) {
 	return readParticipation(ctx, s.pool, rideID, userID)
@@ -152,6 +166,9 @@ func (s *Store) WithRide(ctx context.Context, id string, decide database.RideDec
 	if err != nil {
 		return err
 	}
+	if err = attachRideCover(ctx, tx, &ride.RideSummary); err != nil {
+		return err
+	}
 	locked := &rideTransaction{ctx: ctx, tx: tx, ride: ride}
 	if err = decide(locked); err != nil {
 		return err
@@ -186,6 +203,8 @@ func (t *rideTransaction) UpdateRide(ride models.Ride) error {
 	if err != nil {
 		return err
 	}
+	// Plan updates never change the separately versioned cover.
+	updated.Cover = t.ride.Cover
 	t.ride = updated
 	return nil
 }

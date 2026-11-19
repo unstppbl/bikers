@@ -60,7 +60,7 @@ func TestVersionEightPreferencesAndReminderUpgradeRetainsInboxAccessAndPush(t *t
  'users',(SELECT jsonb_agg(to_jsonb(u)-'push_ride_updates'-'push_participation'-'push_club_membership'-'push_ride_reminders' ORDER BY id) FROM users u),
  'sessions',(SELECT jsonb_agg(to_jsonb(s) ORDER BY token_digest) FROM sessions s),
  'admins',(SELECT jsonb_agg(to_jsonb(a) ORDER BY user_id) FROM trust_admins a),
- 'rides',(SELECT jsonb_agg(to_jsonb(r)-'map_plan' ORDER BY id) FROM rides r),
+ 'rides',(SELECT jsonb_agg(to_jsonb(r)-'map_plan'-'cover_version'-'current_cover_id' ORDER BY id) FROM rides r),
  'membership',(SELECT jsonb_agg(to_jsonb(p) ORDER BY ride_id,user_id) FROM participation p),
  'clubs',(SELECT jsonb_agg(to_jsonb(c) ORDER BY id) FROM clubs c),
  'notices',(SELECT jsonb_agg(to_jsonb(n)-'reminder_starts_at'-'reminder_lead_minutes' ORDER BY sequence) FROM notifications n),

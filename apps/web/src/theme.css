@@ -1,53 +1,53 @@
-@font-face {
-  font-family: Geist;
-  src: url('./assets/fonts/Geist.ttf') format('truetype');
-  font-style: normal;
-  font-weight: 100 700;
-  font-display: swap;
-}
+/* Night road theme: warm asphalt surfaces, bone text, signal-orange actions and condensed display type.
+   Components use these semantic tokens; layout stays with its owner. */
 
 :root {
   color-scheme: dark;
-  --font-body: Geist, sans-serif;
-  --font-display: var(--font-body);
+  --font-body: 'Fira Sans', system-ui, sans-serif;
+  --font-display: 'Fira Sans Extra Condensed', 'Arial Narrow', sans-serif;
 
-  --canvas: #181818;
-  --chrome: #000000;
-  --surface: #1f1f1f;
-  --surface-raised: #272727;
-  --surface-hover: #313131;
-  --media-backdrop: #181818;
-  --text: #f5f5f2;
-  --text-muted: #bcbcb5;
-  --text-subtle: #a3a39b;
-  --border: #313131;
-  --border-strong: #77776e;
-  --accent: #d2ed75;
-  --accent-hover: #dff399;
-  --accent-surface: #131209;
-  --accent-border: #899752;
-  --on-accent: #131209;
-  --focus: #d2ed75;
-  --success: #b1ddb5;
-  --success-surface: #1f1f1f;
-  --success-border: #638867;
-  --warning: #efd18d;
-  --warning-surface: #1f1f1f;
-  --warning-border: #95804e;
-  --danger: #ffb4a9;
-  --danger-surface: #1f1f1f;
-  --danger-border: #ac756d;
-  --info: #bacbdf;
-  --info-surface: #1f1f1f;
-  --info-border: #778b9f;
-  --overlay: #000000cc;
+  --canvas: #131211;
+  --chrome: #100f0e;
+  --surface: #1d1b19;
+  --surface-raised: #2a2724;
+  --surface-hover: #34302c;
+  --media-backdrop: #1d1b19;
+  --text: #f3eee6;
+  --text-muted: #c4bcb0;
+  --text-subtle: #aba397;
+  --border: #34302b;
+  --border-strong: #6e665b;
+  --accent: #ff5a1f;
+  --accent-hover: #ff7543;
+  --accent-surface: #2e1a10;
+  --accent-border: #a9471f;
+  --on-accent: #1a0900;
+  --plate: #f3eee6;
+  --on-plate: #131211;
+  --focus: #ff9a6b;
+  --success: #8fd9a4;
+  --success-surface: #16261b;
+  --success-border: #3f6b4c;
+  --warning: #f2c76e;
+  --warning-surface: #2c2414;
+  --warning-border: #7a6232;
+  --danger: #ff9e8f;
+  --danger-surface: #34191a;
+  --danger-border: #9b4b45;
+  --info: #a9c7ea;
+  --info-surface: #182433;
+  --info-border: #4a6585;
+  --overlay: #0a0908cc;
+  --scrim: linear-gradient(to top, rgb(19 18 17 / 96%) 0%, rgb(19 18 17 / 78%) 34%, rgb(19 18 17 / 0%) 68%);
   --shadow-card: none;
   --shadow-floating: 0 16px 48px #00000080;
   --shadow-dialog: 0 24px 80px #000000a6;
 
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 16px;
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  --radius-pill: 999px;
 
   --spacing-0: 0;
   --spacing-25: 2px;
@@ -78,14 +78,15 @@
   --text-9xl: 128px;
   --text-control: var(--text-base);
 
-  --type-heading-1: 600 60px/60px var(--font-body);
-  --type-heading-2: 600 48px/48px var(--font-body);
-  --type-heading-3: 600 36px/40px var(--font-body);
-  --type-heading-4: 600 30px/36px var(--font-body);
-  --type-heading-5: 600 24px/32px var(--font-body);
-  --type-heading-6: 600 20px/28px var(--font-body);
+  /* Headings use the condensed display face; titles and body copy stay in Fira Sans. */
+  --type-heading-1: 800 72px/0.92 var(--font-display);
+  --type-heading-2: 800 56px/0.95 var(--font-display);
+  --type-heading-3: 800 44px/1 var(--font-display);
+  --type-heading-4: 800 36px/1.02 var(--font-display);
+  --type-heading-5: 700 30px/1.05 var(--font-display);
+  --type-heading-6: 700 24px/1.1 var(--font-display);
   --type-title-1: 500 20px/28px var(--font-body);
-  --type-title-2: 500 18px/28px var(--font-body);
+  --type-title-2: 600 18px/26px var(--font-body);
   --type-title-3: 500 16px/24px var(--font-body);
   --type-title-4: 500 14px/20px var(--font-body);
   --type-title-5: 500 12px/16px var(--font-body);
@@ -105,9 +106,10 @@
   --type-caption-4: 500 12px/16px var(--font-body);
   --type-caption-5: 400 12px/16px var(--font-body);
 
-  --motion-fast: 300ms;
-  --motion-panel: 500ms;
+  --motion-fast: 180ms;
   --motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --tab-bar-height: 64px;
 
   font-family: var(--font-body);
   font-size: var(--text-base);
@@ -157,6 +159,5 @@
 @media (prefers-reduced-motion: reduce) {
   :root {
     --motion-fast: 0ms;
-    --motion-panel: 0ms;
   }
 }

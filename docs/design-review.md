@@ -1,4 +1,4 @@
-# Night Ride design review
+# Design review
 
 On 4 November 2026 the owner approved the deployed Night Ride design and asked
 to apply Unslop and Stageshow. This pass refines that established direction.
@@ -45,7 +45,7 @@ The illustration shows a public preview, join request, organizer approval,
 then the private meeting plan and group chat. Its content is fictional and
 labelled as an example. It does not call the application API.
 
-Run `npm run prototype` from `apps/web`, then open
+Run `npm run dev` from `apps/web`, then open
 `http://localhost:5173/preview/ride-flow`. English, Russian and Kazakh have
 localized copy, manual Play/Replay controls and a complete static poster for
 reduced motion. The preview includes a visible reduced-motion toggle for
@@ -189,3 +189,129 @@ Validation includes the actual MapLibre Mercator camera, filter/history and
 submission regressions, plus read-only local desktop and Russian phone
 previews with the public basemap. Phone previews confirm the open panel can
 scroll independently of the map. Physical iOS/Safari acceptance remains open.
+
+## Photo-led redesign · 19 November 2026
+
+The owner approved a dark, photo-led direction in issue
+[#46](https://github.com/unstppbl/bikers/issues/46). It replaces the Night
+Ride charcoal and lime palette, the Geist font, and the sidebar and drawer
+navigation. The entries above record those designs as history.
+
+Surfaces are warm asphalt (`#131211`, `#1d1b19`, `#2a2724`), text is bone
+(`#f3eee6`) and actions are signal orange (`#ff5a1f`). Green marks approval
+only, so save and send confirmations use bone text. Text uses Fira Sans and
+headings use Fira Sans Extra Condensed, both self-hosted through Fontsource.
+Each font file holds one subset and declares its Unicode range, so a page
+downloads only the Latin or Cyrillic files its text needs. Kazakh letters are
+in the extended Cyrillic subset. The Greek and Vietnamese files stay out of
+the offline precache.
+
+The ride date sits on a cream number plate on ride cards and the ride page. It
+is the one signature element; everything else stays quiet. The wordmark puts
+KZ on a matching orange plate, and the app icons and PWA colours use the same
+wordmark and palette. A ride without a photo shows its city name as large
+background type, sized to the length of the name. On phones the city type
+starts 12px after the plate, so the two do not overlap.
+
+Ride dates, timestamps and the date filter summary show the year only when it
+is not the current year. Ride dates and the filter compare with the current
+year in Kazakhstan; timestamps compare in their own time zone. Maintenance
+dates always show the year.
+
+Every screen has a top bar. Wide screens show Rides, Map, Routes, Clubs and
+Motorcycles with the inbox bell, the avatar and New ride. Phones up to 900px
+wide get a bottom tab bar: Rides, Map, a New ride plate, Clubs and Me. The
+current tab also fills its icon, so it is not marked by colour alone. The new
+Me page groups My rides, Garage, My clubs and Inbox; then Routes, Motorcycles,
+Map and Install; then Settings, Admin and Sign out. Inbox, Settings, Admin,
+Install and the profile editor lead back to Me.
+
+The rides feed has a large title, one filter bar and photo or typographic
+cards; the first card on the first page spans two columns. The ride page opens
+with the plate and city art, then shows the description, the plan as a route
+line, the map, announcements, chat and album beside the rider list. Garage,
+motorcycle and club collections use large titles. Motorcycle cards show
+edge-to-edge photos with a year plate, and the club and motorcycle lists use
+pill filters. On phones, the rides feed title is 56px and collection list
+titles are 44px. Forms, settings and administration use the 36px ride title
+size, and so do sign-in, the 404 page, and the ride, route, club, motorcycle,
+public motorcycle and profile pages. On wider screens the 404 page and the
+ride, route, club, motorcycle and public motorcycle pages use the 56px page
+title.
+The sign-in page has one heading on a plain surface. Photo pickers use a
+styled Choose a photo button instead of the browser's file control, which
+showed its own words in the browser's language. On phones, Map opens with its
+filters closed to leave room for the map.
+
+The community badge looks the same on every page: a green label and a muted
+note. Public and private motorcycles in the garage use the same neutral pill,
+with a globe or a lock icon. The 404 icon uses the subtle text colour. Unused
+copy was removed: 37 strings in each language, from 908 to 871 keys. Every
+city field and filter, the profile and ride forms included, checks the
+backend's limit of 160 UTF-8 bytes on the same value the backend stores (a
+catalogue city or the trimmed text): about 80 Cyrillic letters. A longer name
+is not cut while the rider types; the field shows a message, also in the
+filter bars, and is marked invalid instead.
+
+Organizers add, replace or remove one public cover photo per ride on the
+ride's edit page. The editor says that the cover is public, keeps the current
+cover visible until a replacement finishes and asks before removing it. A new
+ride gets its cover after it is created. Cards and the ride page show the
+cover under the date plate with a dark scrim. Rides without a cover, or with a
+cover that fails to load, keep the city card. Other riders can report a cover.
+The development-only ride design study (Night Ride, Rally Roadbook and
+Clubhouse), its Roboto Condensed font and the `npm run prototype` script were
+removed.
+
+The ride pages were compared with the mockups at 390, 768 and 1440px in
+English, Russian and Kazakh. Long city names now wrap at their spaces and
+start clear of the date plate and below any status pills. As in the mockups,
+the type bleeds a few pixels past the right edge of the card. Card titles keep to two lines, as in the mockups. Past and
+cancelled rides say Approved rather than You’re going. On the ride page, Edit
+plan sits beside Copy link and the report controls sit on the right. The map
+attribution stays on one line inside the map, and Apply in the ride filters
+keeps keyboard focus.
+
+Validation: `make check-web` passes TypeScript, ESLint, all 431 tests in 32
+files and the production/PWA build; the precache holds 52 entries. New
+regressions cover ride covers on cards and the ride page, the cover editor and
+its reports, the Me page and sign-out, back links, years in dates, the sign-in
+heading, the phone Map filters, the garage pill, revealing focus under the
+bars, place list button names and the city limit, including the profile and
+ride forms. `make check-backend` passes the architecture check, Go tests and
+vet. An earlier `make check-integration` run
+on the same backend source passed against a disposable PostgreSQL database.
+The 148 script tests pass; one parser test runs only in its Linux job.
+
+Browser review ran the app in Chrome against a mocked API, with a frozen clock
+and an offline map stub. It captured all 62 catalogue views, covering every
+route and the cover editor, administration and participant menu states, at
+390, 768 and 1440px in English, Russian and Kazakh. The 558 full-page
+screenshots show no page, console or map errors, no unanswered requests, no
+broken images and no horizontal overflow. A second pass over the same views
+called `.focus()` on each control in page order. It skipped visually hidden
+inputs and controls inside the bars. It does not establish real Tab order or
+keyboard use of the photo pickers. No measured control was fully covered by
+the sticky top bar or the bottom tab bar. Chrome scrolls a focused button
+clear of the bars, but not a text field: the announcement text area sat 52px
+under the tab bar at 390 and 768px. The shell now scrolls a focused element
+into view when a bar is on top of it and the focus is visible. The text area
+now sits 16px above the tab bar. Tapped buttons and focus inside a bar or
+dialog do not scroll. The root scroll padding that keeps content clear of the
+sticky top bar also counted the bar's own controls as covered, so focusing one
+while the page was scrolled moved the page up by 390 to 460px. The bar's
+controls now opt out of that padding. A real-keyboard check of the ride page
+and the rides feed at 390, 768 and 1440px in all three languages found that no
+top bar control or tab bar link moves the page; the fixed tab bar never did.
+After the skip link, the next Tab lands at least 16px below the top bar. Text on solid surfaces measured at least 4.5:1 (lowest 4.76:1); text
+on photos was checked by eye on its scrim. Controls are at least 24px, and at
+least 44px high on touch phones. This now includes the route and collection
+title links and the place website link; a hit-test grid on them found no wrong
+hits and no overlapping controls. Visible labels are part of the accessible
+names. The place list buttons now take their name from the visible name,
+category and address. Map markers have no visible text and keep their label.
+
+These checks do not establish physical iOS/Safari behaviour or real basemap
+labels, because the map stub draws none. This source redesign has not been
+deployed. Its release needs the guarded schema 14 rollout described in
+[Operations](operations.md#ride-cover-schema-upgrade).

@@ -53,24 +53,48 @@ export function useOnline() {
   return online
 }
 
-export function dateParts(date: string, locale: Locale) {
+// Written-out dates leave out the year while it is the current one. Older records and rides in another year show it.
+const currentYear = (timezone: string, now: Date) => formatInTimeZone(now, timezone, 'yyyy')
+
+// The plate's day and month stay short. A ride date is a calendar day without a time zone, so its year is compared
+// with the current year in Kazakhstan time.
+export function dateParts(date: string, locale: Locale, now = new Date()) {
   const value = new Date(`${date}T12:00:00Z`)
   if (Number.isNaN(value.getTime())) return { day: '—', month: '', full: date }
+  const options = { locale: dateLocale(locale) }
+  const sameYear = formatInTimeZone(value, 'UTC', 'yyyy') === currentYear('Asia/Almaty', now)
   return {
-    day: formatInTimeZone(value, 'UTC', 'dd', { locale: dateLocale(locale) }),
-    month: formatInTimeZone(value, 'UTC', 'MMM', { locale: dateLocale(locale) }).replace('.', ''),
-    full: formatInTimeZone(value, 'UTC', 'EEEE, d MMMM', { locale: dateLocale(locale) }),
+    day: formatInTimeZone(value, 'UTC', 'dd', options),
+    month: formatInTimeZone(value, 'UTC', 'MMM', options).replace('.', ''),
+    full: formatInTimeZone(value, 'UTC', sameYear ? 'EEEE, d MMMM' : 'EEEE, d MMMM yyyy', options),
   }
 }
 
 const dateLocale = (locale: Locale) => ({ en: enGB, ru, kk })[locale]
 
-export function formatRideDateTime(value: string, timezone: string, locale: Locale, short = false) {
-  return formatInTimeZone(value, timezone, short ? 'd MMM, HH:mm' : 'd MMMM, HH:mm', { locale: dateLocale(locale) })
+export function formatRideDateTime(value: string, timezone: string, locale: Locale, short = false, now = new Date()) {
+  const day = short ? 'd MMM' : 'd MMMM'
+  const sameYear = formatInTimeZone(value, timezone, 'yyyy') === currentYear(timezone, now)
+  return formatInTimeZone(value, timezone, sameYear ? `${day}, HH:mm` : `${day} yyyy, HH:mm`, { locale: dateLocale(locale) })
 }
 
 export function formatCalendarDate(value: string, locale: Locale) {
   return formatInTimeZone(`${value}T12:00:00Z`, 'UTC', 'd MMMM yyyy', { locale: dateLocale(locale) })
+}
+
+// The date filter's summary sits beside the city field on a phone, so it stays short: "1–30 Jun",
+// "28 Jun – 3 Jul", "1 Jun –". Like a ride date, a calendar day shows its year only outside the current year
+// in Kazakhstan time. A date in the URL that is not a calendar day is shown as typed.
+export function dateRangeLabel(from: string, to: string, locale: Locale, now = new Date()) {
+  const calendarDay = (value: string) => { const date = new Date(`${value}T12:00:00Z`); return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(date.getTime()) && date.toISOString().startsWith(value) }
+  if ([from, to].some((value) => value && !calendarDay(value))) return [from, to].filter(Boolean).join(' – ')
+  const year = currentYear('Asia/Almaty', now)
+  const format = (value: string, pattern: string) => formatInTimeZone(`${value}T12:00:00Z`, 'UTC', pattern, { locale: dateLocale(locale) })
+  const day = (value: string) => format(value, value.startsWith(year) ? 'd MMM' : 'd MMM yyyy')
+  if (!from || !to) return from ? `${day(from)} –` : `– ${day(to)}`
+  if (from === to) return day(from)
+  if (from.slice(0, 7) === to.slice(0, 7)) return `${format(from, 'd')}–${day(to)}`
+  return `${day(from)} – ${day(to)}`
 }
 
 export function initials(name: string) {
