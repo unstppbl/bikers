@@ -1,12 +1,15 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useNavigate } from 'react-router-dom'
+import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../App'
 import { setCsrfToken } from '../api'
 import { I18nProvider } from '../i18n'
 import { SessionProvider } from '../session'
+import type { CityOption } from '../cities'
+import { cityPhoto, cityPhotos } from '../cityPhotos'
 import type { Ride, RideCoverMetadata, RideCoverPhoto, User } from '../types'
 import { safeRideCover, safeRideCoverPhoto } from './RideCover'
 
@@ -19,10 +22,13 @@ const cover = (n: number): RideCoverPhoto => { const id = `75000000-0000-4000-80
 const oldCover = cover(1), newCover = cover(2)
 const summary: Ride = { id: rideId, city: 'Almaty', date: '2026-12-01', description: 'Sunday loop to Kok-Zhailau', status: 'published' }
 const fullRide: Ride = { ...summary, participation_state: 'approved', can_manage: true, title: 'Kok-Zhailau loop', starts_at: '2026-12-01T04:00:00Z', timezone: 'Asia/Almaty', meeting_point: 'Medeu parking', destination: '', route_url: '', expectations: '', capacity: 8, plan_version: 1, organizer_id: organizer.id }
+// The ride's city has curated photos; a custom city has none.
+const almatyPhoto = cityPhoto('Almaty', rideId, [])!
+const customCity = 'Kok-Zhailau camp'
 const response = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json' } })
 const path = (url: string) => new URL(url, 'https://bikers.kz').pathname
 
-interface State { user: User | null; ride: Ride; metadata: RideCoverMetadata }
+interface State { user: User | null; ride: Ride; metadata: RideCoverMetadata; cities?: CityOption[] }
 function base(url: string, state: State) {
   const pathname = path(url)
   if (pathname === '/api/v1/session') return response({ user: state.user, ...(state.user ? { csrf_token: `csrf-${state.user.id}` } : {}) })
@@ -35,7 +41,7 @@ function base(url: string, state: State) {
   if (pathname.endsWith('/reminders')) return response({ day_before: false, hour_before: false })
   if (pathname.endsWith('/album')) return response({ photos: [], videos: [], version: 1 })
   if (pathname === '/api/v1/geo/config') return response({ enabled: false, archive_url: '' })
-  if (pathname === '/api/v1/cities') return response({ cities: [] })
+  if (pathname === '/api/v1/cities') return response({ cities: state.cities ?? [] })
   if (pathname === '/api/v1/me/trust') return response({ is_admin: false })
   if (pathname === '/api/v1/me/blocks') return response({ blocks: [], next_cursor: '' })
   if (pathname.endsWith('/unread-count')) return response({ unread_count: 0 })
@@ -47,10 +53,14 @@ function organizerState(): State { return { user: organizer, ride: { ...fullRide
 const reads = (fetch: ReturnType<typeof vi.fn>, pathname: string) => fetch.mock.calls.filter(([url, options]) => path(url as string) === pathname && !(options as RequestInit | undefined)?.method).length
 
 class TestSocket { onopen: (() => void) | null = null; onclose: (() => void) | null = null; onmessage: ((event: { data: string }) => void) | null = null; close() {} }
-function mount(route: string) {
+function mount(route: string, controls?: ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { retry: false } } })
-  render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[route]}><I18nProvider><SessionProvider><App /></SessionProvider></I18nProvider></MemoryRouter></QueryClientProvider>)
+  render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[route]}><I18nProvider><SessionProvider><App />{controls}</SessionProvider></I18nProvider></MemoryRouter></QueryClientProvider>)
   return client
+}
+function Open({ to }: { to: string }) {
+  const navigate = useNavigate()
+  return <button type="button" onClick={() => void navigate(to)}>Open {to}</button>
 }
 beforeEach(() => {
   setCsrfToken()
@@ -75,11 +85,12 @@ describe('ride cover projection', () => {
 })
 
 describe('ride cover on the ride page', () => {
-  it('shows the cover in the hero with alt text, and returns to the city art when the image fails', async () => {
+  it('shows the cover in the hero with alt text, then the city photo when the cover fails, then the city art', async () => {
     const state: State = { user: null, ride: { ...summary, cover: oldCover }, metadata: { image: oldCover } }
     vi.stubGlobal('fetch', vi.fn(async (url: string) => base(url, state)))
     mount(`/rides/${rideId}`)
     const image = await screen.findByRole('img', { name: 'Ride in Almaty' })
+    expect(image).toHaveClass('ride-hero-cover')
     expect(image).toHaveAttribute('src', oldCover.url)
     expect(image).toHaveAttribute('width', '1600')
     expect(image).toHaveAttribute('height', '900')
@@ -88,7 +99,73 @@ describe('ride cover on the ride page', () => {
     const hero = image.closest('section')!
     fireEvent.error(image)
     expect(screen.queryByRole('img', { name: 'Ride in Almaty' })).not.toBeInTheDocument()
+    const photo = screen.getByRole('img', { name: 'Photo of Almaty' })
+    expect(photo).toHaveClass('ride-hero-cover')
+    expect(photo).toHaveAttribute('src', almatyPhoto.url)
+    fireEvent.error(photo)
+    expect(hero.querySelector('img')).toBeNull()
     expect(hero.querySelector('.city-art')).toHaveTextContent('Almaty')
+  })
+
+  it('describes a city photo as a photo of the city, and offers no cover report for it', async () => {
+    expect(cityPhotos.Almaty).toContain(almatyPhoto)
+    const state: State = { user: rider, ride: { ...summary }, metadata: { image: null } }
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => base(url, state)))
+    mount(`/rides/${rideId}`)
+    const photo = await screen.findByRole('img', { name: 'Photo of Almaty' })
+    expect(photo).toHaveClass('ride-hero-cover')
+    expect(photo).toHaveAttribute('src', almatyPhoto.url)
+    expect(photo).toHaveAttribute('width', String(almatyPhoto.width))
+    expect(photo).toHaveAttribute('height', String(almatyPhoto.height))
+    expect(photo).toHaveAttribute('referrerpolicy', 'no-referrer')
+    expect(photo).not.toHaveAttribute('loading')
+    expect(screen.queryByRole('img', { name: 'Ride in Almaty' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Report' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Report cover photo' })).not.toBeInTheDocument()
+  })
+
+  it('tries every picture again when the ride gets another cover or loses it', async () => {
+    const state: State = { user: null, ride: { ...summary, cover: oldCover }, metadata: { image: oldCover } }
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => base(url, state)))
+    const client = mount(`/rides/${rideId}`)
+    const hero = (await screen.findByRole('img', { name: 'Ride in Almaty' })).closest('section')!
+    fireEvent.error(screen.getByRole('img', { name: 'Ride in Almaty' }))
+    fireEvent.error(screen.getByRole('img', { name: 'Photo of Almaty' }))
+    expect(hero.querySelector('img')).toBeNull()
+    state.ride = { ...summary, cover: newCover }
+    await act(async () => { await client.invalidateQueries({ queryKey: ['ride', rideId] }) })
+    await waitFor(() => expect(hero.querySelector('img')).toHaveAttribute('src', newCover.url))
+    state.ride = { ...summary }
+    await act(async () => { await client.invalidateQueries({ queryKey: ['ride', rideId] }) })
+    await waitFor(() => expect(screen.getByRole('img', { name: 'Photo of Almaty' })).toHaveAttribute('src', almatyPhoto.url))
+  })
+
+  it('tries the city photo again on another ride that gets the same photo', async () => {
+    // Another coverless ride in the same city whose ID selects the same photo.
+    const otherId = Array.from({ length: 1000 }, (_, n) => `20000000-0000-4000-8000-${(n + 2).toString(16).padStart(12, '0')}`).find((id) => cityPhoto('Almaty', id, []) === almatyPhoto)!
+    const other: Ride = { ...summary, id: otherId }
+    const state: State = { user: null, ride: { ...summary }, metadata: { image: null } }
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => path(url) === `/api/v1/rides/${otherId}` ? response({ ride: other }) : base(url, state)))
+    mount(`/rides/${otherId}`, <><Open to={`/rides/${rideId}`} /><Open to={`/rides/${otherId}`} /></>)
+    await screen.findByRole('img', { name: 'Photo of Almaty' })
+    await userEvent.click(screen.getByRole('button', { name: `Open /rides/${rideId}` }))
+    await waitFor(() => expect(screen.getByRole('img', { name: 'Photo of Almaty' })).toHaveAttribute('src', almatyPhoto.url))
+    const hero = screen.getByRole('img', { name: 'Photo of Almaty' }).closest('section')!
+    fireEvent.error(screen.getByRole('img', { name: 'Photo of Almaty' }))
+    expect(hero.querySelector('img')).toBeNull()
+    // The other ride is cached, so the page shows it at once, in the same hero.
+    await userEvent.click(screen.getByRole('button', { name: `Open /rides/${otherId}` }))
+    expect(hero).toBeInTheDocument()
+    expect(hero.querySelector('img')).toHaveAttribute('src', almatyPhoto.url)
+  })
+
+  it('shows the city name for a custom city without a cover', async () => {
+    const state: State = { user: null, ride: { ...summary, city: customCity }, metadata: { image: null } }
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => base(url, state)))
+    mount(`/rides/${rideId}`)
+    const hero = (await screen.findByRole('heading', { name: `A ride in ${customCity}`, level: 1 })).closest('section')!
+    expect(hero.querySelector('img')).toBeNull()
+    expect(hero.querySelector('.city-art')).toHaveTextContent(customCity)
   })
 
   it('lets riders who are not the organizer report the cover', async () => {
@@ -157,9 +234,12 @@ describe('ride cover editor', () => {
     await actor.click(within(await screen.findByRole('dialog', { name: 'Remove cover photo' })).getByRole('button', { name: 'Cancel' }))
     expect(commands).toHaveLength(1)
     await actor.click(screen.getByRole('button', { name: 'Remove cover photo' }))
-    await actor.click(within(await screen.findByRole('dialog', { name: 'Remove cover photo' })).getByRole('button', { name: 'Remove cover photo' }))
-    await screen.findByText('Until you upload a cover, the ride card shows the city name.')
+    const dialog = await screen.findByRole('dialog', { name: 'Remove cover photo' })
+    expect(dialog).toHaveTextContent('Remove the cover photo? The ride will show a photo of Almaty instead. This cannot be undone.')
+    await actor.click(within(dialog).getByRole('button', { name: 'Remove cover photo' }))
+    await screen.findByText('Until you upload a cover, the ride shows a photo of Almaty.')
     expect(screen.queryByRole('img', { name: 'Current cover photo' })).not.toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'Photo of Almaty' })).toHaveAttribute('src', almatyPhoto.url)
     expect(screen.getByRole('status')).toHaveTextContent('Cover photo removed.')
     expect(screen.getByLabelText('Choose a photo')).toHaveFocus()
     expect(commands).toEqual([
@@ -197,7 +277,7 @@ describe('ride cover editor', () => {
     expect(screen.getByRole('img', { name: 'Current cover photo' })).toHaveAttribute('src', newCover.url)
     await actor.click(screen.getByRole('button', { name: 'Remove cover photo' }))
     await actor.click(within(await screen.findByRole('dialog', { name: 'Remove cover photo' })).getByRole('button', { name: 'Remove cover photo' }))
-    await screen.findByText('Until you upload a cover, the ride card shows the city name.')
+    await screen.findByText('Until you upload a cover, the ride shows a photo of Almaty.')
     expect(removed).toEqual([2])
   })
 
@@ -210,7 +290,13 @@ describe('ride cover editor', () => {
     vi.stubGlobal('fetch', fetch)
     mount(`/rides/${rideId}/edit`)
     const actor = userEvent.setup()
-    await screen.findByText('Until you upload a cover, the ride card shows the city name.')
+    await screen.findByText('Until you upload a cover, the ride shows a photo of Almaty.')
+    // Until then the current slot shows what the ride shows: the city photo.
+    const photo = screen.getByRole('img', { name: 'Photo of Almaty' })
+    expect(photo).toHaveClass('ride-cover-current-image')
+    expect(photo).toHaveAttribute('src', almatyPhoto.url)
+    expect(photo).toHaveAttribute('width', String(almatyPhoto.width))
+    expect(photo).toHaveAttribute('height', String(almatyPhoto.height))
     expect(screen.queryByRole('button', { name: 'Remove cover photo' })).not.toBeInTheDocument()
     await actor.upload(screen.getByLabelText('Choose a photo'), new File(['bytes'], 'cover.jpg', { type: 'image/jpeg' }))
     await actor.click(screen.getByRole('button', { name: 'Upload cover photo' }))
@@ -343,7 +429,83 @@ describe('ride cover editor', () => {
     mount(`/rides/${rideId}/edit`)
     fireEvent.error(await screen.findByRole('img', { name: 'Current cover photo' }))
     await screen.findByText('The current cover can’t be shown. It may have been hidden after a report. You can replace or remove it.')
+    expect(screen.getByRole('img', { name: 'Photo of Almaty' })).toHaveAttribute('src', almatyPhoto.url)
     expect(screen.getByRole('button', { name: 'Remove cover photo' })).toBeEnabled()
+  })
+
+  it('shows the city name when the city photo fails to load', async () => {
+    const state: State = { user: organizer, ride: { ...fullRide, cover_version: 1 }, metadata: { image: null, version: 1 } }
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => base(url, state)))
+    mount(`/rides/${rideId}/edit`)
+    const photo = await screen.findByRole('img', { name: 'Photo of Almaty' })
+    const slot = photo.closest('.ride-cover-current')!
+    fireEvent.error(photo)
+    expect(slot.querySelector('img')).toBeNull()
+    expect(slot.querySelector('.city-art')).toHaveTextContent('Almaty')
+    expect(screen.getByText('Until you upload a cover, the ride shows a photo of Almaty.')).toBeInTheDocument()
+  })
+
+  it('tries the city photo again after a cover is uploaded and removed, even if it failed before', async () => {
+    const state: State = { user: organizer, ride: { ...fullRide, cover_version: 1 }, metadata: { image: null, version: 1 } }
+    vi.stubGlobal('fetch', vi.fn(async (url: string, options?: RequestInit) => {
+      if (path(url) === `/api/v1/rides/${rideId}/cover` && options?.method === 'POST') { state.metadata = { image: newCover, version: 2 }; state.ride = { ...state.ride, cover: newCover, cover_version: 2 }; return response(state.metadata, 201) }
+      if (path(url) === `/api/v1/rides/${rideId}/cover` && options?.method === 'DELETE') { state.metadata = { image: null, version: 3 }; state.ride = { ...state.ride, cover: undefined, cover_version: 3 }; return response(state.metadata) }
+      return base(url, state)
+    }))
+    mount(`/rides/${rideId}/edit`)
+    const actor = userEvent.setup()
+    // The city photo fails once, for example while the connection drops, so the city name shows.
+    const photo = await screen.findByRole('img', { name: 'Photo of Almaty' })
+    const slot = photo.closest('.ride-cover-current')!
+    fireEvent.error(photo)
+    expect(slot.querySelector('img')).toBeNull()
+    await actor.upload(screen.getByLabelText('Choose a photo'), new File(['bytes'], 'cover.jpg', { type: 'image/jpeg' }))
+    await actor.click(screen.getByRole('button', { name: 'Upload cover photo' }))
+    await waitFor(() => expect(screen.getByRole('img', { name: 'Current cover photo' })).toHaveAttribute('src', newCover.url))
+    await actor.click(screen.getByRole('button', { name: 'Remove cover photo' }))
+    await actor.click(within(await screen.findByRole('dialog', { name: 'Remove cover photo' })).getByRole('button', { name: 'Remove cover photo' }))
+    expect(await screen.findByRole('status')).toHaveTextContent('Cover photo removed.')
+    expect(slot.querySelector('img')).toBe(screen.getByRole('img', { name: 'Photo of Almaty' }))
+    expect(slot.querySelector('img')).toHaveAttribute('src', almatyPhoto.url)
+  })
+
+  it('tries the city photo again when a cover that failed is removed, even if the city photo failed too', async () => {
+    const state = organizerState()
+    vi.stubGlobal('fetch', vi.fn(async (url: string, options?: RequestInit) => {
+      if (path(url) === `/api/v1/rides/${rideId}/cover` && options?.method === 'DELETE') { state.metadata = { image: null, version: 2 }; state.ride = { ...state.ride, cover: undefined, cover_version: 2 }; return response(state.metadata) }
+      return base(url, state)
+    }))
+    mount(`/rides/${rideId}/edit`)
+    const actor = userEvent.setup()
+    const current = await screen.findByRole('img', { name: 'Current cover photo' })
+    const slot = current.closest('.ride-cover-current')!
+    fireEvent.error(current)
+    fireEvent.error(screen.getByRole('img', { name: 'Photo of Almaty' }))
+    expect(slot.querySelector('img')).toBeNull()
+    expect(slot.querySelector('.city-art')).toHaveTextContent('Almaty')
+    await actor.click(screen.getByRole('button', { name: 'Remove cover photo' }))
+    await actor.click(within(await screen.findByRole('dialog', { name: 'Remove cover photo' })).getByRole('button', { name: 'Remove cover photo' }))
+    expect(await screen.findByRole('status')).toHaveTextContent('Cover photo removed.')
+    expect(slot.querySelector('img')).toBe(screen.getByRole('img', { name: 'Photo of Almaty' }))
+    expect(slot.querySelector('img')).toHaveAttribute('src', almatyPhoto.url)
+  })
+
+  it('shows the city name and says so for a city without photos', async () => {
+    const state: State = { user: organizer, ride: { ...fullRide, city: customCity, cover: oldCover, cover_version: 1 }, metadata: { image: oldCover, version: 1 } }
+    vi.stubGlobal('fetch', vi.fn(async (url: string, options?: RequestInit) => {
+      if (options?.method === 'DELETE' && path(url) === `/api/v1/rides/${rideId}/cover`) { state.metadata = { image: null, version: 2 }; state.ride = { ...state.ride, cover: undefined, cover_version: 2 }; return response(state.metadata) }
+      return base(url, state)
+    }))
+    mount(`/rides/${rideId}/edit`)
+    const actor = userEvent.setup()
+    const slot = (await screen.findByRole('img', { name: 'Current cover photo' })).closest('.ride-cover-current')!
+    await actor.click(screen.getByRole('button', { name: 'Remove cover photo' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Remove cover photo' })
+    expect(dialog).toHaveTextContent('Remove the cover photo? The ride card will show the city name instead. This cannot be undone.')
+    await actor.click(within(dialog).getByRole('button', { name: 'Remove cover photo' }))
+    await screen.findByText('Until you upload a cover, the ride card shows the city name.')
+    expect(slot.querySelector('img')).toBeNull()
+    expect(slot.querySelector('.city-art')).toHaveTextContent(customCity)
   })
 
   it('offers no editor on a cancelled ride and never reads the cover metadata', async () => {
@@ -360,7 +522,7 @@ describe('ride cover editor', () => {
     const state = organizerState()
     vi.stubGlobal('fetch', vi.fn(async (url: string) => base(url, state)))
     mount('/rides/new')
-    await screen.findByText('You can add a cover photo once the ride is created: open the ride and choose Edit plan. Until then, the ride card shows the city name.')
+    await screen.findByText('You can add a cover photo once the ride is created: open the ride and choose Edit plan.')
     expect(screen.queryByLabelText('Choose a photo')).not.toBeInTheDocument()
     expect(within(screen.getByRole('main')).getByRole('link', { name: 'Back to rides' })).toHaveAttribute('href', '/')
   })
@@ -379,5 +541,17 @@ describe('ride cover editor', () => {
     mount(`/rides/${rideId}/edit`)
     await screen.findByText(note)
     expect(screen.getByRole('button', { name: action })).toBeInTheDocument()
+  })
+
+  it.each([
+    ['ru', 'Пока обложка не загружена, вместо неё показано фото: Алматы.', 'Фото: Алматы'],
+    ['kk', 'Мұқаба жүктелгенше оның орнына Алматы қаласының суреті көрсетіледі.', 'Алматы қаласының суреті'],
+  ])('names the city photo in %s', async (locale, note, alt) => {
+    localStorage.setItem('bikerskz.locale', locale)
+    const state: State = { user: organizer, ride: { ...fullRide, cover_version: 1 }, metadata: { image: null, version: 1 }, cities: [{ value: 'Almaty', names: { en: 'Almaty', ru: 'Алматы', kk: 'Алматы' }, aliases: ['Alma-Ata', 'Алма-Ата'] }] }
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => base(url, state)))
+    mount(`/rides/${rideId}/edit`)
+    await screen.findByText(note)
+    expect(screen.getByRole('img', { name: alt })).toHaveAttribute('src', almatyPhoto.url)
   })
 })

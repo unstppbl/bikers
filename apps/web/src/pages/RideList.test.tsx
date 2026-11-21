@@ -7,6 +7,7 @@ import { App } from '../App'
 import { setCsrfToken } from '../api'
 import { I18nProvider } from '../i18n'
 import { SessionProvider, useSession } from '../session'
+import { cityPhoto, cityPhotos } from '../cityPhotos'
 import type { Ride, User } from '../types'
 
 vi.mock('virtual:pwa-register/react', () => ({ useRegisterSW: () => ({ needRefresh: [false, vi.fn()], updateServiceWorker: vi.fn() }) }))
@@ -175,7 +176,7 @@ describe('ride discovery filters and personal views', () => {
     expect(search).toHaveValue('')
   })
 
-  it('shows cover photos on cards, decorative and lazy except on the featured card, and falls back to the city art', async () => {
+  it('shows cover photos on cards, decorative and lazy except on the featured card, then the city photo, then the city art', async () => {
     const id = (n: number) => `20000000-0000-4000-8000-00000000000${n}`
     const cover = (ride: string, n: number) => ({ id: `75000000-0000-4000-8000-00000000000${n}`, url: `/api/v1/rides/${ride}/cover/75000000-0000-4000-8000-00000000000${n}/content`, width: 1600, height: 900, created_at: '2026-11-19T09:00:00Z' })
     const rides: Ride[] = [
@@ -183,7 +184,9 @@ describe('ride discovery filters and personal views', () => {
       { ...summary(id(2), 'Second with cover'), cover: cover(id(2), 2) },
       { ...summary(id(3), 'Foreign cover'), cover: { ...cover(id(3), 3), url: 'https://tracker.example/cover.jpg' } },
       summary(id(4), 'No cover'),
+      { ...summary(id(5), 'Custom city'), city: 'Kok-Zhailau camp' },
     ]
+    const photo = (n: number) => cityPhoto('Almaty', id(n), [city])!
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
       if (url.endsWith('/session')) return response({ user: null })
       if (isRideList(url)) return response({ rides, next_cursor: '' })
@@ -201,10 +204,26 @@ describe('ride discovery filters and personal views', () => {
     const second = (await card('Second with cover')).querySelector('img.ride-card-cover')
     expect(second).toHaveAttribute('loading', 'lazy')
     expect(second).toHaveAttribute('referrerpolicy', 'no-referrer')
-    expect((await card('Foreign cover')).querySelector('img')).toBeNull()
-    expect((await card('No cover')).querySelector('img')).toBeNull()
+    // A ride without a visible cover shows a photo of its city, as decoratively as a cover.
+    expect(cityPhotos.Almaty).toContain(photo(4))
+    for (const [text, n] of [['Foreign cover', 3], ['No cover', 4]] as const) {
+      const image = (await card(text)).querySelector('img.ride-card-cover')
+      expect(image).toHaveAttribute('src', photo(n).url)
+      expect(image).toHaveAttribute('alt', '')
+      expect(image).toHaveAttribute('width', String(photo(n).width))
+      expect(image).toHaveAttribute('height', String(photo(n).height))
+      expect(image).toHaveAttribute('loading', 'lazy')
+      expect(image).toHaveAttribute('referrerpolicy', 'no-referrer')
+    }
+    expect((await card('Custom city')).querySelector('img')).toBeNull()
+    expect((await card('Custom city')).querySelector('.city-art')).toHaveTextContent('Kok-Zhailau camp')
     expect(screen.queryAllByRole('img')).toHaveLength(0)
+    // A cover that fails moves on to the city photo, and a city photo that fails leaves the city art.
     fireEvent.error(second!)
+    const fallback = (await card('Second with cover')).querySelector('img.ride-card-cover')
+    expect(fallback).toHaveAttribute('src', photo(2).url)
+    expect(fallback).toHaveAttribute('alt', '')
+    fireEvent.error(fallback!)
     expect((await card('Second with cover')).querySelector('img')).toBeNull()
     expect((await card('Second with cover')).querySelector('.city-art')).toHaveTextContent('Almaty')
   })

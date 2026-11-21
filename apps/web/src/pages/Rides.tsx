@@ -9,9 +9,8 @@ import { useI18n } from '../i18n'
 import { useSession, useSessionGuard } from '../session'
 import { ErrorNotice, Field, Loading, PrivacyNote, TextArea, useOnline } from '../ui'
 import type { Ride, RideInput } from '../types'
-import { CitySelector, useCityOptions } from '../components/CitySelector'
+import { CitySelector } from '../components/CitySelector'
 import { RideCoverEditor } from '../components/RideCover'
-import { cityLabel } from '../cities'
 import { RideList } from './RideList'
 import { MapPlanEditor } from '../components/maps/MapPlanEditor'
 import type { MapDraft } from '../components/maps/MapPlanEditor'
@@ -53,8 +52,7 @@ export function localRideTime(value?: string, timezone = 'Asia/Almaty') {
 export function rideTimeToInstant(value: string, timezone: string) { return fromZonedTime(value, timezone) }
 
 function RideForm({ ride, reload }: { ride?: Ride; reload: () => void }) {
-  const { t, locale } = useI18n()
-  const cities = useCityOptions()
+  const { t } = useI18n()
   const { user } = useSession()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -93,7 +91,7 @@ function RideForm({ ride, reload }: { ride?: Ride; reload: () => void }) {
   }
   return <div className="page-content form-page"><Link className="back-link" to={ride ? `/rides/${ride.id}` : '/'}><ArrowLeft size={17} />{t(ride ? 'backToRide' : 'back')}</Link><div className="page-heading"><span className="eyebrow">{t('createEyebrow')}</span><h1>{t(ride ? 'editTitle' : 'createTitle')}</h1><p>{t('createText')}</p></div>
     {/* The cover uploads on its own, so it sits outside the ride form. A new ride gets one after it is created. */}
-    {ride && <RideCoverEditor ride={ride} city={cityLabel(ride.city, locale, cities.data?.cities ?? [])} />}
+    {ride && <RideCoverEditor ride={ride} />}
     <form onSubmit={(event) => void submit(event)} noValidate><section className="surface form-section"><div className="form-section-heading"><span className="form-section-number">01</span><div><h2>{t('publicFields')}</h2><p>{t('publicFieldsHint')}</p></div><Compass size={22} /></div><CitySelector label={t('city')} value={form.city} onChange={(city) => update('city', city)} placeholder={t('cityPlaceholder')} required disabled={busy} /><TextArea label={t('description')} value={form.description} onChange={(value) => update('description', value)} placeholder={t('descriptionPlaceholder')} maxLength={500} required rows={3} />{!ride && <div className="inline-note ride-cover-note"><ImageSquare size={20} /><p>{t('rideCoverAfterCreate')}</p></div>}</section>
       <section className="surface form-section"><div className="form-section-heading"><span className="form-section-number">02</span><div><h2>{t('privateFields')}</h2><p>{t('privateFieldsHint')}</p></div><LockKeyhole size={21} /></div><Field label={t('title')} value={form.title} onChange={(event) => update('title', event.target.value)} placeholder={t('titlePlaceholder')} maxLength={150} required disabled={busy} /><div className="form-grid"><Field label={t('startsAt')} hint={ride?.timezone && ride.timezone !== 'Asia/Almaty' ? ride.timezone : t('timezoneHint')} type="datetime-local" value={form.starts_at} onChange={(event) => update('starts_at', event.target.value)} required disabled={busy} /><Field label={t('capacity')} hint={t('capacityHint')} type="number" min="1" max="1000" inputMode="numeric" value={form.capacity} onChange={(event) => update('capacity', event.target.value)} required disabled={busy} /></div><MapPlanEditor initialPlan={ride?.map_plan} meeting={form.meeting_point} destination={form.destination} onMeeting={(value) => update('meeting_point', value)} onDestination={(value) => update('destination', value)} onChange={setMapDraft} disabled={busy} startWithMap={!ride} /><Field label={`${t('route')} · ${t('optional')}`} type="url" value={form.route_url} onChange={(event) => update('route_url', event.target.value)} placeholder={t('routePlaceholder')} maxLength={2000} disabled={busy} /><TextArea label={`${t('expectations')} · ${t('optional')}`} value={form.expectations} onChange={(value) => update('expectations', value)} placeholder={t('expectationsPlaceholder')} maxLength={1000} rows={3} /><div className="inline-note"><ShieldCheck size={20} /><p>{t('approvalNote')}</p></div></section>
       {validation && <ErrorNotice text={validation} />}{error != null && <ErrorNotice error={error} retry={ride ? reload : undefined} />}

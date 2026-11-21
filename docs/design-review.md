@@ -312,6 +312,47 @@ names. The place list buttons now take their name from the visible name,
 category and address. Map markers have no visible text and keep their label.
 
 These checks do not establish physical iOS/Safari behaviour or real basemap
-labels, because the map stub draws none. This source redesign has not been
-deployed. Its release needs the guarded schema 14 rollout described in
+labels, because the map stub draws none. The redesign was released on 19
+November 2026 with the guarded schema 14 rollout described in
 [Operations](operations.md#ride-cover-schema-upgrade).
+
+## City photo fallback · 20 November 2026
+
+After the release, production had no uploaded photos, so every card fell back
+to the city name and the new design read as a recolour. Issue
+[#48](https://github.com/unstppbl/bikers/issues/48) adds a middle step: a ride
+without a visible cover shows a photo of its catalogue city, and only a custom
+city, a city without a photo or an image that fails to load shows the city
+name. The photo is chosen from the ride ID, so every viewer sees the same one.
+Cards, the ride page and the cover editor use the same order, and a cover that
+fails to load moves on to the city photo. The photo sits in the cover slot, so
+the scrim, the cancelled-ride grey and the hidden city type apply unchanged.
+The ride page describes it as a photo of the city, never of the ride.
+
+The owner chose to show no credits or sources anywhere. Only Wikimedia Commons
+files under CC0 were therefore used, re-checked against the Commons API
+(licence CC0 or public domain, no attribution required, no restrictions). Kazakhstan
+has no freedom of panorama, so photos whose main subject is a recent building
+or monument were rejected. The two Astana photos are general skyline views
+in which modern buildings are unavoidable. Eight photos cover five cities: three
+for Almaty (Zenkov Cathedral, Big Almaty Lake and the city from Kök-Töbe), two
+for Astana, and one each for Aktau, Kokshetau and Petropavl. Commons had no
+usable free photo of the other 15 cities, including Karaganda and Shymkent: the
+candidates were archival scans, maps, portraits, night shots or recent
+landmarks. They keep the city name.
+
+The files are WebP, 1600px wide (2600px for the Kokshetau panorama), without
+metadata, 97 to 242 KB each, named with a content hash, served from
+`/city-photos/` and kept out of the PWA precache. `apps/web/city-photos.json`,
+which is not served, records each file's Commons page, licence, source hash
+and review date, and a test checks the served files against it.
+
+Validation: `make check-web` passes TypeScript, ESLint, 448 tests in 33 files
+and the production/PWA build; the precache still holds 52 entries. Browser
+review against the mocked API with every uploaded cover removed, as in
+production, captured the feed, a filtered feed, My rides, four ride pages, a
+cancelled ride, the cover editor and a club page at 390, 768 and 1440px in
+English, Russian and Kazakh, and the same views with covers at 390 and 1440px
+in English. The 110 screenshots show no page or console errors, no failed
+requests, no broken images and no horizontal overflow. Titles and metadata
+over each photo were checked by eye on the existing scrim.

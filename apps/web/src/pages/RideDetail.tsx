@@ -9,7 +9,7 @@ import { useI18n } from '../i18n'
 import { cityLabel } from '../cities'
 import { useCityOptions } from '../components/CitySelector'
 import { CityArt, DatePlate, goingLabel } from '../components/RideVisual'
-import { RideCoverImage, RideCoverReport } from '../components/RideCover'
+import { RideCoverReport, RideImage } from '../components/RideCover'
 import { useSession, useSessionGuard } from '../session'
 import { ErrorNotice, Loading, PrivacyNote, dateParts, formatRideDateTime, ShareLink, useConfirmation, useOnline } from '../ui'
 import { ParticipantsPanel } from '../components/ParticipantsPanel'
@@ -131,7 +131,7 @@ export function RideDetailPage() {
   return <div className="page-content ride-detail">{dialog}<Link className="back-link" to="/"><ArrowLeft size={17} />{t('back')}</Link>
     {rideQuery.isError && <ErrorNotice error={rideQuery.error} retry={() => void rideQuery.refetch()} />}
     <section className={`ride-hero${ride.status === 'cancelled' ? ' is-cancelled' : ''}`} aria-labelledby="ride-title">
-      <RideCoverImage ride={ride} className="ride-hero-cover" alt={t('rideCoverAlt', { city })} priority />
+      <RideImage ride={ride} className="ride-hero-cover" described priority />
       <CityArt city={city} />
       <div className="ride-hero-body">
         <DatePlate date={ride.date} locale={locale} size="hero" />

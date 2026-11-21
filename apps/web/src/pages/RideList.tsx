@@ -10,7 +10,7 @@ import { useI18n } from '../i18n'
 import { useSession } from '../session'
 import { CreateRideLink, EmptyState, ErrorNotice, Field, Loading, Pagination, dateParts, dateRangeLabel } from '../ui'
 import { CityArt, DatePlate, goingLabel } from '../components/RideVisual'
-import { RideCoverImage } from '../components/RideCover'
+import { RideImage } from '../components/RideCover'
 import type { Ride, RidePage } from '../types'
 
 const personalViews = ['organizing', 'joined', 'pending', 'past'] as const
@@ -163,7 +163,7 @@ export function RideCard({ ride, featured = false }: { ride: Ride; featured?: bo
   const state = ride.participation_state
   const member = ride.can_manage || state === 'approved'
   return <Link to={`/rides/${ride.id}`} className={`ride-card${ride.status === 'cancelled' ? ' is-cancelled' : ''}`}>
-    <RideCoverImage ride={ride} className="ride-card-cover" priority={featured} />
+    <RideImage ride={ride} className="ride-card-cover" priority={featured} />
     <CityArt city={city} />
     <DatePlate date={ride.date} locale={locale} />
     <span className="ride-card-status">{ride.status === 'cancelled' && <span className="status-pill cancelled">{t('cancelled')}</span>}{ride.can_manage && <span className="status-pill">{t('organizer')}</span>}{state === 'requested' && <span className="status-pill pending"><ClockIcon size={13} />{t('requested')}</span>}{state === 'approved' && !ride.can_manage && <span className="status-pill approved"><Check size={13} weight="bold" />{t(goingLabel(ride))}</span>}</span>
