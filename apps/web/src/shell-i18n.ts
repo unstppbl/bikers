@@ -7,7 +7,7 @@ export const shellEn = {
   meEditProfile: 'Edit profile', meHubLabel: 'Your space and settings', backToMe: 'Back to your space',
   backToRide: 'Back to ride', backToClub: 'Back to club', backToBike: 'Back to motorcycle',
   ridesFeedText: 'Ask to join. The organizer shares the plan once you’re in.',
-  planAfterApproval: 'Plan after approval', allDates: 'Any date', rideCoverAlt: 'Ride in {city}',
+  planAfterApproval: 'Plan after approval', allDates: 'Any date', rideCoverAlt: 'Ride in {city}', cityPhotoAlt: 'Photo of {city}',
   planTitle: 'The plan', planLocked: 'Shared after approval', youAreGoing: 'You’re going',
 }
 
@@ -17,7 +17,7 @@ export const shellRu: Record<keyof typeof shellEn, string> = {
   meEditProfile: 'Изменить профиль', meHubLabel: 'Ваше пространство и настройки', backToMe: 'К вашему пространству',
   backToRide: 'К поездке', backToClub: 'К клубу', backToBike: 'К мотоциклу',
   ridesFeedText: 'Попроситесь в поездку. Организатор откроет план, когда вас одобрит.',
-  planAfterApproval: 'План после одобрения', allDates: 'Любая дата', rideCoverAlt: 'Поездка, {city}',
+  planAfterApproval: 'План после одобрения', allDates: 'Любая дата', rideCoverAlt: 'Поездка, {city}', cityPhotoAlt: 'Фото: {city}',
   planTitle: 'План', planLocked: 'Откроется после одобрения', youAreGoing: 'Вы едете',
 }
 
@@ -27,6 +27,6 @@ export const shellKk: Record<keyof typeof shellEn, string> = {
   meEditProfile: 'Профильді өзгерту', meHubLabel: 'Жеке кеңістік пен баптаулар', backToMe: 'Жеке кеңістікке оралу',
   backToRide: 'Сапарға оралу', backToClub: 'Клубқа оралу', backToBike: 'Мотоциклге оралу',
   ridesFeedText: 'Қосылуға сұраныс жіберіңіз. Ұйымдастырушы мақұлдаған соң жоспарды ашады.',
-  planAfterApproval: 'Жоспар мақұлданғаннан кейін', allDates: 'Кез келген күн', rideCoverAlt: 'Сапар, {city}',
+  planAfterApproval: 'Жоспар мақұлданғаннан кейін', allDates: 'Кез келген күн', rideCoverAlt: 'Сапар, {city}', cityPhotoAlt: '{city} қаласының суреті',
   planTitle: 'Жоспар', planLocked: 'Мақұлданғаннан кейін ашылады', youAreGoing: 'Сіз барасыз',
 }

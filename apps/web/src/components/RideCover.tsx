@@ -1,11 +1,16 @@
 import { useEffect, useId, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { GlobeIcon as Globe, ImageSquareIcon as ImagePlus, TrashIcon as Trash2, UploadSimpleIcon as Upload, XIcon as X } from '@phosphor-icons/react'
 import { ApiError, getSessionEpoch, request, uploadFile } from '../api'
+import { cityLabel } from '../cities'
+import { cityPhoto } from '../cityPhotos'
+import type { CityPhoto } from '../cityPhotos'
 import { useI18n } from '../i18n'
 import { useSession, useSessionGuard } from '../session'
 import { ErrorNotice, Loading, useConfirmation, useOnline } from '../ui'
 import type { Ride, RideCoverMetadata, RideCoverPhoto } from '../types'
+import { useCityOptions } from './CitySelector'
 import { LocalPhotoPreview, photoFileError } from './PhotoInput'
 import { CityArt } from './RideVisual'
 import { ReportButton } from './Trust'
@@ -27,16 +32,38 @@ export function safeRideCover(value: unknown, rideId: string, organizer: boolean
   return { image, ...(version === undefined ? {} : { version }) }
 }
 
-// Cards pass an empty alt because their text already names the ride. A cover that fails to load
-// (replaced in the meantime, or hidden by moderation) disappears, and the city art shows again.
-export function RideCoverImage({ ride, className, alt = '', priority = false }: { ride: Ride; className: string; alt?: string; priority?: boolean }) {
-  const photo = safeRideCoverPhoto(ride.cover, ride.id)
-  return photo ? <CoverImage key={photo.id} photo={photo} className={className} alt={alt} priority={priority} /> : null
+interface Picture { url: string; width: number; height: number; alt: string }
+interface PictureProps { pictures: readonly (Picture | null | undefined)[]; className: string; priority: boolean; fallback?: ReactNode; onFail?: (url: string) => void }
+
+// Shows the first picture that has not failed to load, or the fallback once all of them have failed.
+// Failures are tracked by URL, so a cover that fails moves on to the city photo. They belong to one subject
+// (the ride, and in the editor its stored cover) and one list of candidate URLs: when either changes, for
+// example on another ride or when a cover is uploaded, replaced, removed or comes back, every candidate is
+// tried again, even a city photo whose URL is unchanged.
+function FirstPicture({ subject, ...props }: PictureProps & { subject: readonly (string | undefined)[] }) {
+  return <Candidates key={JSON.stringify([...subject, ...props.pictures.map((picture) => picture?.url)])} {...props} />
 }
 
-function CoverImage({ photo, className, alt, priority, onFail }: { photo: RideCoverPhoto; className: string; alt: string; priority: boolean; onFail?: () => void }) {
-  const [failed, setFailed] = useState(false)
-  return failed ? null : <img className={className} src={photo.url} width={photo.width} height={photo.height} alt={alt} decoding="async" loading={priority ? undefined : 'lazy'} referrerPolicy="no-referrer" onError={() => { setFailed(true); onFail?.() }} />
+function Candidates({ pictures, className, priority, fallback = null, onFail }: PictureProps) {
+  const [failed, setFailed] = useState<readonly string[]>([])
+  const picture = pictures.find((candidate) => candidate && !failed.includes(candidate.url))
+  return picture ? <img key={picture.url} className={className} src={picture.url} width={picture.width} height={picture.height} alt={picture.alt} decoding="async" loading={priority ? undefined : 'lazy'} referrerPolicy="no-referrer" onError={() => { setFailed((current) => [...current, picture.url]); onFail?.(picture.url) }} /> : fallback
+}
+
+// A ride's picture: its visible cover, else a photo of its catalogue city, else nothing, so the city name
+// art beside it shows. A cover that fails to load (replaced in the meantime, or hidden by moderation) moves on
+// to the city photo, and a city photo that fails leaves the city name. Cards are decorative because their text
+// already names the ride; the ride page describes the picture, and never calls a city photo a photo of the ride.
+export function RideImage({ ride, className, described = false, priority = false }: { ride: Ride; className: string; described?: boolean; priority?: boolean }) {
+  const { t, locale } = useI18n()
+  const cities = useCityOptions().data?.cities ?? []
+  const city = cityLabel(ride.city, locale, cities)
+  const cover = safeRideCoverPhoto(ride.cover, ride.id)
+  const photo = cityPhoto(ride.city, ride.id, cities)
+  return <FirstPicture subject={[ride.id]} className={className} priority={priority} pictures={[
+    cover && { ...cover, alt: described ? t('rideCoverAlt', { city }) : '' },
+    photo && { ...photo, alt: described ? t('cityPhotoAlt', { city }) : '' },
+  ]} />
 }
 
 export function RideCoverReport({ ride }: { ride: Ride }) {
@@ -45,9 +72,10 @@ export function RideCoverReport({ ride }: { ride: Ride }) {
 }
 
 // The organizer's editor reads GET /cover, which also returns a cover hidden by moderation so it can be replaced or removed.
-export function RideCoverEditor({ ride, city }: { ride: Ride; city: string }) {
+export function RideCoverEditor({ ride }: { ride: Ride }) {
   const { user, loading, error } = useSession()
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
+  const cities = useCityOptions().data?.cities ?? []
   const organizer = !!user && !loading && !error && ride.can_manage === true && (!ride.organizer_id || ride.organizer_id === user.id)
   const editable = organizer && ride.status !== 'cancelled'
   const queryKey = ['ride-cover', ride.id, user?.id ?? 'guest']
@@ -64,12 +92,12 @@ export function RideCoverEditor({ ride, city }: { ride: Ride; city: string }) {
   if (query.isPending) return <Loading />
   if (query.isError) return <section className="surface ride-cover-editor"><ErrorNotice error={query.error} retry={() => void query.refetch()} /></section>
   if (query.data.version === undefined) return <section className="surface ride-cover-editor"><ErrorNotice text={t('noAccess')} retry={() => void query.refetch()} /></section>
-  return <CoverEditor key={`${ride.id}:${user.id}:${getSessionEpoch()}`} ride={ride} city={city} metadata={query.data} queryKey={queryKey} reload={() => query.refetch()} />
+  return <CoverEditor key={`${ride.id}:${user.id}:${getSessionEpoch()}`} ride={ride} city={cityLabel(ride.city, locale, cities)} photo={cityPhoto(ride.city, ride.id, cities)} metadata={query.data} queryKey={queryKey} reload={() => query.refetch()} />
 }
 
 const coverErrors: Record<string, 'rideCoverBusy' | 'rideCoverChanged' | 'rideCoverExpired'> = { ride_cover_busy: 'rideCoverBusy', stale_version: 'rideCoverChanged', invalid_photo_choice: 'rideCoverChanged', photo_upload_expired: 'rideCoverExpired' }
 
-function CoverEditor({ ride, city, metadata, queryKey, reload }: { ride: Ride; city: string; metadata: RideCoverMetadata; queryKey: string[]; reload: () => Promise<unknown> }) {
+function CoverEditor({ ride, city, photo, metadata, queryKey, reload }: { ride: Ride; city: string; photo: CityPhoto | undefined; metadata: RideCoverMetadata; queryKey: string[]; reload: () => Promise<unknown> }) {
   const { user } = useSession()
   const { t } = useI18n()
   const { confirm, dialog } = useConfirmation()
@@ -155,7 +183,7 @@ function CoverEditor({ ride, city, metadata, queryKey, reload }: { ride: Ride; c
   }
   async function remove() {
     const currentSession = captureSession()
-    if (!await confirm({ message: t('rideCoverRemoveConfirm'), action: t('rideCoverRemove'), destructive: true }) || !currentSession() || !currentOrganizer()) return
+    if (!await confirm({ message: t(photo ? 'rideCoverRemoveConfirmCityPhoto' : 'rideCoverRemoveConfirm', { city }), action: t('rideCoverRemove'), destructive: true }) || !currentSession() || !currentOrganizer()) return
     await operate('remove', (signal) => request(`/rides/${ride.id}/cover`, { method: 'DELETE', signal, body: JSON.stringify({ version: metadata.version }) }))
   }
   async function refresh() {
@@ -166,10 +194,15 @@ function CoverEditor({ ride, city, metadata, queryKey, reload }: { ride: Ride; c
   const image = metadata.image
   const shown = image && currentFailed !== image.id ? image : null
   const specificError = error instanceof ApiError ? coverErrors[error.code] : undefined
+  const note = image ? shown ? 'rideCoverReplacement' : 'rideCoverUnavailable' : photo ? 'rideCoverEmptyCityPhoto' : 'rideCoverEmpty'
+  // The current slot shows what the ride shows: the cover, else the city photo, else the city name.
   return <section ref={section} className="surface photo-upload-panel ride-cover-editor" aria-labelledby={`${inputId}-heading`}>{dialog}
     <div className="ride-cover-editor-heading">
-      <span className="ride-cover-current">{shown ? <CoverImage key={shown.id} photo={shown} className="ride-cover-current-image" alt={t('rideCoverCurrentAlt')} priority onFail={() => setCurrentFailed(shown.id)} /> : <CityArt city={city} />}</span>
-      <div><h2 id={`${inputId}-heading`}>{t('rideCover')}</h2><p>{t(!image ? 'rideCoverEmpty' : shown ? 'rideCoverReplacement' : 'rideCoverUnavailable')}</p></div>
+      <span className="ride-cover-current"><FirstPicture subject={[ride.id, image?.id]} className="ride-cover-current-image" priority fallback={<CityArt city={city} />} pictures={[
+        shown && { ...shown, alt: t('rideCoverCurrentAlt') },
+        photo && { ...photo, alt: t('cityPhotoAlt', { city }) },
+      ]} onFail={(url) => { if (shown && url === shown.url) setCurrentFailed(shown.id) }} /></span>
+      <div><h2 id={`${inputId}-heading`}>{t('rideCover')}</h2><p>{t(note, { city })}</p></div>
       {image && <button ref={removeButton} type="button" className="text-button danger-text" disabled={!!busy || !online} onClick={() => void remove()}><Trash2 size={15} />{t('rideCoverRemove')}</button>}
     </div>
     <div className="inline-note ride-cover-public-note"><Globe size={18} /><p>{t('rideCoverPublic')}</p></div>
