@@ -11,16 +11,13 @@
 .routes-tabs a { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 8px 16px; border-radius: 9px; color: var(--text-subtle); font: var(--type-button-sm); text-align: center; overflow-wrap: anywhere; }
 .routes-tabs a:hover { color: var(--text); }
 .routes-tabs a[aria-current="page"] { background: var(--surface-raised); color: var(--text); }
-.routes-filters { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto auto; grid-template-rows: auto auto auto; padding: 0; gap: 8px 12px; align-items: start; margin-bottom: 16px; border: 0; background: transparent; }
-.routes-filters > .field { display: grid; grid-template-rows: subgrid; grid-row: 1 / span 3; }
-.routes-filters > .field:first-child { grid-column: 1; }
-.routes-filters > .city-selector { grid-column: 2; }
-.routes-filters > button { grid-row: 2; }
+.routes-filters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; align-items: start; }
+.routes-filters > .field { display: grid; grid-template-rows: subgrid; grid-row: 1 / span 3; min-width: 0; }
 .routes-filters .field, .routes-inline-form .field { margin: 0; }
-.routes-filters input { padding-left: 18px; border-radius: var(--radius-pill); background: var(--surface); }
-.routes-filters > .button { min-height: 48px; border-radius: var(--radius-pill); }
-.routes-filters > .text-button { color: var(--text-muted); }
-.routes-filters > .text-button:hover { color: var(--text); }
+.routes-filters input, .routes-filters select { min-width: 0; border-radius: var(--radius-pill); background-color: var(--surface); }
+.routes-filter-actions { grid-column: 1 / -1; }
+.routes-filter-actions > .text-button { color: var(--text-muted); }
+.routes-filter-actions > .text-button:hover { color: var(--text); }
 .route-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .route-card, .route-panel { padding: 16px; min-width: 0; overflow-wrap: anywhere; }
 .route-card { display: flex; flex-direction: column; align-items: start; gap: 8px; padding: 20px 22px; border-radius: var(--radius-xl); }
@@ -29,6 +26,10 @@
 .route-card h2 a { display: inline-flex; align-items: center; min-height: 24px; }
 .route-panel h3 { font: var(--type-title-3); margin: 0; }
 .route-card p { margin: 0; }
+.route-card-summary { display: flex; width: 100%; gap: 12px; justify-content: space-between; align-items: start; }
+.route-card-summary > div { display: grid; gap: 4px; min-width: 0; }
+.route-thumbnail { flex: 0 0 clamp(64px, 16%, 92px); min-width: 0; aspect-ratio: 1; background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-md); }
+.route-thumbnail polyline { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .route-card-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font: var(--type-caption-2); color: var(--text-muted); }
 .route-card-top svg { color: var(--accent); }
 .route-card-description { font: var(--type-body-6); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
@@ -37,6 +38,15 @@
 .route-stats { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; font: var(--type-body-5); font-variant-numeric: tabular-nums; }
 .route-stats strong { font: var(--type-title-3); }
 .route-stats span { color: var(--text-muted); }
+.routes-heading .route-stats { margin-top: 8px; }
+.route-latest-report { font: var(--type-caption-2); color: var(--text-muted); }
+.route-latest-report p { margin-block: 4px; }
+.route-latest-report a, .route-latest-report strong { color: var(--text); }
+.route-latest-report a { display: inline-flex; align-items: center; min-height: 24px; text-decoration: underline; text-underline-offset: 3px; }
+.route-report-brief { display: grid; justify-items: start; gap: 4px; }
+.route-report-brief .route-description { font: var(--type-body-6); }
+.route-stops ol { padding-inline-start: 24px; margin: 8px 0 0; }
+[id="latest-road-report"], [id="save-route"], [id="route-conditions"] { scroll-margin-top: calc(var(--topbar-height) + 12px); }
 .routes-inline-form { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; padding: 16px; margin: 16px 0; }
 .routes-inline-form .field { flex: 1; min-width: min(100%, 160px); }
 .routes-stack { display: grid; gap: 16px; }
@@ -65,8 +75,6 @@
 .route-map-preview .map-canvas { height: 400px; min-height: 288px; }
 .route-map-preview .map-canvas-surface { height: auto; flex: 1; min-height: 0; }
 @media (max-width: 1200px) {
-  .routes-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .routes-filters > button { grid-row: 4; justify-self: start; }
   .route-detail-layout { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 760px) {
@@ -74,10 +82,9 @@
   .routes-heading > .route-actions, .collection-heading > .route-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; gap: 8px; }
   .routes-heading > .route-actions > .button, .collection-heading > .route-actions > .button { font: var(--type-button-sm); }
   .route-grid { grid-template-columns: minmax(0, 1fr); }
-  .routes-filters { grid-template-rows: none; gap: 12px; }
-  .routes-filters > .field { display: flex; grid-row: auto; }
-  .routes-filters > .field:first-child, .routes-filters > .city-selector { grid-column: 1 / -1; }
-  .routes-filters > button { grid-row: auto; max-width: 100%; white-space: normal; font: var(--type-button-sm); }
+  .routes-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .routes-filters > .field { display: flex; grid-row: auto; justify-content: end; height: 100%; }
+  .routes-filter-actions > button, .route-detail-actions > .button { white-space: normal; font: var(--type-button-sm); }
   .route-card, .route-panel, .route-form, .route-recorder { padding: 16px; }
   .route-card { padding: 18px; }
   .route-actions > .button { max-width: 100%; white-space: normal; text-align: center; }
@@ -86,7 +93,7 @@
   .route-map-preview .map-canvas { height: 320px; }
 }
 @media (pointer: coarse) {
-  .route-card h2 a { min-height: 44px; }
+  .route-card h2 a, .route-latest-report a { min-height: 44px; }
 }
 @media (max-width: 390px) {
   .route-actions { gap: 8px; }

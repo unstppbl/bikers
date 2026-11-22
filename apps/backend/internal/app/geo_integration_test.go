@@ -14,6 +14,7 @@ func TestPrivateRideMapsAndAuthenticatedGeoAPIs(t *testing.T) {
 	f := newFixture(t)
 	var routeCalls atomic.Int32
 	var unavailable atomic.Bool
+	var changedLine atomic.Bool
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if unavailable.Load() {
@@ -30,6 +31,10 @@ func TestPrivateRideMapsAndAuthenticatedGeoAPIs(t *testing.T) {
 			if err := json.NewDecoder(r.Body).Decode(&request); err != nil || request["costing"] != "motorcycle" || request["shape_format"] != "geojson" || request["format"] != "osrm" {
 				t.Error("incorrect fixed routing request", err)
 				w.WriteHeader(500)
+				return
+			}
+			if changedLine.Load() {
+				_, _ = w.Write([]byte(`{"code":"Ok","routes":[{"distance":1500,"duration":180,"geometry":{"type":"LineString","coordinates":[[76.89,43.24],[76.9,43.255],[76.91,43.25]]}}]}`))
 				return
 			}
 			_, _ = w.Write([]byte(`{"code":"Ok","routes":[{"distance":1500,"duration":180,"geometry":{"type":"LineString","coordinates":[[76.89,43.24],[76.91,43.25]]}}]}`))
@@ -107,8 +112,32 @@ func TestPrivateRideMapsAndAuthenticatedGeoAPIs(t *testing.T) {
 	if route.body["plan"].(map[string]any)["distance_meters"] != float64(1500) {
 		t.Fatal("route did not return meter summary", route.raw)
 	}
-	created := f.request("POST", "/api/v1/rides", map[string]any{"city": "Almaty", "description": "Public ride preview", "title": "Private map ride", "starts_at": "2026-11-07T10:00:00Z", "timezone": "Asia/Almaty", "capacity": 5, "map_points": points}, owner)
+	digest, ok := route.body["preview_digest"].(string)
+	if !ok || len(digest) != 64 || route.body["plan"].(map[string]any)["preview_digest"] != nil {
+		t.Fatal("route preview did not return a separate geometry digest", route.raw)
+	}
+	rideInput := map[string]any{"city": "Almaty", "description": "Public ride preview", "title": "Private map ride", "starts_at": "2026-11-07T10:00:00Z", "timezone": "Asia/Almaty", "capacity": 5, "map_points": points, "expected_map_digest": "not-a-digest"}
+	expect(t, f.request("POST", "/api/v1/rides", rideInput, owner), 422)
+	if routeCalls.Load() != 1 {
+		t.Fatal("malformed preview digest reached route provider")
+	}
+	rideInput["expected_map_digest"] = digest
+	changedLine.Store(true)
+	changed := f.request("POST", "/api/v1/rides", rideInput, owner)
+	expect(t, changed, 409)
+	if !strings.Contains(changed.raw, `"route_preview_changed"`) {
+		t.Fatal("preview mismatch did not return a distinct problem code", changed.raw)
+	}
+	var savedCount int
+	if err := f.db.QueryRow(context.Background(), "SELECT count(*) FROM rides").Scan(&savedCount); err != nil || savedCount != 0 {
+		t.Fatal("a different route was published after preview confirmation", savedCount, err)
+	}
+	changedLine.Store(false)
+	created := f.request("POST", "/api/v1/rides", rideInput, owner)
 	expect(t, created, 201)
+	if strings.Contains(created.raw, digest) {
+		t.Fatal("preview digest persisted in the ride response", created.raw)
+	}
 	ride := created.body["ride"].(map[string]any)
 	id := ride["id"].(string)
 	if ride["meeting_point"] != "PRIVATE MAP START" || ride["destination"] != "PRIVATE MAP FINISH" || ride["map_plan"] == nil {
@@ -137,15 +166,15 @@ func TestPrivateRideMapsAndAuthenticatedGeoAPIs(t *testing.T) {
 		t.Fatal("approved participant missing map")
 	}
 	expect(t, f.request("PATCH", "/api/v1/rides/"+id, map[string]any{"plan_version": 1, "map_points": points}, guest), 403)
-	if routeCalls.Load() != 2 {
+	if routeCalls.Load() != 3 {
 		t.Fatal("unauthorized edit reached route provider")
 	}
 	expect(t, f.request("PATCH", "/api/v1/rides/"+id, map[string]any{"plan_version": 1, "title": "Edited title"}, owner), 200)
-	if routeCalls.Load() != 2 {
+	if routeCalls.Load() != 3 {
 		t.Fatal("unrelated edit recomputed route")
 	}
 	expect(t, f.request("PATCH", "/api/v1/rides/"+id, map[string]any{"plan_version": 1, "map_points": points}, owner), 409)
-	if routeCalls.Load() != 2 {
+	if routeCalls.Load() != 3 {
 		t.Fatal("stale edit reached route provider")
 	}
 	expect(t, f.request("POST", "/api/v1/geo/route", map[string]any{"points": points, "geometry": map[string]any{}}, owner), 400)

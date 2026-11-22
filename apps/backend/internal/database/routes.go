@@ -10,7 +10,8 @@ import (
 type RouteQuery struct {
 	ViewerID, Scope, Search, CollectionID, AfterID string
 	CityAliases                                    []string
-	Limit                                          int
+	Surface                                        string
+	Limit, MaxDurationSeconds                      int
 }
 
 type RoutePrivateQuery struct {
@@ -39,7 +40,7 @@ type RoutesRepository interface {
 type RouteTransaction interface {
 	Account(string) (RouteAccount, error)
 	Blocked(string, string) (bool, error)
-	Routes(RouteQuery) ([]models.CommunityRouteSummary, error)
+	Routes(RouteQuery, time.Time) ([]models.CommunityRouteSummary, error)
 	Route(string) (models.CommunityRoute, error)
 	RouteCount(string) (int, error)
 	SaveRoute(models.CommunityRoute) error
@@ -58,6 +59,7 @@ type RouteTransaction interface {
 	CollectionSize(string) (int, error)
 	SetCollectionRoute(string, string, bool, time.Time) error
 	Conditions(RouteConditionQuery) ([]models.RouteCondition, error)
+	LatestRouteCondition(routeID, viewerID string, since time.Time) (*models.RouteConditionSummary, error)
 	Condition(string) (models.RouteCondition, error)
 	ConditionCount(string, time.Time) (int, error)
 	RecordConditionCreation(string, time.Time) error

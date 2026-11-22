@@ -284,7 +284,7 @@ func failure(w http.ResponseWriter, err error) {
 		status = 403
 	case "not_found", "report_content_unavailable":
 		status = 404
-	case "route_limited", "track_limited", "collection_limited":
+	case "route_limited", "track_limited", "collection_limited", "route_preview_changed":
 		status = 409
 	case "profile_required", "ride_cancelled", "ride_unavailable", "stale_plan", "capacity_too_small", "organizer_cannot_leave", "participation_changed", "ride_full", "message_id_conflict", "stale_version", "club_closed", "owner_transfer_required", "membership_changed", "invalid_owner", "photo_limit", "photo_storage_limit", "photo_upload_expired", "club_image_busy", "ride_cover_busy", "avatar_upload_busy", "album_photo_limit", "album_video_limit", "block_limit", "action_id_conflict", "announcement_id_conflict", "user_blocked", "push_subscription_limit", "push_subscription_in_use":
 		status = 409

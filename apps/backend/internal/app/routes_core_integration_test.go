@@ -103,7 +103,7 @@ func TestCommunityRouteRecordedSnapshotAndPrivateCollections(t *testing.T) {
 		t.Fatal(page, err)
 	}
 	b, _ = json.Marshal(page)
-	for _, field := range []string{"segments", "points", "track_id"} {
+	for _, field := range []string{`"segments"`, `"points"`, `"track_id"`, "76.89"} {
 		if strings.Contains(string(b), field) {
 			t.Fatal("public summary exposed geometry", string(b))
 		}

@@ -18,7 +18,7 @@ vi.mock('../components/maps/MapCanvas', () => ({ default: ({ segments }: { segme
 const rider: User = { id: 'rider-a', profile: { display_name: 'Rider A', city: 'Almaty', languages: ['en'], interests: '', locale: 'en' }, onboarding_complete: true }
 const nextRider: User = { ...rider, id: 'rider-b' }
 const segments: [number, number][][] = [[[76.95, 43.25], [76.951, 43.25]], [[76.96, 43.26], [76.961, 43.26]]]
-const route: CommunityRoute = { id: 'route-a', owner_id: rider.id, owner_name: 'Rider A', title: 'Foothill loop', city: 'Almaty', description: 'Two roads with a pause between them.', surface: 'asphalt', kind: 'recorded', published: true, version: 1, created_at: '2026-11-11T06:00:00Z', updated_at: '2026-11-11T06:00:00Z', distance_meters: 163, duration_seconds: 120, points: [], segments }
+const route: CommunityRoute = { id: 'route-a', owner_id: rider.id, owner_name: 'Rider A', title: 'Foothill loop', city: 'Almaty', description: 'Two roads with a pause between them.', surface: 'asphalt', kind: 'recorded', published: true, publicly_visible: true, version: 1, created_at: '2026-11-11T06:00:00Z', updated_at: '2026-11-11T06:00:00Z', distance_meters: 163, duration_seconds: 120, points: [], segments }
 const track: RecordedTrack = { id: 'track-a', name: 'My private recording', segments, distance_meters: 163, duration_seconds: 120, version: 1, created_at: route.created_at }
 const response = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json' } })
 const pathname = (value: string) => new URL(value, 'https://bikers.kz').pathname
@@ -69,10 +69,83 @@ describe('community routes', () => {
     expect(routeCity).toHaveAttribute('aria-invalid', 'true')
     fireEvent.change(screen.getByRole('searchbox', { name: 'Search routes' }), { target: { value: ' Gravel ' } })
     fireEvent.change(screen.getByRole('combobox', { name: 'Route city' }), { target: { value: 'Astana' } })
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Riding time' }), '7200')
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Surface' }), 'unpaved')
     await userEvent.click(screen.getByRole('button', { name: 'Apply filters' }))
-    await waitFor(() => expect(fetch.mock.calls.some(([url]) => new URL(url, 'https://bikers.kz').searchParams.get('q') === 'Gravel')).toBe(true))
-    expect(screen.getByTestId('location')).toHaveTextContent('q=Gravel&city=Astana')
+    await waitFor(() => expect(fetch.mock.calls.some(([url]) => url.includes('q=Gravel&city=Astana&surface=unpaved&max_duration_seconds=7200'))).toBe(true))
+    expect(screen.getByTestId('location')).toHaveTextContent('q=Gravel&city=Astana&surface=unpaved&max_duration_seconds=7200')
     expect(fetch.mock.calls.every(([url]) => !/\/tracks\b|\/route-collections\b/.test(url))).toBe(true)
+  })
+
+  it('switches between Places and Routes with either a custom or canonical city', async () => {
+    const fetch = vi.fn(async (url: string) => {
+      if (url.endsWith('/session')) return response({ user: null })
+      if (url.endsWith('/places/config')) return response({ enabled: false, archive_url: '' })
+      if (url.endsWith('/cities')) return response({ cities: [{ value: 'Astana', names: { en: 'Astana', ru: 'Астана', kk: 'Астана' }, aliases: ['Nur-Sultan'] }] })
+      if (pathname(url) === '/api/v1/places') return response({ places: [], next_cursor: '' })
+      if (pathname(url) === '/api/v1/routes') return response({ routes: [], next_cursor: '' })
+      throw new Error(url)
+    })
+    vi.stubGlobal('fetch', fetch)
+    mount('/places?city=Custom+village&category=fuel', true)
+    function switcher() { return within(screen.getByRole('navigation', { name: 'Explore the map' })) }
+    await screen.findByRole('navigation', { name: 'Explore the map' })
+    await userEvent.click(switcher().getByRole('link', { name: 'Routes' }))
+    const city = await screen.findByRole('combobox', { name: 'Route city' })
+    expect(city).toHaveValue('Custom village')
+    expect(screen.getByTestId('location')).toHaveTextContent(/^\/routes\?city=Custom\+village$/)
+    expect(switcher().getByRole('link', { name: 'Routes' })).toHaveAttribute('aria-current', 'page')
+    fireEvent.change(city, { target: { value: 'Nur-Sultan' } })
+    await userEvent.click(screen.getByRole('button', { name: 'Apply filters' }))
+    await userEvent.click(switcher().getByRole('link', { name: 'Places' }))
+    expect(screen.getByTestId('location')).toHaveTextContent(/^\/places\?city=Astana$/)
+    await screen.findByRole('navigation', { name: 'Explore the map' })
+    expect(switcher().getByRole('link', { name: 'Places' })).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('opens the bounded card report and shows independent public route actions', async () => {
+    const observed = new Date(Date.now() - 86400000)
+    const expiry = new Date(Date.now() + 86400000)
+    const latest = { id: 'latest-report', kind: 'gravel', observed_at: observed.toISOString(), expires_at: expiry.toISOString(), author_name: 'Dana' }
+    const planned = { ...route, kind: 'planned', points: [{ lon: 76.95, lat: 43.25, label: 'Public start' }, { lon: 76.97, lat: 43.26, label: 'Rest stop' }, { lon: 76.98, lat: 43.31, label: 'Finish' }] }
+    const fetch = vi.fn(async (url: string) => {
+      if (url.endsWith('/session')) return response({ user: rider, csrf_token: 'csrf-a' })
+      if (pathname(url) === '/api/v1/routes') return response({ routes: [{ ...planned, preview_segments: [[[0.1, 0.2], [0.2, 0.3]], [[0.4, 0.5], [0.6, 0.1]]], latest_condition: latest }], next_cursor: '' })
+      if (url.endsWith('/routes/route-a')) return response({ route: { ...planned, latest_condition: { ...latest, description: 'Loose gravel by the public rest stop.' } } })
+      if (url.includes('/conditions')) return response({ conditions: [], next_cursor: '' })
+      if (url.includes('/route-collections')) return response({ collections: [], next_cursor: '' })
+      const extra = ancillary(url); if (extra) return extra
+      throw new Error(url)
+    })
+    vi.stubGlobal('fetch', fetch)
+    mount('/routes')
+    const report = await screen.findByRole('link', { name: 'Loose gravel' })
+    const card = report.closest('article')
+    expect(card?.querySelectorAll('.route-thumbnail polyline')).toHaveLength(2)
+    expect(card?.querySelector('time')).toHaveAttribute('datetime', latest.observed_at)
+    expect(fetch.mock.calls.every(([url]) => !/\/routes\/route-a/.test(url))).toBe(true)
+    await userEvent.click(report)
+    const latestReport = await screen.findByRole('region', { name: 'Latest road report' })
+    expect(latestReport).toHaveFocus()
+    expect(latestReport).toHaveTextContent('Loose gravel by the public rest stop.')
+    expect(screen.getByRole('link', { name: 'Create ride from route' })).toHaveAttribute('href', '/rides/new?route=route-a')
+    expect(screen.getByRole('link', { name: 'Navigate to start' })).toHaveAttribute('href', expect.stringContaining('destination=43.25%2C76.95'))
+    expect(screen.getByRole('link', { name: 'Download GPX' })).toHaveAttribute('href', '/api/v1/routes/route-a/gpx')
+    expect(screen.getByText('Rest stop')).toBeInTheDocument()
+  })
+
+  it('keeps an owner’s moderated route editable without public route actions', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url.endsWith('/session')) return response({ user: rider, csrf_token: 'csrf-a' })
+      if (url.endsWith('/routes/hidden')) return response({ route: { ...route, id: 'hidden', kind: 'planned', publicly_visible: false } })
+      const extra = ancillary(url); if (extra) return extra
+      throw new Error(url)
+    }))
+    mount('/routes/hidden')
+    await screen.findByText(/Unavailable to the community/)
+    expect(screen.getByRole('link', { name: 'Edit route' })).toBeInTheDocument()
+    for (const name of ['Create ride from route', 'Navigate to start', 'Download GPX', 'Save to collection']) expect(screen.queryByRole('link', { name })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Copy link' })).not.toBeInTheDocument()
   })
 
   it('requires fresh publication consent and previews a separate private track before creating a route', async () => {
@@ -139,7 +212,7 @@ describe('community routes', () => {
     await waitFor(() => expect(writes).toEqual(['{"version":1}']))
   })
 
-  it.each([['ru', 'Маршруты', 'Маршруты'], ['kk', 'Бағыттар', 'Бағыттар']])('localizes the route hub and navigation in %s', async (locale, nav, heading) => {
+  it.each([['ru', 'Маршруты', 'Основная навигация', 'Обзор карты'], ['kk', 'Бағыттар', 'Негізгі навигация', 'Картаны шолу']])('localizes the route hub and navigation in %s', async (locale, label, mainNav, mapNav) => {
     localStorage.setItem('bikerskz.locale', locale)
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
       if (url.endsWith('/session')) return response({ user: null })
@@ -148,8 +221,8 @@ describe('community routes', () => {
       throw new Error(url)
     }))
     mount('/routes', true)
-    await screen.findByRole('heading', { name: heading })
-    expect(screen.getByRole('link', { name: nav })).toHaveAttribute('aria-current', 'page')
+    await screen.findByRole('heading', { name: label })
+    for (const nav of [mainNav, mapNav]) expect(within(screen.getByRole('navigation', { name: nav })).getByRole('link', { name: label })).toHaveAttribute('aria-current', 'page')
   })
 })
 

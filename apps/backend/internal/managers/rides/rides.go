@@ -4,6 +4,8 @@ package rides
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"net/url"
 	"reflect"
@@ -114,9 +116,20 @@ func (m *Manager) Create(ctx context.Context, actor models.User, input models.Ri
 	if err != nil {
 		return models.Ride{}, err
 	}
+	if expected := input.ExpectedMapDigest; expected != "" {
+		if len(expected) != sha256.Size*2 || len(input.MapPoints) < 2 {
+			return models.Ride{}, invalidRide()
+		}
+		if _, err := hex.DecodeString(expected); err != nil || expected != strings.ToLower(expected) {
+			return models.Ride{}, invalidRide()
+		}
+	}
 	plan, err := m.plan(ctx, actor, input.MapPoints)
 	if err != nil {
 		return models.Ride{}, err
+	}
+	if input.ExpectedMapDigest != "" && plan.PreviewDigest() != input.ExpectedMapDigest {
+		return models.Ride{}, models.Fail("route_preview_changed", "The calculated route changed. Calculate it again before publishing")
 	}
 	ride := models.Ride{
 		RideSummary: models.RideSummary{ID: uuid.NewString(), City: input.City, Description: input.Description, Status: "published"},

@@ -31,6 +31,10 @@
   min-height: 440px;
 }
 
+.ride-hero.is-ride-room {
+  min-height: 260px;
+}
+
 .ride-hero-cover {
   position: absolute;
   inset: 0;
@@ -126,6 +130,18 @@
   color: var(--text);
 }
 
+.ride-meeting-action {
+  align-self: flex-start;
+  min-height: 44px;
+  padding-inline: 14px;
+  white-space: normal;
+  text-align: left;
+}
+
+.ride-meeting-action svg {
+  flex-shrink: 0;
+}
+
 .ride-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -134,10 +150,32 @@
   margin: 16px 0 28px;
 }
 
-.ride-toolbar .share-link {
+.ride-share[open] {
+  flex-basis: 100%;
+}
+
+.ride-share > summary {
+  list-style: none;
+}
+
+.ride-share > summary::-webkit-details-marker {
+  display: none;
+}
+
+.ride-share-options, .ride-toolbar .share-link {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  min-width: 0;
+}
+
+.ride-share-options {
+  margin-top: 8px;
+}
+
+.ride-toolbar .share-link .field {
+  min-width: 0;
 }
 
 .ride-toolbar .button {
@@ -315,6 +353,29 @@
   font: var(--type-button-sm);
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+
+.roadbook-stops {
+  min-width: 0;
+}
+
+.roadbook-stops summary {
+  min-height: 44px;
+  align-content: center;
+  color: var(--accent);
+  font: var(--type-button-sm);
+  cursor: pointer;
+}
+
+.roadbook-stops ol {
+  padding-inline-start: 20px;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.announcement-latest {
+  font: var(--type-heading-6);
+  margin-bottom: 12px;
 }
 
 .roadbook-locked {
@@ -499,6 +560,10 @@
 
   .ride-hero:has(.ride-hero-cover) {
     min-height: 340px;
+  }
+
+  .ride-hero.is-ride-room {
+    min-height: 216px;
   }
 
   .date-plate-hero {

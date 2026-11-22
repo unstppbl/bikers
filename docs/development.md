@@ -150,8 +150,9 @@ The `/routes` UI covers public discovery, the owner's routes, private collection
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| GET / POST | `/routes` | Discover/create a route; `scope=public|mine`, `q`, `city`, `collection`, `after`, `limit` |
-| GET / PUT / DELETE | `/routes/{id}` | Read an authorized route, replace owner-editable metadata/plan, or delete with `version` |
+| GET / POST | `/routes` | Discover/create a route; `scope=public|mine`, `q`, `city`, `surface`, `max_duration_seconds`, `collection`, `after`, `limit` |
+| GET / PUT / DELETE | `/routes/{id}` | Read an authorized route, replace owner-editable metadata/plan, or delete with `version`. `scope=public` requires public availability on read. |
+| GET | `/routes/{id}/gpx` | Download the published, visible route geometry as GPX with its segment boundaries preserved |
 | GET / POST | `/route-collections` | List or create private named collections |
 | PUT / DELETE | `/route-collections/{id}` | Rename with `{name,version}` or delete with `{version}` |
 | PUT / DELETE | `/route-collections/{id}/routes/{routeID}` | Save/remove an available route in an owned collection |
@@ -162,7 +163,9 @@ The `/routes` UI covers public discovery, the owner's routes, private collection
 
 List pages default to 20 rows and accept at most 100. Opaque `after` cursors bind the actor, query, page size and relevant route/collection. Changing those inputs requires restarting pagination. Track lists omit segment payloads; fetch a single track for its private map preview. Unavailable routes are filtered from collections, including routes later made private, hidden or deleted.
 
-Route input is `{title,city,description,surface,map_points,track_id,published,publish_consent,version}`. Surface is `asphalt|mixed|unpaved|unknown`. A new planned route uses two to ten existing `MapPoint` values; the server computes geometry through the configured motorcycle router. A recorded route instead uses an owned `track_id`, copying its segments without exposing that ID. Updating recorded metadata retains the snapshot. Public route creation, private-to-public transitions and changes to public geometry require `publish_consent:true`. Route detail includes `kind`, confirmed `points`, longitude/latitude `segments`, server-computed distance and duration. Public list summaries omit points/segments. Private ride plans remain separate.
+Route input is `{title,city,description,surface,map_points,track_id,published,publish_consent,version}`. Surface is `asphalt|mixed|unpaved|unknown`. A new planned route uses two to ten existing `MapPoint` values. The server computes geometry through the configured motorcycle router. A recorded route instead uses an owned `track_id`, copying its segments without exposing that ID. Updating recorded metadata retains the snapshot. Public route creation, private-to-public transitions and changes to public geometry require `publish_consent:true`. Route detail includes `kind`, confirmed `points`, longitude/latitude `segments`, server-computed distance and duration, and `publicly_visible`. Public list summaries include bounded relative thumbnail coordinates when available. Public discovery and visible route detail can include the latest authorized, unresolved and unexpired observation. Riding time filters exclude routes with unknown duration. Private ride plans remain separate.
+
+The New ride form can copy points from a published planned route. `POST /geo/route` returns a `preview_digest` for the calculated geometry. When `POST /rides` supplies it as `expected_map_digest`, the server checks the recalculated line before creating the ride. A change returns `409 route_preview_changed` so the organizer can preview it again. No digest or source-route link is stored with the ride.
 
 Recording input is `{name,segments,duration_seconds}`. Segments contain `[longitude,latitude]` pairs within the configured Kazakhstan regional envelope. The server validates at most 20,000 points, 1,000 segments and seven days of duration, and computes distance only within each segment. The JSON body is limited to 2 MiB; other JSON mutations retain the 64 KiB limit. No device IDs, per-point timestamps or sensor metadata are saved. Owners may retain up to 100 tracks, 100 routes and 50 collections; a collection accepts up to 200 routes.
 

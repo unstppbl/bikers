@@ -12,6 +12,7 @@ func (s *Server) communityRouteEndpoints(m *http.ServeMux) {
 	m.HandleFunc("GET /api/v1/routes", s.communityRoutes)
 	m.HandleFunc("POST /api/v1/routes", s.createCommunityRoute)
 	m.HandleFunc("GET /api/v1/routes/{routeID}", s.communityRoute)
+	m.HandleFunc("GET /api/v1/routes/{routeID}/gpx", s.communityRouteGPX)
 	m.HandleFunc("PUT /api/v1/routes/{routeID}", s.updateCommunityRoute)
 	m.HandleFunc("DELETE /api/v1/routes/{routeID}", s.deleteCommunityRoute)
 	m.HandleFunc("GET /api/v1/route-collections", s.routeCollections)
@@ -77,7 +78,19 @@ func (s *Server) communityRoutes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	q := r.URL.Query()
-	out, err := s.managers.Routes.List(r.Context(), actor, routes.ListInput{Scope: q.Get("scope"), Search: q.Get("q"), City: q.Get("city"), After: q.Get("after"), CollectionID: q.Get("collection"), Limit: limit})
+	var maxDuration int
+	if q.Has("max_duration_seconds") {
+		var err error
+		maxDuration, err = strconv.Atoi(q.Get("max_duration_seconds"))
+		if err != nil || maxDuration < 1 || maxDuration > models.MaxRouteDurationSeconds {
+			failure(w, models.Fail("invalid_query", "Choose a valid riding time"))
+			return
+		}
+	}
+	out, err := s.managers.Routes.List(r.Context(), actor, routes.ListInput{
+		Scope: q.Get("scope"), Search: q.Get("q"), City: q.Get("city"), After: q.Get("after"),
+		CollectionID: q.Get("collection"), Limit: limit, Surface: q.Get("surface"), MaxDurationSeconds: maxDuration,
+	})
 	routeReply(w, 200, "", out, err)
 }
 
@@ -86,7 +99,11 @@ func (s *Server) communityRoute(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	out, err := s.managers.Routes.View(r.Context(), actor, r.PathValue("routeID"))
+	view := s.managers.Routes.View
+	if r.URL.Query().Get("scope") == "public" {
+		view = s.managers.Routes.ViewPublic
+	}
+	out, err := view(r.Context(), actor, r.PathValue("routeID"))
 	routeReply(w, 200, "route", out, err)
 }
 
