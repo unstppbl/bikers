@@ -2,7 +2,7 @@
 // backToMe leads back to the Me page from the pages reached from it; back ("Back to rides") is for links to the rides feed.
 // An edit form leads back to the page it edits: backToRide, backToClub and backToBike.
 export const shellEn = {
-  navMain: 'Main navigation', navTabs: 'Sections', tabMe: 'Me', newRideShort: 'New ride', newRideLabel: 'New ride',
+  navMain: 'Main navigation', navTabs: 'Sections', tabMe: 'Me', tabGarage: 'Garage', newRideShort: 'New ride', newRideLabel: 'New ride',
   meGuestTitle: 'Your space', meGuestText: 'Sign in with Telegram to join rides, keep a garage and follow your clubs.',
   meEditProfile: 'Edit profile', meHubLabel: 'Your space and settings', backToMe: 'Back to your space',
   backToRide: 'Back to ride', backToClub: 'Back to club', backToBike: 'Back to motorcycle',
@@ -12,7 +12,7 @@ export const shellEn = {
 }
 
 export const shellRu: Record<keyof typeof shellEn, string> = {
-  navMain: 'Основная навигация', navTabs: 'Разделы', tabMe: 'Я', newRideShort: 'Создать', newRideLabel: 'Создать поездку',
+  navMain: 'Основная навигация', navTabs: 'Разделы', tabMe: 'Я', tabGarage: 'Гараж', newRideShort: 'Создать', newRideLabel: 'Создать поездку',
   meGuestTitle: 'Ваше пространство', meGuestText: 'Войдите через Telegram, чтобы присоединяться к поездкам, вести гараж и следить за клубами.',
   meEditProfile: 'Изменить профиль', meHubLabel: 'Ваше пространство и настройки', backToMe: 'К вашему пространству',
   backToRide: 'К поездке', backToClub: 'К клубу', backToBike: 'К мотоциклу',
@@ -22,7 +22,7 @@ export const shellRu: Record<keyof typeof shellEn, string> = {
 }
 
 export const shellKk: Record<keyof typeof shellEn, string> = {
-  navMain: 'Негізгі навигация', navTabs: 'Бөлімдер', tabMe: 'Мен', newRideShort: 'Құру', newRideLabel: 'Сапар құру',
+  navMain: 'Негізгі навигация', navTabs: 'Бөлімдер', tabMe: 'Мен', tabGarage: 'Гараж', newRideShort: 'Құру', newRideLabel: 'Сапар құру',
   meGuestTitle: 'Жеке кеңістік', meGuestText: 'Сапарларға қосылу, гараж жүргізу және клубтарды бақылау үшін Telegram арқылы кіріңіз.',
   meEditProfile: 'Профильді өзгерту', meHubLabel: 'Жеке кеңістік пен баптаулар', backToMe: 'Жеке кеңістікке оралу',
   backToRide: 'Сапарға оралу', backToClub: 'Клубқа оралу', backToBike: 'Мотоциклге оралу',

@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { MapTrifoldIcon, RoadHorizonIcon, UserCircleIcon, UsersThreeIcon } from '@phosphor-icons/react'
+import { MapTrifoldIcon, RoadHorizonIcon, UserCircleIcon, UsersThreeIcon, WrenchIcon } from '@phosphor-icons/react'
 import type { Icon } from '@phosphor-icons/react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter, useLocation, useNavigate } from 'react-router-dom'
@@ -94,7 +94,7 @@ function expectCurrent(nav: HTMLElement, name?: string) {
   expect(within(nav).queryAllByRole('link', { current: 'page' })).toEqual(name ? [within(nav).getByRole('link', { name })] : [])
 }
 // Phosphor draws each weight with its own paths, so a tab's drawing shows whether its icon is filled.
-const tabIcons: [name: string, icon: Icon][] = [['Rides', RoadHorizonIcon], ['Map', MapTrifoldIcon], ['Clubs', UsersThreeIcon], ['Me', UserCircleIcon]]
+const tabIcons: [name: string, icon: Icon][] = [['Rides', RoadHorizonIcon], ['Map', MapTrifoldIcon], ['Clubs', UsersThreeIcon], ['My garage', WrenchIcon], ['Me', UserCircleIcon]]
 function drawing(markup: string) {
   const template = document.createElement('template')
   template.innerHTML = markup
@@ -111,18 +111,19 @@ const hasUnreadDot = (meTab: HTMLElement) => meTab.querySelector('.tab-dot') !==
 
 describe('application navigation', () => {
   it.each([
-    ['en', ['Main navigation', 'Sections'], ['Rides', 'Map', 'Routes', 'Clubs', 'Motorcycles'], ['New ride', 'New ride', 'Me']],
-    ['ru', ['Основная навигация', 'Разделы'], ['Поездки', 'Карта', 'Маршруты', 'Клубы', 'Мотоциклы'], ['Создать поездку', 'Создать', 'Я']],
-    ['kk', ['Негізгі навигация', 'Бөлімдер'], ['Сапарлар', 'Карта', 'Бағыттар', 'Клубтар', 'Мотоциклдер'], ['Сапар құру', 'Құру', 'Мен']],
-  ])('lists the localized sections in the top bar and the phone tab bar (%s)', async (locale, [mainLabel, tabsLabel], [rides, map, routes, clubs, bikes], [createName, createText, me]) => {
+    ['en', ['Main navigation', 'Sections'], ['Rides', 'Map', 'Routes', 'Clubs', 'Motorcycles', 'My garage'], ['New ride', 'New ride', 'Me', 'Garage']],
+    ['ru', ['Основная навигация', 'Разделы'], ['Поездки', 'Карта', 'Маршруты', 'Клубы', 'Мотоциклы', 'Мой гараж'], ['Создать поездку', 'Создать', 'Я', 'Гараж']],
+    ['kk', ['Негізгі навигация', 'Бөлімдер'], ['Сапарлар', 'Карта', 'Бағыттар', 'Клубтар', 'Мотоциклдер', 'Менің гаражым'], ['Сапар құру', 'Құру', 'Мен', 'Гараж']],
+  ])('lists the localized sections in the top bar and the phone tab bar (%s)', async (locale, [mainLabel, tabsLabel], [rides, map, routes, clubs, bikes, garage], [createName, createText, me, garageText]) => {
     localStorage.setItem('bikerskz.locale', locale)
     vi.stubGlobal('fetch', vi.fn(navigationReads))
     mount()
     await screen.findByRole('heading', { level: 1, name: rides })
     const primary = primaryNav(mainLabel)
     const tabs = tabBar(tabsLabel)
-    expectLinks(primary, [[rides, '/'], [map, '/places'], [routes, '/routes'], [clubs, '/clubs'], [bikes, '/bikes']])
-    expectLinks(tabs, [[rides, '/'], [map, '/places'], [createName, '/rides/new'], [clubs, '/clubs'], [me, '/me']])
+    expectLinks(primary, [[rides, '/'], [map, '/places'], [routes, '/routes'], [clubs, '/clubs'], [bikes, '/bikes'], [garage, '/garage']])
+    expectLinks(tabs, [[rides, '/'], [map, '/places'], [createName, '/rides/new'], [clubs, '/clubs'], [garage, '/garage'], [me, '/me']])
+    expect(within(tabs).getByRole('link', { name: garage })).toHaveTextContent(garageText)
     expectCurrent(primary, rides)
     expectCurrent(tabs, rides)
     // Both create buttons show a short label. Their accessible name contains it, so speech users can say what they see.
@@ -139,7 +140,7 @@ describe('application navigation', () => {
     ['/routes', 'Routes', 'Routes', 'Map'],
     ['/clubs', 'Clubs', 'Clubs', 'Clubs'],
     ['/me', 'Test Rider', undefined, 'Me'],
-    ['/garage', 'My garage', undefined, 'Me'],
+    ['/garage', 'My garage', 'My garage', 'My garage'],
     ['/settings', 'Settings', undefined, 'Me'],
     ['/bikes', 'Motorcycles', 'Motorcycles', 'Me'],
     ['/rides/test-ride', 'A ride in Almaty', 'Rides', 'Rides'],
@@ -165,13 +166,21 @@ describe('application navigation', () => {
     ['/routes', 'routes'], ['/routes/new', 'routes'], ['/routes/record', 'routes'], ['/routes/route', 'routes'], ['/routes/route/edit', 'routes'],
     ['/clubs', 'clubs'], ['/clubs/new', 'clubs'], ['/clubs/club', 'clubs'], ['/clubs/club/edit', 'clubs'],
     ['/me', 'me'], ['/my-rides', 'me'], ['/my-clubs', 'me'], ['/inbox', 'me'], ['/profile', 'me'], ['/settings', 'me'], ['/admin', 'me'], ['/install', 'me'],
-    ['/garage', 'me'], ['/garage/new', 'me'], ['/garage/bike', 'me'], ['/garage/bike/edit', 'me'], ['/bikes', 'bikes'], ['/bikes/bike', 'bikes'],
+    ['/garage', 'garage'], ['/garage/new', 'garage'], ['/garage/bike', 'garage'], ['/garage/bike/edit', 'garage'], ['/bikes', 'bikes'], ['/bikes/bike', 'bikes'],
     ['/login', undefined], ['/preview/ride-flow', undefined], ['/rides', undefined], ['/no-such-page', undefined],
     // Unknown paths under a section render the not-found page, so they select nothing either.
     ['/clubs/club/extra', undefined], ['/settings/extra', undefined], ['/rides/test-ride/edit/extra', undefined], ['/places/place', undefined],
     ['/routes/route/edit/extra', undefined], ['/garage/bike/edit/extra', undefined], ['/bikes/bike/extra', undefined], ['/me/extra', undefined],
   ])('assigns %s to the %s section', (path, section) => {
     expect(pageSection(path)).toBe(section)
+  })
+
+  it('takes a guest from the Garage tab to sign-in with a return path', async () => {
+    vi.stubGlobal('fetch', vi.fn(guestReads))
+    mount('/', true)
+    await userEvent.click(within(tabBar()).getByRole('link', { name: 'My garage' }))
+    await waitFor(() => expect(screen.getByTestId('test-location')).toHaveTextContent('/login?next=%2Fgarage'))
+    expectCurrent(tabBar())
   })
 
   it.each(['/clubs/club/extra', '/settings/extra', '/bikes/bike/extra'])('shows the not-found page on %s with no section current', async (path) => {

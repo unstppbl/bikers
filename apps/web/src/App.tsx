@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
-import { BellIcon as Bell, MapTrifoldIcon as MapIcon, MotorcycleIcon as Motorbike, PlusIcon as Plus, RoadHorizonIcon as Road, UserCircleIcon as UserRound, UsersThreeIcon as Users, XIcon as X } from '@phosphor-icons/react'
+import { BellIcon as Bell, MapTrifoldIcon as MapIcon, MotorcycleIcon as Motorbike, PlusIcon as Plus, RoadHorizonIcon as Road, UserCircleIcon as UserRound, UsersThreeIcon as Users, WrenchIcon as Wrench, XIcon as X } from '@phosphor-icons/react'
 import { Link, matchRoutes, useLocation, useNavigationType, useRoutes } from 'react-router-dom'
 import { useRegisterSW } from 'virtual:pwa-register/react'
 import { bindRecorderAccount } from './route-recorder'
@@ -42,11 +42,10 @@ const RideFlowPreview = import.meta.env.DEV
   ? lazy(() => import('./pages/RideFlowPreview').then((module) => ({ default: module.RideFlowPreview })))
   : null
 
-// The part of the app a page belongs to. The top bar links Map, Routes and Motorcycles separately. The phone tab bar
-// groups Routes under Map, and keeps Me current on Motorcycles and the other pages reached from the Me page.
-type PageSection ='rides' | 'create' | 'places' | 'routes' | 'clubs' | 'bikes' | 'me'
-type TabSection = 'rides' | 'map' | 'create' | 'clubs' | 'me'
-const sectionTab: Record<PageSection, TabSection> = { rides: 'rides', create: 'create', places: 'map', routes: 'map', clubs: 'clubs', bikes: 'me', me: 'me' }
+// The phone tab bar groups Routes under Map and the public Motorcycles catalogue under Me.
+type PageSection = 'rides' | 'create' | 'places' | 'routes' | 'clubs' | 'bikes' | 'garage' | 'me'
+type TabSection = 'rides' | 'map' | 'create' | 'clubs' | 'garage' | 'me'
+const sectionTab: Record<PageSection, TabSection> = { rides: 'rides', create: 'create', places: 'map', routes: 'map', clubs: 'clubs', bikes: 'me', garage: 'garage', me: 'me' }
 
 interface AppRoute { path: string; section?: PageSection; element: ReactNode }
 
@@ -75,10 +74,10 @@ function appRoutes(userId?: string): AppRoute[] {
     { path: '/rides/new', section: 'create', element: <RequireUser><RideFormPage /></RequireUser> },
     { path: '/rides/:rideId/edit', section: 'rides', element: <RequireUser><RideFormPage edit /></RequireUser> },
     { path: '/rides/:rideId', section: 'rides', element: <RideDetailPage /> },
-    { path: '/garage', section: 'me', element: <RequireUser><GaragePage key={userId} /></RequireUser> },
-    { path: '/garage/new', section: 'me', element: <RequireUser><BikeFormPage /></RequireUser> },
-    { path: '/garage/:bikeId/edit', section: 'me', element: <RequireUser><BikeFormPage edit /></RequireUser> },
-    { path: '/garage/:bikeId', section: 'me', element: <RequireUser><BikeOwnerPage /></RequireUser> },
+    { path: '/garage', section: 'garage', element: <RequireUser><GaragePage key={userId} /></RequireUser> },
+    { path: '/garage/new', section: 'garage', element: <RequireUser><BikeFormPage /></RequireUser> },
+    { path: '/garage/:bikeId/edit', section: 'garage', element: <RequireUser><BikeFormPage edit /></RequireUser> },
+    { path: '/garage/:bikeId', section: 'garage', element: <RequireUser><BikeOwnerPage /></RequireUser> },
     { path: '/bikes/:bikeId', section: 'bikes', element: <PublicBikePage /> },
     { path: '/bikes', section: 'bikes', element: <BikesPage /> },
     { path: '/clubs', section: 'clubs', element: <ClubsPage /> },
@@ -147,6 +146,7 @@ export function App() {
           <Link aria-current={current('routes')} to="/routes">{t('routesTitle')}</Link>
           <Link aria-current={current('clubs')} to="/clubs">{t('clubs')}</Link>
           <Link aria-current={current('bikes')} to="/bikes">{t('bikeCatalogue')}</Link>
+          <Link aria-current={current('garage')} to="/garage">{t('garage')}</Link>
         </nav>
         <div className="topbar-actions">
           <label className="locale-select"><span className="sr-only">{t('locale')}</span><select aria-label={t('locale')} value={locale} onChange={(event) => setLocale(event.target.value as Locale)}><option value="en">EN</option><option value="ru">RU</option><option value="kk">KZ</option></select></label>
@@ -167,6 +167,7 @@ export function App() {
       <Link className="tab-link" aria-current={currentTab('map')} to="/places"><MapIcon size={24} weight={tabIcon('map')} /><span>{t('placesTitle')}</span></Link>
       <Link className="tab-link tab-create" aria-current={currentTab('create')} to="/rides/new" aria-label={t('newRideLabel')}><span className="tab-create-plate"><Plus size={24} weight="bold" /></span><span>{t('newRideShort')}</span></Link>
       <Link className="tab-link" aria-current={currentTab('clubs')} to="/clubs"><Users size={24} weight={tabIcon('clubs')} /><span>{t('clubs')}</span></Link>
+      <Link className="tab-link" aria-current={currentTab('garage')} to="/garage" aria-label={t('garage')}><Wrench size={24} weight={tabIcon('garage')} /><span>{t('tabGarage')}</span></Link>
       <Link className="tab-link" aria-current={currentTab('me')} to="/me"><span className="tab-me-icon"><UserRound size={24} weight={tabIcon('me')} />{unreadCount > 0 && <span className="tab-dot" aria-hidden="true" />}</span><span>{t('tabMe')}</span></Link>
     </nav>
   </div>
