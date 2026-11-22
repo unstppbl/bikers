@@ -30,6 +30,8 @@ These editable Markdown copies mirror the native BIKERS.KZ Space pages. This sna
 
 [Maps and 2GIS research](maps-and-2gis-research.md) compares mapping options, published 2GIS prices, illustrative usage budgets, integration paths, and Kazakhstan contracting questions.
 
+[Motorcycle app research](motorcycle-app-research.md) compares ride, route and community apps and proposes a route discovery and group ride pilot in Astana.
+
 ## Maintaining both copies
 
 Keep the repository documents and native Space pages aligned when the project changes. Synchronization is performed explicitly; no automatic or scheduled sync is configured. Reconcile intervening edits before copying content in either direction.
