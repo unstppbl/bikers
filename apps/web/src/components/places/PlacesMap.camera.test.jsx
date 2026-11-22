@@ -57,7 +57,7 @@ const places = corners.map(([lon, lat], i) => ({ id: 'p' + i, name: 'Stop ' + i,
 function expectPilotView(map) {
   expect(map.getCenter().lng).toBeCloseTo(71.43316394219903, 10)
   expect(map.getCenter().lat).toBeCloseTo(51.11307657146983, 10)
-  expect(map.getZoom()).toBe(14)
+  expect(map.getZoom()).toBe(11.65)
 }
 function expectVisible(map, points, padding) {
   points.forEach(([lon, lat]) => {
@@ -101,7 +101,7 @@ describe('Places map uses the actual Mercator camera', () => {
     const common = { places: [], archiveUrl: '/map-data/kz.pmtiles', onSelect: () => {}, onViewport: () => {} }
     const { rerender } = render(<I18nProvider><PlacesMap {...common} {...cameraProps} /></I18nProvider>)
     const map = state.maps[0]
-    expect(map.getZoom()).toBeLessThan(14)
+    expect(map.getZoom()).toBeLessThan(11.65)
     rerender(<I18nProvider><PlacesMap {...common} /></I18nProvider>)
     expectPilotView(map)
   })
