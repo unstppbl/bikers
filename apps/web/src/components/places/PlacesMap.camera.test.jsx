@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 // Exercise the pinned MapLibre camera and Mercator transform without WebGL.
 // JavaScript keeps package-internal TS sources out of the app's typecheck.
@@ -7,6 +7,7 @@ import { LngLatBounds } from '../../../node_modules/maplibre-gl/src/geo/lng_lat_
 import { LngLat } from '../../../node_modules/maplibre-gl/src/geo/lng_lat.ts'
 import { I18nProvider, useI18n } from '../../i18n'
 import { region, validBounds } from '../../places'
+import MapCanvas from '../maps/MapCanvas'
 import PlacesMap from './PlacesMap'
 
 const state = vi.hoisted(() => ({ maps: [], viewport: undefined }))
@@ -21,6 +22,9 @@ vi.mock('maplibre-gl', async () => {
         super({ minZoom: 0, maxZoom: 22, minPitch: 0, maxPitch: 60, bearingSnap: 0, zoomSnap: 0, centerClampedToGround: false, terrain: null, transformConstrain: null, transformCameraUpdate: null, requestRenderFrame: () => 0, cancelRenderFrame: () => {}, ...options })
         this.transform.resize(390, 480)
         if (options.maxBounds) this.transform.setMaxBounds(new LngLatBounds(options.maxBounds))
+        this.jumpTo({ center: options.center, zoom: options.zoom })
+        this.container = options.container
+        this.styleSpec = options.style
         this.canvas = document.createElement('canvas')
         state.maps.push(this)
         queueMicrotask(() => this.fire('load'))
@@ -32,6 +36,8 @@ vi.mock('maplibre-gl', async () => {
       querySourceFeatures() { return this.source?.data.features ?? [] }
       addControl() {}
       getCanvas() { return this.canvas }
+      getContainer() { return this.container }
+      getStyle() { return this.styleSpec }
       getBounds() { return state.viewport ?? this.transform.getBounds() }
       remove() {}
       resize() {}
@@ -48,6 +54,11 @@ vi.mock('maplibre-gl', async () => {
 })
 const corners = [[region.west, region.south], [region.east, region.north]]
 const places = corners.map(([lon, lat], i) => ({ id: 'p' + i, name: 'Stop ' + i, category: 'fuel', lat, lon, city: '', address: '', description: '', website: '', phone: '', opening_hours: '', source: 'community', source_url: '', updated_at: '2026-11-05', version: 1, status: 'published' }))
+function expectPilotView(map) {
+  expect(map.getCenter().lng).toBeCloseTo(71.43316394219903, 10)
+  expect(map.getCenter().lat).toBeCloseTo(51.11307657146983, 10)
+  expect(map.getZoom()).toBe(11.65)
+}
 function expectVisible(map, points, padding) {
   points.forEach(([lon, lat]) => {
     const p = map.transform.locationToScreenPoint(new LngLat(lon, lat))
@@ -59,14 +70,40 @@ function expectVisible(map, points, padding) {
 }
 function LocaleControl() { const { setLocale } = useI18n(); return <button onClick={() => setLocale('ru')}>Use Russian</button> }
 beforeEach(() => { state.maps = []; state.viewport = undefined })
-describe('Places map uses the actual Mercator camera', () => {
-  it('opens Astana at city zoom without requiring any community places', () => {
-    render(<I18nProvider><PlacesMap places={[]} archiveUrl="/map-data/kz.pmtiles" onSelect={() => {}} onViewport={() => {}} /></I18nProvider>)
+describe('Shared ride, route, and pin canvas uses the actual Mercator camera', () => {
+  it('opens on the pilot view without a pin and fits a chosen point', async () => {
+    const onPick = vi.fn()
+    const common = { archiveUrl: '/map-data/kz.pmtiles', locale: 'en', onPick }
+    const { rerender } = render(<MapCanvas {...common} points={[]} />)
     const map = state.maps[0]
-    expect(map.transform.center.lng).toBeCloseTo(71.44598)
-    expect(map.transform.center.lat).toBeCloseTo(51.1801)
-    expect(map.getZoom()).toBe(11)
-    expect(map.getBounds().getEast() - map.getBounds().getWest()).toBeLessThan(0.2)
+    await waitFor(() => expect(screen.queryByText('Loading map…')).not.toBeInTheDocument())
+    expectPilotView(map)
+    expect(screen.queryByRole('img')).not.toBeInTheDocument()
+    expect(onPick).not.toHaveBeenCalled()
+
+    const point = { label: 'Almaty stop', lon: 76.95, lat: 43.25 }
+    rerender(<MapCanvas {...common} points={[point]} />)
+    expect(screen.getByRole('img', { name: '1. Almaty stop' })).toBeInTheDocument()
+    expect(map.getCenter().lng).toBeCloseTo(point.lon, 10)
+    expect(map.getCenter().lat).toBeCloseTo(point.lat, 10)
+    expect(map.getZoom()).toBe(14)
+  })
+})
+describe('Places map uses the actual Mercator camera', () => {
+  it('opens on the pilot view without requiring any community places', () => {
+    render(<I18nProvider><PlacesMap places={[]} archiveUrl="/map-data/kz.pmtiles" onSelect={() => {}} onViewport={() => {}} /></I18nProvider>)
+    expectPilotView(state.maps[0])
+  })
+  it.each([
+    ['city filter', { center: { lat: 43.25249, lon: 76.9115 } }],
+    ['search area', { bounds: region }],
+  ])('restores the pilot view when clearing the %s', (_label, cameraProps) => {
+    const common = { places: [], archiveUrl: '/map-data/kz.pmtiles', onSelect: () => {}, onViewport: () => {} }
+    const { rerender } = render(<I18nProvider><PlacesMap {...common} {...cameraProps} /></I18nProvider>)
+    const map = state.maps[0]
+    expect(map.getZoom()).toBeLessThan(11.65)
+    rerender(<I18nProvider><PlacesMap {...common} /></I18nProvider>)
+    expectPilotView(map)
   })
   it('focuses a chosen city, retains manual panning on result refresh and lets a selected place take priority', () => {
     const common = { archiveUrl: '/map-data/kz.pmtiles', onSelect: () => {}, onViewport: () => {} }
