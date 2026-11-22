@@ -72,6 +72,7 @@ export interface RideInput {
   capacity: number
   plan_version?: number
   map_points?: MapPoint[]
+  expected_map_digest?: string
 }
 
 export interface Participant {

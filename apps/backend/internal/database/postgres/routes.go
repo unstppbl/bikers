@@ -57,12 +57,56 @@ const routePublicVisibility = `r.published AND NOT r.hidden AND u.status='active
 func routeSummaryTargets(r *models.CommunityRouteSummary) []any {
 	return []any{&r.ID, &r.OwnerID, &r.OwnerName, &r.Title, &r.City, &r.Description, &r.Surface, &r.Kind, &r.Published, &r.Version, &r.CreatedAt, &r.UpdatedAt, &r.DistanceMeters, &r.DurationSeconds}
 }
-func (t *routeTransaction) Routes(q database.RouteQuery) ([]models.CommunityRouteSummary, error) {
+
+// Sample at most eight segments and 96 points after paging. Each retained
+// segment includes its first and last point and never bridges a recording gap.
+const routePreviewQuery = `
+WITH sampled AS MATERIALIZED (
+    SELECT r.segments -> (slot * (total - 1) / greatest(slots - 1, 1)) AS line,
+        slot, least(48, 96 / slots) AS point_budget
+    FROM (SELECT jsonb_array_length(r.segments) AS total) segment_count
+    CROSS JOIN LATERAL (SELECT least(total, 8) AS slots) segment_limit
+    CROSS JOIN LATERAL generate_series(0, slots - 1) segment_slot(slot)
+    WHERE $2 = 'public'
+)
+SELECT jsonb_agg((
+    SELECT jsonb_agg(line -> (point * (total - 1) / greatest(slots - 1, 1)) ORDER BY point)
+    FROM (SELECT jsonb_array_length(line) AS total) point_count
+    CROSS JOIN LATERAL (SELECT least(total, point_budget) AS slots) point_limit
+    CROSS JOIN LATERAL generate_series(0, slots - 1) point_slot(point)
+) ORDER BY slot) AS segments
+FROM sampled`
+
+func (t *routeTransaction) Routes(q database.RouteQuery, conditionSince time.Time) ([]models.CommunityRouteSummary, error) {
 	aliases := make([]string, len(q.CityAliases))
 	for i, v := range q.CityAliases {
 		aliases[i] = strings.ToLower(v)
 	}
-	rows, err := t.tx.Query(t.ctx, `SELECT `+routeSummaryColumns+` FROM community_routes r JOIN users u ON u.id=r.owner_id WHERE (($2='mine' AND r.owner_id=NULLIF($1,'')::uuid) OR ($2='public' AND `+routePublicVisibility+`) OR ($2='collection' AND (r.owner_id=NULLIF($1,'')::uuid OR (`+routePublicVisibility+`)))) AND ($3='' OR strpos(lower(r.title||' '||r.description),lower($3))>0) AND (cardinality($4::text[])=0 OR lower(r.city)=ANY($4::text[])) AND ($5='' OR r.id>NULLIF($5,'')::uuid) AND ($6='' OR EXISTS(SELECT 1 FROM route_collection_items i WHERE i.collection_id=NULLIF($6,'')::uuid AND i.route_id=r.id)) ORDER BY r.id LIMIT $7`, q.ViewerID, q.Scope, q.Search, aliases, q.AfterID, q.CollectionID, q.Limit)
+	rows, err := t.tx.Query(t.ctx, `
+WITH page AS MATERIALIZED (
+    SELECT r.id FROM community_routes r JOIN users u ON u.id=r.owner_id
+    WHERE (($2='mine' AND r.owner_id=NULLIF($1,'')::uuid)
+        OR ($2='public' AND `+routePublicVisibility+`)
+        OR ($2='collection' AND (r.owner_id=NULLIF($1,'')::uuid OR (`+routePublicVisibility+`))))
+        AND ($3='' OR strpos(lower(r.title||' '||r.description),lower($3))>0)
+        AND (cardinality($4::text[])=0 OR lower(r.city)=ANY($4::text[]))
+        AND ($5='' OR r.id>NULLIF($5,'')::uuid)
+        AND ($6='' OR EXISTS(SELECT 1 FROM route_collection_items i WHERE i.collection_id=NULLIF($6,'')::uuid AND i.route_id=r.id))
+        AND ($8='' OR r.surface=$8)
+        AND ($9::integer=0 OR (r.duration_seconds>0 AND r.duration_seconds<=$9))
+    ORDER BY r.id LIMIT $7
+)
+SELECT `+routeSummaryColumns+`, preview.segments, latest.summary
+FROM page JOIN community_routes r ON r.id=page.id JOIN users u ON u.id=r.owner_id
+LEFT JOIN LATERAL (`+routePreviewQuery+`) preview ON true
+LEFT JOIN LATERAL (
+    SELECT jsonb_build_object('id', c.id, 'kind', c.kind, 'observed_at', c.observed_at,
+        'author_name', u.display_name) AS summary
+    FROM route_conditions c JOIN users u ON u.id=c.author_id
+    WHERE $2='public' AND c.route_id=r.id AND c.observed_at>$10 AND NOT c.resolved AND `+conditionVisibility+`
+    ORDER BY c.observed_at DESC, c.id DESC LIMIT 1
+) latest ON true
+ORDER BY r.id`, q.ViewerID, q.Scope, q.Search, aliases, q.AfterID, q.CollectionID, q.Limit, q.Surface, q.MaxDurationSeconds, conditionSince)
 	if err != nil {
 		return nil, repositoryError(err)
 	}
@@ -70,8 +114,21 @@ func (t *routeTransaction) Routes(q database.RouteQuery) ([]models.CommunityRout
 	out := []models.CommunityRouteSummary{}
 	for rows.Next() {
 		var r models.CommunityRouteSummary
-		if err = rows.Scan(routeSummaryTargets(&r)...); err != nil {
+		var preview, latest []byte
+		if err = rows.Scan(append(routeSummaryTargets(&r), &preview, &latest)...); err != nil {
 			return nil, repositoryError(err)
+		}
+		if preview != nil {
+			var samples [][][2]float64
+			if err = json.Unmarshal(preview, &samples); err != nil {
+				return nil, err
+			}
+			r.PreviewSegments = models.RoutePreview(samples)
+		}
+		if latest != nil {
+			if err = json.Unmarshal(latest, &r.LatestCondition); err != nil {
+				return nil, err
+			}
 		}
 		out = append(out, r)
 	}
@@ -222,6 +279,7 @@ func (t *routeTransaction) SetCollectionRoute(collection, route string, add bool
 }
 
 const conditionColumns = `c.id::text,c.route_id::text,c.author_id::text,u.display_name,c.kind,c.description,c.observed_at,c.resolved,c.version,c.created_at,c.updated_at,(c.hidden OR EXISTS(SELECT 1 FROM moderation_hidden h WHERE h.target_type='route_condition' AND h.target_id=c.id))`
+const conditionVisibility = `NOT c.hidden AND u.status='active' AND NOT EXISTS(SELECT 1 FROM moderation_hidden h WHERE (h.target_type='route_condition' AND h.target_id=c.id) OR (h.target_type='user' AND h.target_id=c.author_id)) AND NOT EXISTS(SELECT 1 FROM user_blocks b WHERE (b.blocker_id=NULLIF($1,'')::uuid AND b.blocked_id=c.author_id) OR (b.blocker_id=c.author_id AND b.blocked_id=NULLIF($1,'')::uuid))`
 
 func scanCondition(row pgx.Row) (models.RouteCondition, error) {
 	var c models.RouteCondition
@@ -232,7 +290,7 @@ func (t *routeTransaction) Condition(id string) (models.RouteCondition, error) {
 	return scanCondition(t.tx.QueryRow(t.ctx, `SELECT `+conditionColumns+` FROM route_conditions c JOIN users u ON u.id=c.author_id WHERE c.id=$1`, id))
 }
 func (t *routeTransaction) Conditions(q database.RouteConditionQuery) ([]models.RouteCondition, error) {
-	rows, err := t.tx.Query(t.ctx, `SELECT `+conditionColumns+` FROM route_conditions c JOIN users u ON u.id=c.author_id WHERE c.route_id=$2 AND ($3='' OR c.id>NULLIF($3,'')::uuid) AND NOT c.hidden AND u.status='active' AND NOT EXISTS(SELECT 1 FROM moderation_hidden h WHERE (h.target_type='route_condition' AND h.target_id=c.id) OR (h.target_type='user' AND h.target_id=c.author_id)) AND NOT EXISTS(SELECT 1 FROM user_blocks b WHERE (b.blocker_id=NULLIF($1,'')::uuid AND b.blocked_id=c.author_id) OR (b.blocker_id=c.author_id AND b.blocked_id=NULLIF($1,'')::uuid)) ORDER BY c.id LIMIT $4`, q.ViewerID, q.RouteID, q.AfterID, q.Limit)
+	rows, err := t.tx.Query(t.ctx, `SELECT `+conditionColumns+` FROM route_conditions c JOIN users u ON u.id=c.author_id WHERE c.route_id=$2 AND ($3='' OR c.id>NULLIF($3,'')::uuid) AND `+conditionVisibility+` ORDER BY c.id LIMIT $4`, q.ViewerID, q.RouteID, q.AfterID, q.Limit)
 	if err != nil {
 		return nil, repositoryError(err)
 	}
@@ -246,6 +304,18 @@ func (t *routeTransaction) Conditions(q database.RouteConditionQuery) ([]models.
 		out = append(out, c)
 	}
 	return out, repositoryError(rows.Err())
+}
+
+func (t *routeTransaction) LatestRouteCondition(routeID, viewerID string, since time.Time) (*models.RouteConditionSummary, error) {
+	var c models.RouteConditionSummary
+	err := t.tx.QueryRow(t.ctx, `SELECT c.id::text,c.kind,c.observed_at,u.display_name,c.description
+FROM route_conditions c JOIN users u ON u.id=c.author_id
+WHERE c.route_id=$2 AND c.observed_at>$3 AND NOT c.resolved AND `+conditionVisibility+`
+ORDER BY c.observed_at DESC,c.id DESC LIMIT 1`, viewerID, routeID, since).Scan(&c.ID, &c.Kind, &c.ObservedAt, &c.AuthorName, &c.Description)
+	if err == pgx.ErrNoRows {
+		return nil, nil
+	}
+	return &c, repositoryError(err)
 }
 func (t *routeTransaction) ConditionCount(author string, since time.Time) (int, error) {
 	var n int

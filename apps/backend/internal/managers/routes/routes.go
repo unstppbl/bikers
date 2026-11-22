@@ -91,6 +91,9 @@ func visible(tx database.RouteTransaction, actor models.User, r models.Community
 	if actor.ID == r.OwnerID {
 		return nil
 	}
+	return visiblePublic(tx, actor, r)
+}
+func visiblePublic(tx database.RouteTransaction, actor models.User, r models.CommunityRoute) error {
 	if !r.Published || r.Hidden {
 		return missing()
 	}
@@ -122,9 +125,7 @@ func normalize(in models.CommunityRouteInput) (models.CommunityRouteInput, error
 	if in.Title == "" || !textOK(in.Title, 200) || !textOK(in.City, 160) || !textOK(in.Description, 4000) {
 		return in, models.Fail("invalid_route", "Choose a route title and keep text within the field limits")
 	}
-	switch in.Surface {
-	case "asphalt", "mixed", "unpaved", "unknown":
-	default:
+	if !models.IsRouteSurface(in.Surface) {
 		return in, models.Fail("invalid_route", "Choose a valid route surface")
 	}
 	if in.TrackID != "" && len(in.MapPoints) > 0 {
@@ -153,8 +154,8 @@ func normalize(in models.CommunityRouteInput) (models.CommunityRouteInput, error
 }
 
 type ListInput struct {
-	Scope, Search, City, After, CollectionID string
-	Limit                                    int
+	Scope, Search, City, After, CollectionID, Surface string
+	Limit, MaxDurationSeconds                         int
 }
 type cursor struct{ ID, Binding string }
 
@@ -203,11 +204,15 @@ func (m *Manager) List(ctx context.Context, actor models.User, in ListInput) (mo
 	out := models.CommunityRoutePage{Routes: []models.CommunityRouteSummary{}}
 	in.Search = strings.TrimSpace(in.Search)
 	in.City = models.NormalizeCity(in.City)
+	in.Surface = strings.TrimSpace(in.Surface)
 	if in.Scope == "" {
 		in.Scope = "public"
 	}
 	if in.Scope != "public" && in.Scope != "mine" || !textOK(in.Search, 160) || !textOK(in.City, 160) {
 		return out, models.Fail("invalid_query", "Choose valid route filters")
+	}
+	if (in.Surface != "" && !models.IsRouteSurface(in.Surface)) || in.MaxDurationSeconds < 0 || in.MaxDurationSeconds > models.MaxRouteDurationSeconds {
+		return out, models.Fail("invalid_query", "Choose a valid surface and riding time")
 	}
 	limit, err := pageSize(in.Limit)
 	if err != nil {
@@ -219,7 +224,7 @@ func (m *Manager) List(ctx context.Context, actor models.User, in ListInput) (mo
 			return out, err
 		}
 	}
-	q := database.RouteQuery{ViewerID: actor.ID, Scope: in.Scope, Search: in.Search, CityAliases: models.CityAliases(in.City), CollectionID: in.CollectionID, Limit: limit + 1}
+	q := database.RouteQuery{ViewerID: actor.ID, Scope: in.Scope, Search: in.Search, CityAliases: models.CityAliases(in.City), CollectionID: in.CollectionID, Limit: limit + 1, Surface: in.Surface, MaxDurationSeconds: in.MaxDurationSeconds}
 	if in.CollectionID != "" {
 		q.Scope = "collection"
 	}
@@ -247,7 +252,7 @@ func (m *Manager) List(ctx context.Context, actor models.User, in ListInput) (mo
 			}
 		}
 		var err error
-		out.Routes, err = tx.Routes(q)
+		out.Routes, err = tx.Routes(q, m.now().UTC().Add(-conditionLifetime))
 		return err
 	})
 	if err != nil {
@@ -257,9 +262,28 @@ func (m *Manager) List(ctx context.Context, actor models.User, in ListInput) (mo
 		out.Routes = out.Routes[:limit]
 		out.NextCursor = encode(out.Routes[limit-1].ID, b)
 	}
+	for i := range out.Routes {
+		setConditionExpiry(out.Routes[i].LatestCondition)
+	}
 	return out, nil
 }
+
+func setConditionExpiry(c *models.RouteConditionSummary) {
+	if c != nil {
+		c.ExpiresAt = c.ObservedAt.Add(conditionLifetime)
+	}
+}
+
 func (m *Manager) View(ctx context.Context, actor models.User, raw string) (models.CommunityRoute, error) {
+	return m.view(ctx, actor, raw, false)
+}
+
+// ViewPublic requires public visibility even when the viewer owns the route.
+func (m *Manager) ViewPublic(ctx context.Context, actor models.User, raw string) (models.CommunityRoute, error) {
+	return m.view(ctx, actor, raw, true)
+}
+
+func (m *Manager) view(ctx context.Context, actor models.User, raw string, publicOnly bool) (models.CommunityRoute, error) {
 	var out models.CommunityRoute
 	id, err := identifier(raw)
 	if err != nil {
@@ -273,12 +297,23 @@ func (m *Manager) View(ctx context.Context, actor models.User, raw string) (mode
 		if err != nil {
 			return err
 		}
-		if err = visible(tx, actor, r); err != nil {
-			return err
+		publicErr := visiblePublic(tx, actor, r)
+		if publicErr != nil {
+			// Only an owner may manage a route that is unavailable publicly.
+			var fault *models.Fault
+			if publicOnly || actor.ID != r.OwnerID || !errors.As(publicErr, &fault) || fault.Code != "not_found" {
+				return publicErr
+			}
 		}
 		out = r
+		out.PubliclyVisible = publicErr == nil
+		if out.PubliclyVisible {
+			out.LatestCondition, err = tx.LatestRouteCondition(id, actor.ID, m.now().UTC().Add(-conditionLifetime))
+			return err
+		}
 		return nil
 	})
+	setConditionExpiry(out.LatestCondition)
 	return out, storageError(err)
 }
 
@@ -318,7 +353,7 @@ func (m *Manager) prepare(ctx context.Context, actor models.User, id string, in 
 	if err != nil {
 		return old, nil, err
 	}
-	if plan == nil || plan.Geometry == nil || plan.Geometry.Type != "LineString" || len(plan.Geometry.Coordinates) < 2 || len(plan.Geometry.Coordinates) > 50000 || !boundedNumber(plan.DistanceMeters, 0, 10000000) || !boundedNumber(plan.DurationSeconds, 0, 604800) {
+	if plan == nil || plan.Geometry == nil || plan.Geometry.Type != "LineString" || len(plan.Geometry.Coordinates) < 2 || len(plan.Geometry.Coordinates) > 50000 || !boundedNumber(plan.DistanceMeters, 0, 10000000) || !boundedNumber(plan.DurationSeconds, 0, models.MaxRouteDurationSeconds) {
 		return old, nil, models.Fail("invalid_route", "The route planner returned invalid geometry")
 	}
 	for _, p := range plan.Geometry.Coordinates {
@@ -426,6 +461,7 @@ func (m *Manager) save(ctx context.Context, actor models.User, id string, input 
 		r.Description = in.Description
 		r.Surface = in.Surface
 		r.Published = in.Published
+		r.PubliclyVisible = r.Published && !r.Hidden && !a.Hidden
 		r.OwnerName = a.User.Profile.DisplayName
 		r.Version++
 		r.UpdatedAt = at

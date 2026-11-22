@@ -10,6 +10,9 @@ export const ridesEn = {
   ridesOnPage: 'Rides on this page: {count}', rideDatesHint: 'Dates use each ride’s local time.',
   rideDateRangeInvalid: 'The end date must be on or after the start date.', rideFiltersEmptyText: 'Try another city, date range or description.', firstRidePage: 'Back to the first page',
   planRoute: 'Route',
+  rideShare: 'Share ride', rideShareApps: 'Share to an app', rideShareTelegram: 'Share to Telegram',
+  rideShareFailed: 'Sharing failed. Try Telegram or copy the link.',
+  rideNavigateMeeting: 'Navigate to meeting point', rideLatestUpdate: 'Latest organizer update', rideRouteStops: 'Route stops ({count})',
 }
 
 export const ridesRu: Record<keyof typeof ridesEn, string> = {
@@ -24,6 +27,9 @@ export const ridesRu: Record<keyof typeof ridesEn, string> = {
   ridesOnPage: 'Поездок на странице: {count}', rideDatesHint: 'Даты указаны по местному времени поездки.',
   rideDateRangeInvalid: 'Конечная дата не может быть раньше начальной.', rideFiltersEmptyText: 'Попробуйте другой город, период или описание.', firstRidePage: 'На первую страницу',
   planRoute: 'Маршрут',
+  rideShare: 'Поделиться поездкой', rideShareApps: 'Поделиться в приложении', rideShareTelegram: 'Поделиться в Telegram',
+  rideShareFailed: 'Не удалось поделиться. Попробуйте Telegram или скопируйте ссылку.',
+  rideNavigateMeeting: 'Как доехать до места встречи', rideLatestUpdate: 'Последнее объявление организатора', rideRouteStops: 'Остановки на маршруте ({count})',
 }
 
 export const ridesKk: Record<keyof typeof ridesEn, string> = {
@@ -38,4 +44,7 @@ export const ridesKk: Record<keyof typeof ridesEn, string> = {
   ridesOnPage: 'Осы бетте {count} сапар', rideDatesHint: 'Күндер әр сапардың жергілікті уақытымен көрсетіледі.',
   rideDateRangeInvalid: 'Аяқталу күні басталу күнінен ерте болмауы керек.', rideFiltersEmptyText: 'Басқа қаланы, күндер аралығын немесе сипаттаманы таңдаңыз.', firstRidePage: 'Бірінші бетке оралу',
   planRoute: 'Бағыт',
+  rideShare: 'Сапармен бөлісу', rideShareApps: 'Қолданбада бөлісу', rideShareTelegram: 'Telegram арқылы бөлісу',
+  rideShareFailed: 'Бөлісу мүмкін болмады. Telegram қолданып көріңіз немесе сілтемені көшіріңіз.',
+  rideNavigateMeeting: 'Кездесу орнына бағыт алу', rideLatestUpdate: 'Ұйымдастырушының соңғы хабарламасы', rideRouteStops: 'Бағыттағы аялдамалар ({count})',
 }

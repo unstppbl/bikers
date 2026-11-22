@@ -19,7 +19,7 @@ func regional(lon, lat float64) bool {
 func validateTrack(in models.TrackInput) (models.TrackInput, float64, error) {
 	in.Name = strings.TrimSpace(in.Name)
 	bad := models.Fail("invalid_track", "Choose a recording name, valid Kazakhstan GPS points and a duration up to seven days")
-	if in.Name == "" || !textOK(in.Name, 200) || !boundedNumber(in.DurationSeconds, 1, 604800) || len(in.Segments) == 0 || len(in.Segments) > 1000 {
+	if in.Name == "" || !textOK(in.Name, 200) || !boundedNumber(in.DurationSeconds, 1, models.MaxRouteDurationSeconds) || len(in.Segments) == 0 || len(in.Segments) > 1000 {
 		return in, 0, bad
 	}
 	total := 0

@@ -80,12 +80,40 @@ export function LocationField({ label, value, selected, bias, required = false, 
   </div>
 }
 
-export interface MapDraft { points: MapPoint[]; valid: boolean }
+export interface MapDraft { points: MapPoint[]; valid: boolean; previewDigest?: string }
 interface Stop { key: number; text: string; point?: MapPoint }
+type Line = NonNullable<MapPlan['geometry']>['coordinates']
 
-export function MapPlanEditor({ initialPlan, meeting, destination, onMeeting, onDestination, onChange, disabled, startWithMap = true, privacyNote }: {
+function RouteLinePreview({ reference, calculated }: { reference: Line; calculated?: Line }) {
+  const { t } = useI18n()
+  const lines = useMemo(() => {
+    let west = Infinity, east = -Infinity, south = Infinity, north = -Infinity
+    for (const line of [reference, calculated ?? []]) {
+      for (const [lon, lat] of line) {
+        west = Math.min(west, lon); east = Math.max(east, lon)
+        south = Math.min(south, lat); north = Math.max(north, lat)
+      }
+    }
+    const lonScale = Math.cos((south + north) * Math.PI / 360)
+    const scale = Math.max((east - west) * lonScale, north - south, 0.000001)
+    const encode = (line: Line) => {
+      const step = Math.max(1, Math.ceil(line.length / 160))
+      return line.filter((_, index) => index % step === 0 || index === line.length - 1).map(([lon, lat]) => {
+        return `${(50 + 90 * (lon - (west + east) / 2) * lonScale / scale).toFixed(2)},${(50 - 90 * (lat - (south + north) / 2) / scale).toFixed(2)}`
+      }).join(' ')
+    }
+    return { reference: encode(reference), calculated: calculated ? encode(calculated) : undefined }
+  }, [reference, calculated])
+  return <svg className="map-route-line-preview" viewBox="0 0 100 100" role="img" aria-label={t(calculated ? 'mapRideCompareLines' : 'mapRideCalculateFirst')}>
+    <polyline className="map-reference-line" points={lines.reference} vectorEffect="non-scaling-stroke" />
+    {lines.calculated && <polyline className="map-calculated-line" points={lines.calculated} vectorEffect="non-scaling-stroke" />}
+  </svg>
+}
+
+export function MapPlanEditor({ initialPlan, referenceLine, meeting, destination, onMeeting, onDestination, onChange, disabled, startWithMap = true, privacyNote }: {
   initialPlan?: MapPlan; meeting: string; destination: string; onMeeting: (value: string) => void; onDestination: (value: string) => void
   onChange: (draft: MapDraft) => void; disabled: boolean; startWithMap?: boolean; privacyNote?: string
+  referenceLine?: Line
 }) {
   const { t, locale } = useI18n()
   const config = useMapConfig()
@@ -101,7 +129,7 @@ export function MapPlanEditor({ initialPlan, meeting, destination, onMeeting, on
   const [reverseBusy, setReverseBusy] = useState(false)
   const [routeState, setRouteState] = useState<{ key: string; id: number; busy: boolean; error: boolean }>()
   const routeSequence = useRef(0)
-  const [preview, setPreview] = useState<{ plan: MapPlan; signature: string } | undefined>(initialPlan ? { plan: initialPlan, signature: signature(initialPlan.points) } : undefined)
+  const [preview, setPreview] = useState<{ plan: MapPlan; signature: string; digest?: string } | undefined>(initialPlan ? { plan: initialPlan, signature: signature(initialPlan.points) } : undefined)
   const routeRequest = useRef<AbortController | undefined>(undefined)
   const reverseRequest = useRef<AbortController | undefined>(undefined)
   const valid = !usingMap || !!first && (!destination.trim() && !stops.length || !!last && stops.every((stop) => !!stop.point))
@@ -110,10 +138,12 @@ export function MapPlanEditor({ initialPlan, meeting, destination, onMeeting, on
   const currentKey = useRef(pointsKey)
   const routeBusy = routeState?.key === pointsKey && routeState.busy
   const routeError = routeState?.key === pointsKey && routeState.error
-  useEffect(() => { onChange({ points: JSON.parse(pointsKey) as MapPoint[], valid }) }, [pointsKey, valid, onChange])
+  const activePreview = preview?.signature === pointsKey ? preview : undefined
+  const activePlan = activePreview?.plan
+  const previewDigest = referenceLine && activePlan?.geometry && !routeBusy && !routeError ? activePreview?.digest : undefined
+  useEffect(() => { onChange({ points: JSON.parse(pointsKey) as MapPoint[], valid, previewDigest }) }, [pointsKey, valid, previewDigest, onChange])
   useEffect(() => { currentKey.current = pointsKey; routeRequest.current?.abort() }, [pointsKey])
   useEffect(() => () => { routeRequest.current?.abort(); reverseRequest.current?.abort() }, [])
-  const activePlan = preview?.signature === pointsKey ? preview.plan : undefined
   const targetName = pickTarget === -1 ? t('meetingPoint') : pickTarget === -2 ? t('destination') : t('mapStop', { number: stops.findIndex((stop) => stop.key === pickTarget) + 1 })
   const cancelReverse = useCallback(() => { reverseRequest.current?.abort(); setReverseBusy(false) }, [])
   const select = useCallback((target: number, point: MapPoint) => {
@@ -142,20 +172,22 @@ export function MapPlanEditor({ initialPlan, meeting, destination, onMeeting, on
     const requestID = ++routeSequence.current
     setRouteState({ key: expected, id: requestID, busy: true, error: false })
     try {
-      const result = await request<{ plan: MapPlan }>('/geo/route', { method: 'POST', body: JSON.stringify({ points, lang: locale }), signal: controller.signal })
-      if (isCurrent() && !controller.signal.aborted && currentKey.current === expected) setPreview({ plan: result.plan, signature: expected })
+      const result = await request<{ plan: MapPlan; preview_digest?: string }>('/geo/route', { method: 'POST', body: JSON.stringify({ points, lang: locale }), signal: controller.signal })
+      if (isCurrent() && !controller.signal.aborted && currentKey.current === expected) setPreview({ plan: result.plan, signature: expected, digest: result.preview_digest })
     } catch { if (isCurrent() && !controller.signal.aborted) setRouteState({ key: expected, id: requestID, busy: false, error: true }) }
     finally { if (isCurrent()) setRouteState((current) => current?.id === requestID ? { ...current, busy: false } : current) }
   }
+  const comparison = referenceLine && <RouteLinePreview reference={referenceLine} calculated={activePlan?.geometry?.coordinates} />
   return <div className="map-plan-editor">
-    {(config.data?.enabled || initialPlan) && <div className="map-mode-row"><h3>{t('mapAndRoute')}</h3><button type="button" className="text-button" disabled={disabled} onClick={() => { cancelReverse(); setMapChoice(!usingMap) }}>{t(usingMap ? 'mapUseText' : 'mapUseMap')}</button></div>}
+    {(config.data?.enabled || initialPlan) && <div className="map-mode-row"><h3>{t('mapAndRoute')}</h3>{!referenceLine && <button type="button" className="text-button" disabled={disabled} onClick={() => { cancelReverse(); setMapChoice(!usingMap) }}>{t(usingMap ? 'mapUseText' : 'mapUseMap')}</button>}</div>}
     {!usingMap ? <><Field label={t('meetingPoint')} value={meeting} onChange={(event) => onMeeting(event.target.value)} placeholder={t('meetingPlaceholder')} maxLength={300} required disabled={disabled} /><Field label={`${t('destination')} · ${t('optional')}`} value={destination} onChange={(event) => onDestination(event.target.value)} placeholder={t('destinationPlaceholder')} maxLength={300} disabled={disabled} />{config.isError && <p className="field-hint" role="status">{t('mapServiceUnavailable')}</p>}</> : <>
       <p className="field-hint">{t('mapSearchHint')}</p>
       <LocationField label={t('meetingPoint')} value={meeting} selected={first} required disabled={disabled} onText={(value) => { cancelReverse(); setFirst(undefined); onMeeting(value) }} onSelect={(point) => select(-1, point)} onPick={() => { cancelReverse(); setPickTarget(-1) }} />
       {stops.map((stop, index) => <div className="map-via-row" key={stop.key}><LocationField label={t('mapStop', { number: index + 1 })} value={stop.text} selected={stop.point} bias={first} required disabled={disabled} onText={(value) => { cancelReverse(); setStops((current) => current.map((entry) => entry.key === stop.key ? { ...entry, text: value, point: undefined } : entry)) }} onSelect={(point) => select(stop.key, point)} onPick={() => { cancelReverse(); setPickTarget(stop.key) }} /><button type="button" className="icon-button" aria-label={t('mapRemoveStop', { number: index + 1 })} disabled={disabled} onClick={() => { cancelReverse(); setStops((current) => current.filter((entry) => entry.key !== stop.key)); setPickTarget(-1) }}><TrashIcon size={18} /></button></div>)}
       <LocationField label={`${t('destination')} · ${t('optional')}`} value={destination} selected={last} bias={first} disabled={disabled} onText={(value) => { cancelReverse(); setLast(undefined); onDestination(value) }} onSelect={(point) => select(-2, point)} onPick={() => { cancelReverse(); setPickTarget(-2) }} />
       <button type="button" className="text-button" disabled={disabled || stops.length >= 8} onClick={() => setStops((current) => [...current, { key: stopKey.current++, text: '' }])}><PlusIcon size={16} />{t('mapAddStop')}</button>
-      {config.data?.archive_url && <><p className="map-pick-hint" role="status">{reverseBusy ? t('mapLookingUpPin') : t('mapClickPin', { place: targetName })}</p><Suspense fallback={<div className="map-loading-placeholder" role="status">{t('loading')}</div>}><MapCanvas points={points} geometry={activePlan?.geometry} archiveUrl={config.data.archive_url} locale={locale} onPick={(point) => void choosePin(point)} disabled={disabled || !online} /></Suspense></>}
+      {config.data?.archive_url ? <><p className="map-pick-hint" role="status">{reverseBusy ? t('mapLookingUpPin') : t('mapClickPin', { place: targetName })}</p><Suspense fallback={comparison || <div className="map-loading-placeholder" role="status">{t('loading')}</div>}><MapCanvas points={points} geometry={activePlan?.geometry} referenceLine={referenceLine} archiveUrl={config.data.archive_url} locale={locale} onPick={(point) => void choosePin(point)} disabled={disabled || !online} fallback={comparison} /></Suspense></> : comparison}
+      {referenceLine && <p className="field-hint">{t(activePlan?.geometry ? 'mapRideCompareLines' : 'mapRideCalculateFirst')}</p>}
       {!valid && <p className="field-hint">{t(first ? 'mapSelectionRequired' : 'mapMeetingRequired')}</p>}
       <div className="map-route-actions"><button type="button" className="button button-outline" disabled={disabled || !online || !valid || points.length < 2 || routeBusy} onClick={() => void calculate()}><PathIcon size={18} />{t(routeBusy ? 'mapCalculating' : 'mapCalculate')}</button>{activePlan?.geometry && <RouteSummary plan={activePlan} />}</div>
       {routeError && <p className="error-notice" role="alert">{t('mapRouteUnavailable')}</p>}

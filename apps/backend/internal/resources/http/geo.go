@@ -67,5 +67,5 @@ func (s *Server) geoRoute(w http.ResponseWriter, r *http.Request) {
 		failure(w, err)
 		return
 	}
-	respond(w, http.StatusOK, map[string]any{"plan": plan})
+	respond(w, http.StatusOK, map[string]any{"plan": plan, "preview_digest": plan.PreviewDigest()})
 }

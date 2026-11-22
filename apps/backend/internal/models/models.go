@@ -100,17 +100,18 @@ type Ride struct {
 	CoverVersion int64 `json:"cover_version,omitempty"`
 }
 type RideInput struct {
-	City         string     `json:"city"`
-	Description  string     `json:"description"`
-	Title        string     `json:"title"`
-	StartsAt     time.Time  `json:"starts_at"`
-	Timezone     string     `json:"timezone"`
-	MeetingPoint string     `json:"meeting_point"`
-	Destination  string     `json:"destination"`
-	RouteURL     string     `json:"route_url"`
-	Expectations string     `json:"expectations"`
-	Capacity     int        `json:"capacity"`
-	MapPoints    []MapPoint `json:"map_points,omitempty"`
+	City              string     `json:"city"`
+	Description       string     `json:"description"`
+	Title             string     `json:"title"`
+	StartsAt          time.Time  `json:"starts_at"`
+	Timezone          string     `json:"timezone"`
+	MeetingPoint      string     `json:"meeting_point"`
+	Destination       string     `json:"destination"`
+	RouteURL          string     `json:"route_url"`
+	Expectations      string     `json:"expectations"`
+	Capacity          int        `json:"capacity"`
+	MapPoints         []MapPoint `json:"map_points,omitempty"`
+	ExpectedMapDigest string     `json:"expected_map_digest,omitempty"`
 }
 type RidePatch struct {
 	City         *string     `json:"city"`

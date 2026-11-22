@@ -10,6 +10,8 @@ import (
 	"github.com/google/uuid"
 )
 
+const conditionLifetime = 30 * 24 * time.Hour
+
 func validateCondition(in models.RouteConditionInput, now time.Time) (models.RouteConditionInput, error) {
 	in.Kind = strings.TrimSpace(in.Kind)
 	in.Description = strings.TrimSpace(in.Description)
@@ -26,7 +28,7 @@ func validateCondition(in models.RouteConditionInput, now time.Time) (models.Rou
 	return in, nil
 }
 func conditionState(c models.RouteCondition, now time.Time) models.RouteCondition {
-	c.ExpiresAt = c.ObservedAt.Add(30 * 24 * time.Hour)
+	c.ExpiresAt = c.ObservedAt.Add(conditionLifetime)
 	c.State = "recent"
 	if !now.Before(c.ExpiresAt) {
 		c.State = "expired"

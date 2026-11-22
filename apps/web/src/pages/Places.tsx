@@ -9,6 +9,7 @@ import { useSession } from '../session'
 import { byteLength, categoryLabels, placeCategories, placesQuery, readPlaceFilters, validBounds } from '../places'
 import { ErrorNotice, Loading } from '../ui'
 import { CitySelector, useCityOptions } from '../components/CitySelector'
+import { MapDiscoverySwitch } from '../components/maps/MapDiscoverySwitch'
 import { cityCenter } from '../cities'
 import { PlaceCategoryIcon, PlaceDetails } from '../components/places/shared'
 import type { MapConfig, Place, PlaceBounds } from '../types'
@@ -68,6 +69,7 @@ export function PlacesPage() {
   }
   return <div className="page-content places-page" data-view={view} data-selected={!!selectedId}>
     <div className="places-heading"><h1>{t('placesTitle')}</h1><div className="place-actions">{user && !sessionError && <Link className="text-button places-my-suggestions" to="/places/submissions">{t('placesMy')}</Link>}<Link className="button button-outline" to={user && !sessionError ? '/places/new' : '/login?next=%2Fplaces%2Fnew'}><PlusIcon size={16} />{t('placesSuggest')}</Link></div></div>
+    <MapDiscoverySwitch current="places" city={f.city} />
     <PlaceFilters params={params} apply={change} suggestions={!!user && !sessionError} />
     <div className="places-workspace-bar">
       <p className="places-result-count" role="status">{query.data && t('placesCount', { count: query.data.places.length })}</p>

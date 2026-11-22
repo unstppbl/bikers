@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { ArrowsOutSimpleIcon, MinusIcon, PlusIcon } from '@phosphor-icons/react'
 import { AttributionControl, LngLatBounds, Map as LibreMap, Marker } from 'maplibre-gl'
 import type { GeoJSONSource } from 'maplibre-gl'
@@ -13,10 +14,12 @@ export interface MapCanvasProps {
   points: MapPoint[]
   geometry?: MapGeometry
   segments?: [number, number][][]
+  referenceLine?: MapGeometry['coordinates']
   archiveUrl: string
   locale: Locale
   onPick?: (point: { lat: number; lon: number }) => void
   disabled?: boolean
+  fallback?: ReactNode
 }
 
 const copy = {
@@ -29,18 +32,18 @@ function validCoordinate(lon: number, lat: number) {
   return Number.isFinite(lon) && Number.isFinite(lat) && Math.abs(lon) <= 180 && Math.abs(lat) <= 90
 }
 
-function fitStops(map: LibreMap, points: MapPoint[], geometry?: MapGeometry, segments?: [number, number][][]) {
+function fitStops(map: LibreMap, points: MapPoint[], geometry?: MapGeometry, segments?: [number, number][][], referenceLine?: MapGeometry['coordinates']) {
   const bounds = new LngLatBounds()
   for (const point of points) {
     if (validCoordinate(point.lon, point.lat)) bounds.extend([point.lon, point.lat])
   }
-  for (const [lon, lat] of [...(geometry?.coordinates ?? []), ...(segments?.flat() ?? [])]) {
+  for (const [lon, lat] of [...(geometry?.coordinates ?? []), ...(segments?.flat() ?? []), ...(referenceLine ?? [])]) {
     if (validCoordinate(lon, lat)) bounds.extend([lon, lat])
   }
   if (!bounds.isEmpty()) map.fitBounds(bounds, { padding: 40, maxZoom: 14, duration: 0 })
 }
 
-function MapSurface({ points, geometry, segments, archiveUrl, locale, onPick, disabled, retry }: MapCanvasProps & { retry: () => void }) {
+function MapSurface({ points, geometry, segments, referenceLine, archiveUrl, locale, onPick, disabled, fallback, retry }: MapCanvasProps & { retry: () => void }) {
   const container = useRef<HTMLDivElement>(null)
   const mapRef = useRef<LibreMap | null>(null)
   const loaded = useRef(false)
@@ -101,13 +104,22 @@ function MapSurface({ points, geometry, segments, archiveUrl, locale, onPick, di
       const data = routeGeometry
         ? { type: 'Feature' as const, geometry: routeGeometry, properties: {} }
         : { type: 'FeatureCollection' as const, features: [] }
+      const theme = getComputedStyle(map.getContainer())
+      const belowLabels = map.getStyle().layers.find((layer) => layer.type === 'symbol')?.id
+      const referenceData = referenceLine && referenceLine.length >= 2
+        ? { type: 'Feature' as const, geometry: { type: 'LineString' as const, coordinates: referenceLine }, properties: {} }
+        : { type: 'FeatureCollection' as const, features: [] }
+      const referenceSource = map.getSource('route-reference') as GeoJSONSource | undefined
+      if (referenceSource) referenceSource.setData(referenceData)
+      else if (referenceLine) {
+        map.addSource('route-reference', { type: 'geojson', data: referenceData })
+        map.addLayer({ id: 'route-reference-line', type: 'line', source: 'route-reference', paint: { 'line-color': theme.getPropertyValue('--text').trim(), 'line-width': 3, 'line-dasharray': [2, 2] } }, map.getLayer('ride-route-casing') ? 'ride-route-casing' : belowLabels)
+      }
       const source = map.getSource('ride-route') as GeoJSONSource | undefined
       if (source) source.setData(data)
       else {
         map.addSource('ride-route', { type: 'geojson', data })
-        const belowLabels = map.getStyle().layers.find((layer) => layer.type === 'symbol')?.id
         // MapLibre paints concrete colours, so the route reads them from the theme tokens.
-        const theme = getComputedStyle(map.getContainer())
         map.addLayer({ id: 'ride-route-casing', type: 'line', source: 'ride-route', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': theme.getPropertyValue('--canvas').trim(), 'line-width': 8 } }, belowLabels)
         map.addLayer({ id: 'ride-route-line', type: 'line', source: 'ride-route', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': theme.getPropertyValue('--accent').trim(), 'line-width': 4 } }, belowLabels)
       }
@@ -122,7 +134,7 @@ function MapSurface({ points, geometry, segments, archiveUrl, locale, onPick, di
         element.addEventListener('click', (event) => event.stopPropagation())
         markers.push(new Marker({ element }).setLngLat([point.lon, point.lat]).addTo(map))
       }
-      fitStops(map, points, geometry, segments)
+      fitStops(map, points, geometry, segments, referenceLine)
     }
     if (loaded.current) update()
     else map.once('load', update)
@@ -131,7 +143,7 @@ function MapSurface({ points, geometry, segments, archiveUrl, locale, onPick, di
       map.off('load', update)
       markers.forEach((marker) => marker.remove())
     }
-  }, [points, geometry, segments])
+  }, [points, geometry, segments, referenceLine, archiveUrl, locale])
 
   useEffect(() => {
     const map = mapRef.current
@@ -150,10 +162,10 @@ function MapSurface({ points, geometry, segments, archiveUrl, locale, onPick, di
     <div className="map-canvas-controls" role="group" aria-label={text.label}>
       <button type="button" aria-label={text.zoomIn} title={text.zoomIn} onClick={() => mapRef.current?.zoomIn({ duration: 0 })}><PlusIcon size={20} /></button>
       <button type="button" aria-label={text.zoomOut} title={text.zoomOut} onClick={() => mapRef.current?.zoomOut({ duration: 0 })}><MinusIcon size={20} /></button>
-      <button type="button" aria-label={text.fit} title={text.fit} disabled={!points.length && !geometry?.coordinates.length && !segments?.some((segment) => segment.length)} onClick={() => { if (mapRef.current) fitStops(mapRef.current, points, geometry, segments) }}><ArrowsOutSimpleIcon size={20} /></button>
+      <button type="button" aria-label={text.fit} title={text.fit} disabled={!points.length && !geometry?.coordinates.length && !segments?.some((segment) => segment.length) && !referenceLine?.length} onClick={() => { if (mapRef.current) fitStops(mapRef.current, points, geometry, segments, referenceLine) }}><ArrowsOutSimpleIcon size={20} /></button>
     </div>
-    {status === 'loading' && <div className="map-canvas-status" role="status"><span className="map-canvas-loading-bar" aria-hidden="true" />{text.loading}</div>}
-    {status === 'error' && <div className="map-canvas-status map-canvas-error" role="alert"><span>{text.error}</span><button type="button" className="text-button" onClick={retry}>{text.retry}</button></div>}
+    {status === 'loading' && <div className="map-canvas-status" role="status">{fallback}<span className="map-canvas-loading-bar" aria-hidden="true" />{text.loading}</div>}
+    {status === 'error' && <div className="map-canvas-status map-canvas-error" role="alert">{fallback}<span>{text.error}</span><button type="button" className="text-button" onClick={retry}>{text.retry}</button></div>}
     {onPick && !disabled && <p className="map-canvas-pick-hint">{text.pick}</p>}
   </div>
 }

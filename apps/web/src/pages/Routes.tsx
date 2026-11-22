@@ -1,17 +1,18 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeftIcon, ArrowUpRightIcon, BookmarkSimpleIcon, PathIcon, PauseIcon, PlusIcon, RecordIcon, TrashIcon } from '@phosphor-icons/react'
+import { ArrowLeftIcon, ArrowUpRightIcon, BookmarkSimpleIcon, DownloadSimpleIcon, NavigationArrowIcon, PathIcon, PauseIcon, PlusIcon, RecordIcon, TrashIcon } from '@phosphor-icons/react'
 import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { mutation, request } from '../api'
 import { CitySelector } from '../components/CitySelector'
+import { MapDiscoverySwitch } from '../components/maps/MapDiscoverySwitch'
 import { MapPlanEditor } from '../components/maps/MapPlanEditor'
 import type { MapDraft } from '../components/maps/MapPlanEditor'
 import { ReportButton } from '../components/Trust'
 import { intlLocale, useI18n } from '../i18n'
 import { bindRecorderAccount, recorderFor } from '../route-recorder'
 import { byteLength, conditionKinds, routeSummary, routeSurfaces, trackDistance } from '../routes'
-import type { CollectionsPageData, CommunityRoute, CommunityRouteSummary, ConditionsPageData, RecordedTrack, RouteCollection, RouteCondition, RoutesPageData, RouteSurface, TracksPageData, TrackSegments } from '../routes'
+import type { CollectionsPageData, CommunityRoute, CommunityRouteSummary, ConditionsPageData, RecordedTrack, RouteCollection, RouteCondition, RouteConditionSummary, RoutesPageData, RouteSurface, TracksPageData, TrackSegments } from '../routes'
 import { useSession, useSessionGuard } from '../session'
 import type { MapConfig, MapPlan, MapPoint } from '../types'
 import { EmptyState, ErrorNotice, Field, formatRideDateTime, Loading, Pagination, ShareLink, TextArea, useConfirmation, useOnline } from '../ui'
@@ -22,9 +23,25 @@ const surfaceLabel = { unknown: 'routesUnknown', asphalt: 'routesAsphalt', mixed
 const conditionLabel = { gravel: 'routesGravel', closure: 'routesClosure', roadworks: 'routesRoadworks', damage: 'routesDamage', other: 'routesOther' } as const
 const noPoints: MapPoint[] = []
 const conditionState = { recent: 'routesConditionRecent', expired: 'routesConditionExpired', resolved: 'routesConditionResolved' } as const
+const durationLimits = ['3600', '7200', '14400', '28800']
+const filterKeys = ['q', 'city', 'surface', 'max_duration_seconds'] as const
+const latestReportAnchor = 'latest-road-report'
+const saveRouteAnchor = 'save-route'
+
+function routeFilters(params: URLSearchParams) {
+  const surface = params.get('surface') ?? ''
+  const duration = params.get('max_duration_seconds') ?? ''
+  return {
+    q: params.get('q') ?? '',
+    city: params.get('city') ?? '',
+    surface: routeSurfaces.includes(surface as RouteSurface) ? surface : '',
+    max_duration_seconds: durationLimits.includes(duration) ? duration : '',
+  }
+}
 const listParams = (params: URLSearchParams, tab: string) => {
   const out = new URLSearchParams({ limit: '20', scope: tab === 'mine' ? 'mine' : 'public' })
-  for (const key of ['q', 'city', 'after', 'collection']) if (params.get(key)) out.set(key, params.get(key)!)
+  for (const [key, value] of Object.entries(routeFilters(params))) if (value) out.set(key, value)
+  for (const key of ['after', 'collection']) if (params.get(key)) out.set(key, params.get(key)!)
   return out
 }
 
@@ -57,9 +74,10 @@ function RouteMap({ segments, points = noPoints }: { segments: TrackSegments; po
     {config.isPending ? <Loading /> : config.data?.archive_url ? <Suspense fallback={<Loading />}><MapCanvas points={points} segments={segments} archiveUrl={config.data.archive_url} locale={locale} /></Suspense> : <ErrorNotice text={t('routesMapUnavailable')} retry={() => void config.refetch()} />}
   </div>
 }
-function RouteStats({ distance, duration }: { distance: number; duration: number }) {
+function RouteStats({ distance, duration, recorded = false }: { distance: number; duration: number; recorded?: boolean }) {
   const { t, locale } = useI18n()
-  return <div className="route-stats"><strong>{t('routesDistance', { distance: new Intl.NumberFormat(intlLocale(locale), { maximumFractionDigits: 1 }).format(distance / 1000) })}</strong><span>{t('routesDuration', { minutes: Math.round(duration / 60) })}</span></div>
+  const minutes = Math.max(1, Math.round(duration / 60))
+  return <div className="route-stats"><strong>{t('routesDistance', { distance: new Intl.NumberFormat(intlLocale(locale), { maximumFractionDigits: 1 }).format(distance / 1000) })}</strong><span>{duration > 0 ? t(recorded ? 'routesDurationRecorded' : 'routesDurationEstimated', { minutes }) : t('routesDurationUnavailable')}</span></div>
 }
 function BackToRoutes() {
   const { t } = useI18n()
@@ -77,9 +95,15 @@ export function RoutesPage() {
   if (loading) return <Loading />
   if (error) return <div className="page-content"><ErrorNotice error={error} retry={() => void refresh()} /></div>
   if (tab !== 'public' && !user) return <Navigate to={`/login?next=${encodeURIComponent('/routes?' + params)}`} replace />
+  const city = params.get('city') ?? ''
   return <div className="page-content routes-page" key={user?.id ?? 'guest'}>
-    <div className="collection-heading"><div className="page-heading"><h1>{t('routesHeading')}</h1><p>{t('routesIntro')}</p></div><div className="route-actions"><Link className="button button-primary" to="/routes/new"><PlusIcon size={18} />{t('routesNew')}</Link><Link className="button button-outline" to="/routes/record"><RecordIcon size={18} />{t('routesRecord')}</Link></div></div>
-    <nav className="routes-tabs" aria-label={t('routesTitle')}>{(['public', 'mine', 'collections', 'tracks'] as const).map((value) => <Link key={value} aria-current={tab === value ? 'page' : undefined} to={value === 'public' ? '/routes' : `/routes?tab=${value}`}>{t(({ public: 'routesPublic', mine: 'routesMine', collections: 'routesCollections', tracks: 'routesTracks' } as const)[value])}</Link>)}</nav>
+    <MapDiscoverySwitch current="routes" city={city} />
+    <div className="collection-heading"><div className="page-heading"><h1>{t('routesHeading')}</h1></div><div className="route-actions"><Link className="button button-primary" to="/routes/new"><PlusIcon size={18} />{t('routesNew')}</Link><Link className="button button-outline" to="/routes/record"><RecordIcon size={18} />{t('routesRecord')}</Link></div></div>
+    <nav className="routes-tabs" aria-label={t('routesTitle')}>{(['public', 'mine', 'collections', 'tracks'] as const).map((value) => {
+      const next = new URLSearchParams(city ? { city } : {})
+      if (value !== 'public') next.set('tab', value)
+      return <Link key={value} aria-current={tab === value ? 'page' : undefined} to={value === tab ? '/routes' + (params.size ? '?' + params : '') : '/routes' + (next.size ? '?' + next : '')}>{t(({ public: 'routesPublic', mine: 'routesMine', collections: 'routesCollections', tracks: 'routesTracks' } as const)[value])}</Link>
+    })}</nav>
     {tab === 'collections' ? <Collections /> : tab === 'tracks' ? <Tracks /> : <RouteList tab={tab} />}
   </div>
 }
@@ -88,7 +112,7 @@ function RouteList({ tab }: { tab: string }) {
   const { t } = useI18n(), { user } = useSession(), [params, setParams] = useSearchParams()
   const location = useLocation(), navigate = useNavigate()
   const queryParams = listParams(params, tab), after = params.get('after') ?? ''
-  const scope = JSON.stringify([user?.id, tab, params.get('q'), params.get('city'), params.get('collection')])
+  const scope = JSON.stringify([user?.id, tab, routeFilters(params), params.get('collection')])
   const saved = (location.state as { routePaging?: { scope: string; cursors: string[] } } | null)?.routePaging
   const wrongActor = !!after && !!saved && saved.scope !== scope
   const cursors = saved?.scope === scope && saved.cursors.at(-1) === after ? saved.cursors : after ? ['', after] : ['']
@@ -101,10 +125,10 @@ function RouteList({ tab }: { tab: string }) {
   }
   if (wrongActor) { const result = new URLSearchParams(params); result.delete('after'); return <Navigate to={`/routes?${result}`} replace /> }
   return <section aria-label={t(tab === 'mine' ? 'routesMine' : 'routesPublic')}>
-    <RouteSearch key={JSON.stringify([params.get('q'), params.get('city')])} />
+    <RouteSearch key={JSON.stringify(routeFilters(params))} />
     {params.has('collection') && <p className="field-hint">{t('routesCollectionPrivate')}</p>}
     <PageState pending={query.isPending} error={query.error} retry={() => void query.refetch()}>
-      {!query.data?.routes.length ? <EmptyState title={t('routesEmpty')} text={t('routesEmptyText')} action={<Link className="button button-outline" to="/routes/new">{t('routesNew')}</Link>} /> : <div className="route-grid">{query.data.routes.map((route) => <RouteCard key={route.id} route={route} collection={params.get('collection') ?? undefined} />)}</div>}
+      {!query.data?.routes.length ? <EmptyState title={t('routesEmpty')} text={t('routesEmptyText')} action={<Link className="button button-outline" to="/routes/new">{t('routesNew')}</Link>} /> : <div className="route-grid">{query.data.routes.map((route) => <RouteCard key={route.id} route={route} showReport={tab === 'public' && !params.has('collection')} collection={params.get('collection') ?? undefined} />)}</div>}
     </PageState>
     {query.isError && after && <button className="text-button" onClick={() => { const next = new URLSearchParams(params); next.delete('after'); setParams(next) }}>{t('routesFirstPage')}</button>}
     {!query.isError && <Pagination page={cursors.length - 1} hasNext={!!query.data?.next_cursor} busy={query.isFetching} next={() => { if (query.data?.next_cursor) page([...cursors, query.data.next_cursor]) }} previous={() => page(cursors.slice(0, -1))} />}
@@ -112,13 +136,78 @@ function RouteList({ tab }: { tab: string }) {
 }
 function RouteSearch() {
   const { t } = useI18n(), [params, setParams] = useSearchParams()
-  const [q, setQ] = useState(params.get('q') ?? ''), [city, setCity] = useState(params.get('city') ?? '')
-  function apply(event: FormEvent) { event.preventDefault(); const next = new URLSearchParams(params); next.delete('after'); for (const [key, value] of [['q', q], ['city', city]]) { if (value.trim()) next.set(key, value.trim()); else next.delete(key) }; setParams(next) }
-  return <form className="surface routes-filters" onSubmit={apply}><Field type="search" label={t('routesSearch')} value={q} onChange={(e) => setQ(e.target.value)} maxLength={160} /><CitySelector value={city} onChange={setCity} label={t('routesCity')} hint="" /><button className="button button-outline" type="submit">{t('applyFilters')}</button><button className="text-button" type="button" onClick={() => { const next = new URLSearchParams(params); ['q', 'city', 'after'].forEach((key) => next.delete(key)); setParams(next); setQ(''); setCity('') }}>{t('clearFilters')}</button></form>
+  const [filters, setFilters] = useState(() => routeFilters(params))
+  function update(key: typeof filterKeys[number], value: string) { setFilters((current) => ({ ...current, [key]: value })) }
+  function apply(event: FormEvent) {
+    event.preventDefault()
+    const next = new URLSearchParams(params)
+    next.delete('after')
+    for (const key of filterKeys) {
+      const value = filters[key].trim()
+      if (value) next.set(key, value)
+      else next.delete(key)
+    }
+    setParams(next)
+  }
+  function clear() {
+    const next = new URLSearchParams(params)
+    for (const key of [...filterKeys, 'after']) next.delete(key)
+    setFilters(routeFilters(next))
+    setParams(next)
+  }
+  return <form className="routes-filters" onSubmit={apply}>
+    <Field type="search" label={t('routesSearch')} value={filters.q} onChange={(e) => update('q', e.target.value)} maxLength={160} />
+    <CitySelector value={filters.city} onChange={(value) => update('city', value)} label={t('routesCity')} hint="" />
+    <Field label={t('routesRidingTime')}><select value={filters.max_duration_seconds} onChange={(e) => update('max_duration_seconds', e.target.value)}>
+      <option value="">{t('routesAnyDuration')}</option>
+      {durationLimits.map((seconds) => <option key={seconds} value={seconds}>{t('routesDurationLimit', { hours: Number(seconds) / 3600 })}</option>)}
+    </select></Field>
+    <Field label={t('routesSurface')}><select value={filters.surface} onChange={(e) => update('surface', e.target.value)}>
+      <option value="">{t('routesAnySurface')}</option>
+      {routeSurfaces.map((surface) => <option key={surface} value={surface}>{t(surfaceLabel[surface])}</option>)}
+    </select></Field>
+    <div className="route-actions routes-filter-actions"><button className="button button-outline" type="submit" aria-label={t('applyFilters')}>{t('routesApply')}</button><button className="text-button" type="button" onClick={clear} aria-label={t('clearFilters')}>{t('routesClear')}</button></div>
+  </form>
 }
-function RouteCard({ route, collection }: { route: CommunityRouteSummary; collection?: string }) {
+
+function RouteThumbnail({ segments }: { segments?: TrackSegments }) {
+  if (!segments?.length) return null
+  return <svg aria-hidden="true" focusable="false" className="route-thumbnail" viewBox="-0.1 -0.1 1.2 1.2">
+    {segments.map((points, index) => <polyline key={index} points={points.map(([x, y]) => `${x},${y}`).join(' ')} vectorEffect="non-scaling-stroke" />)}
+  </svg>
+}
+
+function ActiveCondition({ condition, path }: { condition?: RouteConditionSummary; path?: string }) {
+  const { t, locale } = useI18n()
+  const [openedAt] = useState(Date.now)
+  if (!condition || !Number.isFinite(Date.parse(condition.observed_at)) || !(Date.parse(condition.expires_at) > openedAt)) return <p className="route-latest-report">{t('routesNoRecentReports')}</p>
+  const date = new Intl.DateTimeFormat(intlLocale(locale), { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Almaty' }).format(new Date(condition.observed_at))
+  const label = t(conditionLabel[condition.kind])
+  return <div className="route-latest-report">
+    <p>{path ? <Link to={path}>{label}</Link> : <strong>{label}</strong>} <span>· <time dateTime={condition.observed_at}>{date}</time> · {condition.author_name}</span></p>
+    {!path && condition.description && <p className="route-description">{condition.description}</p>}
+  </div>
+}
+
+function RouteCard({ route, collection, showReport }: { route: CommunityRouteSummary; collection?: string; showReport: boolean }) {
   const { t } = useI18n(), action = useRouteAction(), online = useOnline()
-  return <article className="surface route-card"><div className="route-card-top"><PathIcon size={24} /><span>{t(route.kind === 'recorded' ? 'routesRecorded' : 'routesPlanned')}</span>{!route.published && <span className="status-pill">{t('routesPrivate')}</span>}</div><h2><Link to={`/routes/${route.id}`}>{route.title}</Link></h2><p className="route-card-city">{route.city} · {t(surfaceLabel[route.surface] ?? 'routesUnknown')}</p><p className="route-card-description">{route.description}</p><RouteStats distance={route.distance_meters} duration={route.duration_seconds} /><p className="field-hint">{t('routesBy', { name: route.owner_name })}</p><div className="route-actions"><Link className="text-button" to={`/routes/${route.id}`}>{t('routesOpen')}<ArrowUpRightIcon size={18} /></Link>{collection && <button className="text-button" disabled={!online || action.busy} onClick={() => void action.run(() => mutation(`/route-collections/${collection}/routes/${route.id}`, 'DELETE'))}>{t('routesCollectionRemove')}</button>}</div>{action.error != null && <ErrorNotice error={action.error} />}</article>
+  const path = `/routes/${route.id}`
+  return <article className="surface route-card">
+    <div className="route-card-summary">
+      <div>
+        <div className="route-card-top"><PathIcon size={20} aria-hidden="true" /><span>{t(route.kind === 'recorded' ? 'routesRecorded' : 'routesPlanned')}</span>{!route.published && <span className="status-pill">{t('routesPrivate')}</span>}</div>
+        <h2><Link to={path}>{route.title}</Link></h2>
+        <p className="route-card-city">{route.city} · {t(surfaceLabel[route.surface] ?? 'routesUnknown')}</p>
+        <RouteStats distance={route.distance_meters} duration={route.duration_seconds} recorded={route.kind === 'recorded'} />
+      </div>
+      <RouteThumbnail segments={route.preview_segments} />
+    </div>
+    {route.published && showReport && <ActiveCondition condition={route.latest_condition} path={`${path}#${latestReportAnchor}`} />}
+    <p className="route-card-description">{route.description}</p>
+    <p className="field-hint">{t('routesBy', { name: route.owner_name })}</p>
+    <div className="route-actions"><Link className="text-button" to={path}>{t('routesOpen')}<ArrowUpRightIcon size={18} /></Link>{collection && <button className="text-button" disabled={!online || action.busy} onClick={() => void action.run(() => mutation(`/route-collections/${collection}/routes/${route.id}`, 'DELETE'))}>{t('routesCollectionRemove')}</button>}</div>
+    {action.error != null && <ErrorNotice error={action.error} />}
+  </article>
 }
 
 function Collections() {
@@ -141,7 +230,7 @@ function Tracks() {
 function TrackCard({ track }: { track: RecordedTrack }) {
   const { t, locale } = useI18n(), action = useRouteAction(), confirmation = useConfirmation(), online = useOnline()
   async function remove() { if (await confirmation.confirm({ action: t('routesTrackDelete'), message: t('routesTrackDeleteNote'), destructive: true })) await action.run(() => mutation(`/tracks/${track.id}`, 'DELETE', { version: track.version })) }
-  return <article className="surface route-card"><span className="status-pill">{t('routesPrivate')}</span><h2>{track.name}</h2><p className="field-hint">{formatRideDateTime(track.created_at, 'Asia/Almaty', locale)}</p><RouteStats distance={track.distance_meters} duration={track.duration_seconds} /><div className="route-actions"><Link className="text-button" to={`/routes/new?track=${track.id}`}>{t('routesFromTrack')}<ArrowUpRightIcon size={18} /></Link><button className="text-button" disabled={action.busy || !online} onClick={() => void remove()}>{t('routesTrackDelete')}</button></div>{action.error != null && <ErrorNotice error={action.error} />}{confirmation.dialog}</article>
+  return <article className="surface route-card"><span className="status-pill">{t('routesPrivate')}</span><h2>{track.name}</h2><p className="field-hint">{formatRideDateTime(track.created_at, 'Asia/Almaty', locale)}</p><RouteStats distance={track.distance_meters} duration={track.duration_seconds} recorded /><div className="route-actions"><Link className="text-button" to={`/routes/new?track=${track.id}`}>{t('routesFromTrack')}<ArrowUpRightIcon size={18} /></Link><button className="text-button" disabled={action.busy || !online} onClick={() => void remove()}>{t('routesTrackDelete')}</button></div>{action.error != null && <ErrorNotice error={action.error} />}{confirmation.dialog}</article>
 }
 
 export function RouteDetailPage() {
@@ -151,8 +240,65 @@ export function RouteDetailPage() {
 }
 function RouteDetails({ route }: { route: CommunityRoute }) {
   const { user } = useSession(), { t, locale } = useI18n(), action = useRouteAction(), confirmation = useConfirmation(), navigate = useNavigate(), online = useOnline()
+  const { hash } = useLocation()
+  const latestReport = useRef<HTMLElement>(null)
+  const saveCollection = useRef<HTMLElement>(null)
+  useEffect(() => {
+    const target = hash === '#' + latestReportAnchor ? latestReport.current : hash === '#' + saveRouteAnchor ? saveCollection.current : null
+    if (!target) return
+    target.focus({ preventScroll: true })
+    target.scrollIntoView?.()
+  }, [hash])
   async function remove() { if (await confirmation.confirm({ action: t('routesDelete'), message: t('routesDeleteNote'), destructive: true })) await action.run(() => mutation(`/routes/${route.id}`, 'DELETE', { version: route.version }), () => void navigate('/routes?tab=mine')) }
-  return <><div className="routes-heading"><div className="page-heading"><span className="route-kind">{t(route.kind === 'recorded' ? 'routesRecorded' : 'routesPlanned')} · {t(route.published ? 'routesPublished' : 'routesPrivate')}</span><h1>{route.title}</h1><p>{route.city} · {t(surfaceLabel[route.surface] ?? 'routesUnknown')}</p></div>{user?.id === route.owner_id && <div className="route-actions"><Link className="button button-outline" to={`/routes/${route.id}/edit`}>{t('routesEdit')}</Link><button className="text-button" disabled={action.busy || !online} onClick={() => void remove()}>{t('routesDelete')}</button></div>}</div><div className={`route-detail-layout ${!user && route.published ? 'route-detail-full' : ''}`}><section className="routes-stack"><RouteMap segments={route.segments ?? []} points={route.points ?? []} /><div className="surface route-panel"><RouteStats distance={route.distance_meters} duration={route.duration_seconds} /><p className="route-description">{route.description}</p><p className="field-hint">{t('routesBy', { name: route.owner_name })}</p><p className="field-hint">{t('routesUpdated', { date: formatRideDateTime(route.updated_at, 'Asia/Almaty', locale) })}</p>{route.published && <ShareLink path={`/routes/${route.id}`} />}<ReportButton targetType="route" targetId={route.id} /></div></section>{(user || !route.published) && <aside className="routes-stack">{user && route.published && <SaveToCollection routeId={route.id} />}{!route.published && <p className="surface route-panel field-hint">{t('routesDraftNote')}</p>}</aside>}</div>{route.published && <Conditions routeId={route.id} />}{action.error != null && <ErrorNotice error={action.error} />}{confirmation.dialog}</>
+  const path = `/routes/${encodeURIComponent(route.id)}`
+  const savePath = `#${saveRouteAnchor}`
+  const [firstPoint] = route.points ?? []
+  const start = firstPoint ? [firstPoint.lon, firstPoint.lat] : route.segments?.find((segment) => segment.length)?.[0]
+  const stops = route.points?.slice(1, -1) ?? []
+  const planned = route.kind === 'planned'
+  const publicRoute = route.published && route.publicly_visible === true
+  return <>
+    <div className="routes-heading">
+      <div className="page-heading">
+        <span className="route-kind">{t(planned ? 'routesPlanned' : 'routesRecorded')} · {t(publicRoute ? 'routesPublished' : route.published ? 'routesUnavailablePublic' : 'routesPrivate')}</span>
+        <h1>{route.title}</h1>
+        <p>{route.city} · {t(surfaceLabel[route.surface] ?? 'routesUnknown')}</p>
+        <RouteStats distance={route.distance_meters} duration={route.duration_seconds} recorded={!planned} />
+      </div>
+      {user?.id === route.owner_id && <div className="route-actions"><Link className="button button-outline" to={path + '/edit'}>{t('routesEdit')}</Link><button className="text-button" disabled={action.busy || !online} onClick={() => void remove()}>{t('routesDelete')}</button></div>}
+    </div>
+    {publicRoute && <>
+      <div className="route-actions route-detail-actions">
+        {planned && (route.points?.length ?? 0) >= 2 && <Link className="button button-primary" to={`/rides/new?route=${encodeURIComponent(route.id)}`}><PlusIcon size={18} />{t('routesCreateRide')}</Link>}
+        {user ? <Link className="button button-outline" to={savePath}><BookmarkSimpleIcon size={18} />{t('routesCollectionSave')}</Link> : <Link className="button button-outline" to={`/login?next=${encodeURIComponent(path + savePath)}`}><BookmarkSimpleIcon size={18} />{t('routesCollectionSave')}</Link>}
+        {start && <a className="button button-outline" href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${start[1]},${start[0]}`)}&travelmode=driving`} target="_blank" rel="noopener noreferrer"><NavigationArrowIcon size={18} />{t('routesNavigateToStart')}</a>}
+        <a className="button button-outline" href={`/api/v1${path}/gpx`} download><DownloadSimpleIcon size={18} />{t('routesDownloadGPX')}</a>
+      </div>
+      <section id={latestReportAnchor} ref={latestReport} tabIndex={-1} className="surface route-panel route-report-brief" aria-labelledby="route-report-brief-heading">
+        <h2 id="route-report-brief-heading">{t('routesLatestReport')}</h2>
+        <ActiveCondition condition={route.latest_condition} />
+        <a className="text-button" href="#route-conditions">{t('routesAllReports')}</a>
+      </section>
+    </>}
+    <div className={`route-detail-layout ${!user && publicRoute ? 'route-detail-full' : ''}`}>
+      <section className="routes-stack">
+        <RouteMap segments={route.segments ?? []} points={route.points ?? []} />
+        {stops.length > 0 && <section className="surface route-panel route-stops"><h2>{t('routesStops')}</h2><ol>{stops.map((point, index) => <li key={index}>{point.label}</li>)}</ol></section>}
+        <div className="surface route-panel">
+          <p className="route-description">{route.description}</p>
+          <p className="field-hint">{t('routesBy', { name: route.owner_name })}</p>
+          <p className="field-hint">{t('routesUpdated', { date: formatRideDateTime(route.updated_at, 'Asia/Almaty', locale) })}</p>
+          {publicRoute && <ShareLink path={path} />}
+          <ReportButton targetType="route" targetId={route.id} />
+        </div>
+      </section>
+      {user && publicRoute && <aside id={saveRouteAnchor} ref={saveCollection} tabIndex={-1} aria-label={t('routesCollectionSave')}><SaveToCollection routeId={route.id} /></aside>}
+      {!publicRoute && <p className="surface route-panel field-hint">{t(route.published ? 'routesUnavailablePublicNote' : 'routesDraftNote')}</p>}
+    </div>
+    {publicRoute && <Conditions routeId={route.id} />}
+    {action.error != null && <ErrorNotice error={action.error} />}
+    {confirmation.dialog}
+  </>
 }
 function SaveToCollection({ routeId }: { routeId: string }) {
   const { user } = useSession(), { t } = useI18n(), [id, setId] = useState(''), action = useRouteAction(), online = useOnline()
@@ -225,7 +371,7 @@ function Recorder({ actor }: { actor: string }) {
 function Conditions({ routeId }: { routeId: string }) {
   const { user } = useSession(), { t } = useI18n(), [after, setAfter] = useState(''), [editing, setEditing] = useState<RouteCondition | null | undefined>()
   const query = useQuery({ queryKey: ['route-conditions', routeId, user?.id, after], queryFn: ({ signal }) => request<ConditionsPageData>(`/routes/${routeId}/conditions?limit=20${after ? `&after=${encodeURIComponent(after)}` : ''}`, { signal }), meta: { private: true }, retry: false })
-  return <section className="routes-conditions"><div className="section-header"><h2>{t('routesConditions')}</h2>{user && editing === undefined && <button className="button button-outline" onClick={() => setEditing(null)}><PlusIcon size={17} />{t('routesConditionAdd')}</button>}</div><p className="field-hint">{t('routesConditionsNote')}</p>{editing !== undefined && <ConditionForm key={editing?.id ?? 'new'} routeId={routeId} condition={editing ?? undefined} close={() => setEditing(undefined)} />}<PageState pending={query.isPending} error={query.error} retry={() => void query.refetch()}>{!query.data?.conditions.length ? <p className="surface route-panel">{t('routesConditionsEmpty')}</p> : <div className="routes-stack">{query.data.conditions.map((condition) => <ConditionCard key={condition.id + ':' + condition.version} condition={condition} edit={() => setEditing(condition)} />)}</div>}</PageState><div className="route-actions">{after && <button className="text-button" onClick={() => setAfter('')}>{t('routesFirstPage')}</button>}{query.data?.next_cursor && <button className="button button-outline" onClick={() => setAfter(query.data.next_cursor)}>{t('nextPage')}</button>}</div></section>
+  return <section id="route-conditions" className="routes-conditions"><div className="section-header"><h2>{t('routesConditions')}</h2>{user && editing === undefined && <button className="button button-outline" onClick={() => setEditing(null)}><PlusIcon size={17} />{t('routesConditionAdd')}</button>}</div><p className="field-hint">{t('routesConditionsNote')}</p>{editing !== undefined && <ConditionForm key={editing?.id ?? 'new'} routeId={routeId} condition={editing ?? undefined} close={() => setEditing(undefined)} />}<PageState pending={query.isPending} error={query.error} retry={() => void query.refetch()}>{!query.data?.conditions.length ? <p className="surface route-panel">{t('routesConditionsEmpty')}</p> : <div className="routes-stack">{query.data.conditions.map((condition) => <ConditionCard key={condition.id + ':' + condition.version} condition={condition} edit={() => setEditing(condition)} />)}</div>}</PageState><div className="route-actions">{after && <button className="text-button" onClick={() => setAfter('')}>{t('routesFirstPage')}</button>}{query.data?.next_cursor && <button className="button button-outline" onClick={() => setAfter(query.data.next_cursor)}>{t('nextPage')}</button>}</div></section>
 }
 function ConditionCard({ condition, edit }: { condition: RouteCondition; edit: () => void }) {
   const { user } = useSession(), { t, locale } = useI18n(), action = useRouteAction(), confirmation = useConfirmation(), online = useOnline()

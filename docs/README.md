@@ -32,6 +32,8 @@ These editable Markdown copies mirror the native BIKERS.KZ Space pages. This sna
 
 [Motorcycle app research](motorcycle-app-research.md) compares ride, route and community apps and proposes a route discovery and group ride pilot in Astana.
 
+[Astana route and ride pilot](astana-route-pilot.md) records the release, route contribution and pilot measurement plan.
+
 ## Maintaining both copies
 
 Keep the repository documents and native Space pages aligned when the project changes. Synchronization is performed explicitly; no automatic or scheduled sync is configured. Reconcile intervening edits before copying content in either direction.

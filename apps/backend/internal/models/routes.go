@@ -19,35 +19,85 @@ type CommunityRouteInput struct {
 	Version        int64      `json:"version"`
 }
 
-// Summaries deliberately exclude exact points, geometry and the private track ID.
+const MaxRouteDurationSeconds = 7 * 24 * 60 * 60
+
+func IsRouteSurface(surface string) bool {
+	switch surface {
+	case "asphalt", "mixed", "unpaved", "unknown":
+		return true
+	default:
+		return false
+	}
+}
+
+// Summaries exclude exact points, geometry and the private track ID. A public
+// result can include a small line drawing in thumbnail coordinates.
 type CommunityRouteSummary struct {
-	ID              string    `json:"id"`
-	OwnerID         string    `json:"owner_id"`
-	OwnerName       string    `json:"owner_name"`
-	Title           string    `json:"title"`
-	City            string    `json:"city"`
-	Description     string    `json:"description"`
-	Surface         string    `json:"surface"`
-	Kind            string    `json:"kind"`
-	Published       bool      `json:"published"`
-	Version         int64     `json:"version"`
-	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
-	DistanceMeters  float64   `json:"distance_meters"`
-	DurationSeconds float64   `json:"duration_seconds"`
+	ID              string                 `json:"id"`
+	OwnerID         string                 `json:"owner_id"`
+	OwnerName       string                 `json:"owner_name"`
+	Title           string                 `json:"title"`
+	City            string                 `json:"city"`
+	Description     string                 `json:"description"`
+	Surface         string                 `json:"surface"`
+	Kind            string                 `json:"kind"`
+	Published       bool                   `json:"published"`
+	Version         int64                  `json:"version"`
+	CreatedAt       time.Time              `json:"created_at"`
+	UpdatedAt       time.Time              `json:"updated_at"`
+	DistanceMeters  float64                `json:"distance_meters"`
+	DurationSeconds float64                `json:"duration_seconds"`
+	PreviewSegments [][][2]float64         `json:"preview_segments,omitempty"`
+	LatestCondition *RouteConditionSummary `json:"latest_condition,omitempty"`
 }
 
 type CommunityRoute struct {
 	CommunityRouteSummary
-	Points        []MapPoint     `json:"points"`
-	Segments      [][][2]float64 `json:"segments"`
-	Hidden        bool           `json:"-"`
-	SourceTrackID string         `json:"-"`
+	Points          []MapPoint     `json:"points"`
+	Segments        [][][2]float64 `json:"segments"`
+	Hidden          bool           `json:"-"`
+	SourceTrackID   string         `json:"-"`
+	PubliclyVisible bool           `json:"publicly_visible"`
 }
 
 type CommunityRoutePage struct {
 	Routes     []CommunityRouteSummary `json:"routes"`
 	NextCursor string                  `json:"next_cursor"`
+}
+
+// RoutePreview converts bounded WGS84 samples into a relative drawing on a
+// square canvas. One scale preserves the line's aspect ratio, and neither
+// latitude, longitude nor an absolute scale is carried in the result.
+func RoutePreview(samples [][][2]float64) [][][2]float64 {
+	minLon, maxLon := math.Inf(1), math.Inf(-1)
+	minLat, maxLat := math.Inf(1), math.Inf(-1)
+	for _, segment := range samples {
+		for _, p := range segment {
+			minLon, maxLon = math.Min(minLon, p[0]), math.Max(maxLon, p[0])
+			minLat, maxLat = math.Min(minLat, p[1]), math.Max(maxLat, p[1])
+		}
+	}
+	lonSpan, latSpan := maxLon-minLon, maxLat-minLat
+	if lonSpan <= 0 && latSpan <= 0 {
+		return nil
+	}
+	centerLon, centerLat := (minLon+maxLon)/2, (minLat+maxLat)/2
+	lonScale := math.Cos(centerLat * math.Pi / 180)
+	scale := math.Max(lonSpan*lonScale, latSpan)
+	preview := make([][][2]float64, 0, len(samples))
+	for _, segment := range samples {
+		if len(segment) < 2 {
+			continue
+		}
+		line := make([][2]float64, len(segment))
+		for i, p := range segment {
+			x := 0.5 + (p[0]-centerLon)*lonScale/scale
+			y := 0.5 - (p[1]-centerLat)/scale
+			line[i] = [2]float64{math.Round(x*1000) / 1000, math.Round(y*1000) / 1000}
+		}
+		preview = append(preview, line)
+	}
+	return preview
 }
 
 // TrackInput is recorded by the in-app GPS recorder. Segment boundaries retain
@@ -127,6 +177,14 @@ type RouteCondition struct {
 	CreatedAt  time.Time `json:"created_at"`
 	UpdatedAt  time.Time `json:"updated_at"`
 	Hidden     bool      `json:"-"`
+}
+type RouteConditionSummary struct {
+	ID          string    `json:"id"`
+	Kind        string    `json:"kind"`
+	ObservedAt  time.Time `json:"observed_at"`
+	ExpiresAt   time.Time `json:"expires_at"`
+	AuthorName  string    `json:"author_name"`
+	Description string    `json:"description,omitempty"`
 }
 
 type RouteConditionPage struct {

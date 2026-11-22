@@ -11,13 +11,14 @@ import { useCityOptions } from '../components/CitySelector'
 import { CityArt, DatePlate, goingLabel } from '../components/RideVisual'
 import { RideCoverReport, RideImage } from '../components/RideCover'
 import { useSession, useSessionGuard } from '../session'
-import { ErrorNotice, Loading, PrivacyNote, dateParts, formatRideDateTime, ShareLink, useConfirmation, useOnline } from '../ui'
+import { ErrorNotice, Loading, PrivacyNote, dateParts, formatRideDateTime, useConfirmation, useOnline } from '../ui'
 import { ParticipantsPanel } from '../components/ParticipantsPanel'
 import { Avatar } from '../components/Avatar'
 import { Announcements } from '../components/Announcements'
 import type { AnnouncementDraft } from '../components/Announcements'
 import { RideMedia } from '../components/RideMedia'
 import { RideSchedule } from '../components/RideSchedule'
+import { RideShare } from '../components/RideShare'
 import { SavedRideMap } from '../components/maps/MapPlanEditor'
 import { MessageActions } from '../components/MessageActions'
 import { CommunityBadge, ReportButton } from '../components/Trust'
@@ -128,9 +129,10 @@ export function RideDetailPage() {
   const date = dateParts(ride.date, locale)
   const status = ride.participation_state
   const city = cityLabel(ride.city, locale, cities.data?.cities ?? [])
+  const meetingPin = ride.map_plan?.points[0]
   return <div className="page-content ride-detail">{dialog}<Link className="back-link" to="/"><ArrowLeft size={17} />{t('back')}</Link>
     {rideQuery.isError && <ErrorNotice error={rideQuery.error} retry={() => void rideQuery.refetch()} />}
-    <section className={`ride-hero${ride.status === 'cancelled' ? ' is-cancelled' : ''}`} aria-labelledby="ride-title">
+    <section className={`ride-hero${ride.status === 'cancelled' ? ' is-cancelled' : ''}${canAccess ? ' is-ride-room' : ''}`} aria-labelledby="ride-title">
       <RideImage ride={ride} className="ride-hero-cover" described priority />
       <CityArt city={city} />
       <div className="ride-hero-body">
@@ -139,18 +141,19 @@ export function RideDetailPage() {
           <div className="ride-hero-status">{ride.status === 'cancelled' && <span className="status-pill cancelled">{t('cancelled')}</span>}{ride.can_manage && <span className="status-pill">{t('organizer')}</span>}{canAccess && !ride.can_manage && <span className="status-pill approved"><Check size={13} weight="bold" />{t(goingLabel(ride))}</span>}{status === 'requested' && <span className="status-pill pending"><Clock3 size={13} />{t('requested')}</span>}</div>
           <h1 id="ride-title">{canAccess ? ride.title : t('rideIn', { city })}</h1>
           <div className="detail-meta"><span><MapPin size={17} />{city}</span><span><CalendarDays size={17} />{date.full}</span>{canAccess && ride.starts_at && <span><Clock3 size={17} />{formatInTimeZone(ride.starts_at, ride.timezone ?? 'Asia/Almaty', 'HH:mm')}</span>}</div>
+          {canAccess && ride.status !== 'cancelled' && <a className="button button-primary ride-meeting-action" href={directionsTo(meetingPin ? `${meetingPin.lat},${meetingPin.lon}` : ride.meeting_point ?? '')} target="_blank" rel="noopener noreferrer">{t('rideNavigateMeeting')}<ArrowUpRight size={16} /></a>}
         </div>
       </div>
     </section>
-    <div className="ride-toolbar"><ShareLink path={`/rides/${ride.id}`} />{canAccess && ride.can_manage && ride.status !== 'cancelled' && <Link className="button button-outline" to={`/rides/${ride.id}/edit`}><Pencil size={16} />{t('editRide')}</Link>}<div className="ride-toolbar-reports"><ReportButton targetType="ride" targetId={ride.id} /><RideCoverReport ride={ride} /></div></div>
+    <div className="ride-toolbar"><RideShare key={ride.id} rideId={ride.id} />{canAccess && ride.can_manage && ride.status !== 'cancelled' && <Link className="button button-outline" to={`/rides/${ride.id}/edit`}><Pencil size={16} />{t('editRide')}</Link>}<div className="ride-toolbar-reports"><ReportButton targetType="ride" targetId={ride.id} /><RideCoverReport ride={ride} /></div></div>
     {ride.status === 'cancelled' && <div className="cancelled-banner" role="status"><X size={19} /><span>{t('cancelledText')}</span></div>}
     {actionError != null && <ErrorNotice error={actionError} />}
     {canAccess ? <div className="ride-layout">
       <div className="ride-main">
-        <p className="ride-description">{ride.description}</p>
         <RidePlan ride={ride} />
-        {ride.map_plan && <SavedRideMap key={`map:${ride.id}:${user?.id}:${ride.plan_version}`} plan={ride.map_plan} />}
         <Announcements key={`announcements:${ride.id}:${user?.id}`} ride={ride} draft={announcementDraft} setDraft={setAnnouncementDraft} onAccessLost={recheckAccess} />
+        <p className="ride-description">{ride.description}</p>
+        {ride.map_plan && <SavedRideMap key={`map:${ride.id}:${user?.id}:${ride.plan_version}`} plan={ride.map_plan} />}
         <RideRoom key={`room:${ride.id}:${user?.id}`} ride={ride} draft={roomDraft} setDraft={setRoomDraft} onAccessLost={recheckAccess} onConnected={markConnected} />
         <RideMedia key={`media:${ride.id}:${user?.id}`} ride={ride} onAccessLost={recheckAccess} />
       </div>
@@ -170,21 +173,24 @@ export function RideDetailPage() {
   </div>
 }
 
-// The plan reads as a route: departure, meeting point, the route link and the destination.
+function directionsTo(destination: string) {
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}`
+}
+
 function RidePlan({ ride }: { ride: Ride }) {
   const { t, locale } = useI18n()
   const timezone = ride.timezone ?? 'Asia/Almaty'
   const route = safeExternalUrl(ride.route_url)
-  const first = ride.map_plan?.points[0]
   const last = ride.map_plan && ride.map_plan.points.length > 1 ? ride.map_plan.points.at(-1) : undefined
-  const navigateUrl = (query: string) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
+  const stops = ride.map_plan?.points.slice(1, -1) ?? []
   return <section className="surface plan-card" aria-labelledby="plan-heading">
     <h2 id="plan-heading">{t('planTitle')}</h2>
     <ol className="roadbook">
       {ride.starts_at && <li><span className="roadbook-marker"><Clock3 size={19} /></span><div className="roadbook-copy"><span className="roadbook-label">{t('departure')}</span><strong className="roadbook-time">{formatInTimeZone(ride.starts_at, timezone, 'HH:mm')}</strong><span className="roadbook-sub">{formatRideDateTime(ride.starts_at, timezone, locale)}, {timezone}</span></div></li>}
-      <li><span className="roadbook-marker"><Flag size={19} /></span><div className="roadbook-copy"><span className="roadbook-label">{t('meetingPoint')}</span><p>{ride.meeting_point}</p><a className="inline-link" href={navigateUrl(first ? `${first.lat},${first.lon}` : ride.meeting_point ?? '')} target="_blank" rel="noopener noreferrer">{t('navigate')}<ArrowUpRight size={14} /></a></div></li>
+      <li><span className="roadbook-marker"><Flag size={19} /></span><div className="roadbook-copy"><span className="roadbook-label">{t('meetingPoint')}</span><p>{ride.meeting_point}</p></div></li>
       {route && <li><span className="roadbook-marker"><Navigation size={19} /></span><div className="roadbook-copy"><span className="roadbook-label">{t('planRoute')}</span><a className="inline-link" href={route} target="_blank" rel="noopener noreferrer">{t('routeLink')}<ArrowUpRight size={14} /></a></div></li>}
-      {ride.destination && <li><span className="roadbook-marker"><MapPin size={19} /></span><div className="roadbook-copy"><span className="roadbook-label">{t('destination')}</span><p>{ride.destination}</p><a className="inline-link" href={navigateUrl(last ? `${last.lat},${last.lon}` : ride.destination)} target="_blank" rel="noopener noreferrer">{t('navigate')}<ArrowUpRight size={14} /></a></div></li>}
+      {stops.length > 0 && <li><span className="roadbook-marker"><MapPin size={19} /></span><details className="roadbook-stops"><summary>{t('rideRouteStops', { count: stops.length })}</summary><ol>{stops.map((stop, index) => <li key={index}>{stop.label}</li>)}</ol></details></li>}
+      {ride.destination && <li><span className="roadbook-marker"><MapPin size={19} /></span><div className="roadbook-copy"><span className="roadbook-label">{t('destination')}</span><p>{ride.destination}</p><a className="inline-link" href={directionsTo(last ? `${last.lat},${last.lon}` : ride.destination)} target="_blank" rel="noopener noreferrer">{t('navigate')}<ArrowUpRight size={14} /></a></div></li>}
     </ol>
     <dl className="plan-facts"><div><dt><Users size={17} />{t('capacity')}</dt><dd>{ride.capacity}<small>{t('capacityHint')}</small></dd></div></dl>
     {ride.expectations && <div className="expectations"><h3>{t('expectations')}</h3><p>{ride.expectations}</p></div>}

@@ -1,6 +1,11 @@
 package models
 
-import "math"
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"math"
+)
 
 // MapPoint is a user-confirmed label and WGS84 coordinate.
 type MapPoint struct {
@@ -20,6 +25,19 @@ type MapPlan struct {
 	Geometry        *LineString `json:"geometry,omitempty"`
 	DistanceMeters  float64     `json:"distance_meters"`
 	DurationSeconds float64     `json:"duration_seconds"`
+}
+
+// PreviewDigest identifies the exact provider geometry, independently of
+// client state and without adding the digest to a saved plan.
+func (plan *MapPlan) PreviewDigest() string {
+	if plan == nil || plan.Geometry == nil {
+		return ""
+	}
+	hash := sha256.New()
+	if err := json.NewEncoder(hash).Encode(plan.Geometry); err != nil {
+		return ""
+	}
+	return hex.EncodeToString(hash.Sum(nil))
 }
 
 type MapPlace struct {
