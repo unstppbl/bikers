@@ -7,6 +7,7 @@ import { useI18n } from '../../i18n'
 import { categoryLabels, region } from '../../places'
 import type { Place, PlaceBounds } from '../../types'
 import { initializeMapRuntime, retryMapArchive } from '../maps/map-browser-runtime'
+import { defaultMapCamera } from '../maps/map-camera'
 import { mapStyle } from '../maps/map-style'
 import { PlaceCategoryIcon } from './shared'
 import type { CityOption } from '../../cities'
@@ -14,8 +15,6 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import '../maps/map-canvas.css'
 
 const sourceId = 'community-places'
-// GeoNames Astana city center (1526273), shared with the public city catalogue.
-const defaultCenter = { lat: 51.1801, lon: 71.44598 }
 const cityZoom = 11
 interface Props { places: Place[]; selected?: string; selectedPlace?: Place; archiveUrl: string; bounds?: PlaceBounds; center?: CityOption['center']; onSelect: (id: string) => void; onViewport: (bounds: PlaceBounds) => void }
 interface Pin { key: string; point: [number, number]; place?: Place; cluster?: { id: number; count: number } }
@@ -32,7 +31,7 @@ function MapSurface({ places, selected, selectedPlace, archiveUrl, bounds, cente
   const visibleChoices = choices?.places === places && choices.selected === selected ? choices.items : null
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const { west, south, east, north } = bounds ?? {}
-  const { lat, lon } = bounds ? {} : center ?? defaultCenter
+  const { lat, lon } = bounds ? {} : center ?? {}
   useEffect(() => { inputs.current = { places, selected, selectedPlace, onSelect, onViewport, t } })
   useEffect(() => { if (visibleChoices) chooser.current?.querySelector('button')?.focus() }, [visibleChoices])
   useEffect(() => {
@@ -127,7 +126,7 @@ function MapSurface({ places, selected, selectedPlace, archiveUrl, bounds, cente
     }
     try {
       initializeMapRuntime()
-      map = new LibreMap({ container: container.current, style: mapStyle(archiveUrl, locale, window.location.origin), center: [defaultCenter.lon, defaultCenter.lat], zoom: cityZoom, maxZoom: 20, renderWorldCopies: false, attributionControl: false, dragRotate: false, touchPitch: false })
+      map = new LibreMap({ container: container.current, style: mapStyle(archiveUrl, locale, window.location.origin), ...defaultMapCamera, maxZoom: 20, renderWorldCopies: false, attributionControl: false, dragRotate: false, touchPitch: false })
       mapRef.current = map
       map.addControl(new AttributionControl({ compact: false }), 'bottom-left')
       map.getCanvas().setAttribute('aria-label', t('placesMap'))
@@ -160,6 +159,7 @@ function MapSurface({ places, selected, selectedPlace, archiveUrl, bounds, cente
     if (!map) return
     if (west !== undefined && south !== undefined && east !== undefined && north !== undefined) map.fitBounds([[west, south], [east, north]], { duration: 0, padding: 24 })
     else if (lon !== undefined && lat !== undefined) map.easeTo({ center: [lon, lat], zoom: cityZoom, duration: 0 })
+    else map.easeTo({ ...defaultMapCamera, duration: 0 })
   }, [archiveUrl, locale, west, south, east, north, lat, lon])
   useEffect(() => {
     const place = places.find((p) => p.id === selected) ?? selectedPlace

@@ -3,6 +3,7 @@ import { ArrowsOutSimpleIcon, MinusIcon, PlusIcon } from '@phosphor-icons/react'
 import { AttributionControl, LngLatBounds, Map as LibreMap, Marker } from 'maplibre-gl'
 import type { GeoJSONSource } from 'maplibre-gl'
 import type { Locale, MapGeometry, MapPoint } from '../../types'
+import { defaultMapCamera } from './map-camera'
 import { mapStyle } from './map-style'
 import { initializeMapRuntime, retryMapArchive } from './map-browser-runtime'
 import 'maplibre-gl/dist/maplibre-gl.css'
@@ -56,8 +57,7 @@ function MapSurface({ points, geometry, segments, archiveUrl, locale, onPick, di
       map = new LibreMap({
         container: element,
         style: mapStyle(archiveUrl, locale, window.location.origin),
-        center: [66.888315, 48.030725],
-        zoom: 4,
+        ...defaultMapCamera,
         maxBounds: [[46, 40.5], [87.5, 55.5]],
         attributionControl: false,
         dragRotate: false,
