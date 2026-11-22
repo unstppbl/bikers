@@ -26,6 +26,8 @@ These editable Markdown copies mirror the native BIKERS.KZ Space pages. This sna
 
 [Motorcycle photo API research](motorcycle-photo-api-research.md) compares official API coverage, costs, storage rights, and generated-image limitations.
 
+[Garage and Astana pilot research](garage-product-research.md) compares rider products, proposes richer bike fields, and defines a model-specific image pilot and prompt.
+
 [Maps and 2GIS research](maps-and-2gis-research.md) compares mapping options, published 2GIS prices, illustrative usage budgets, integration paths, and Kazakhstan contracting questions.
 
 ## Maintaining both copies
