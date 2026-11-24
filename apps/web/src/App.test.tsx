@@ -10,7 +10,7 @@ import { App, pageSection } from './App'
 import { setCsrfToken } from './api'
 import { I18nProvider } from './i18n'
 import { SessionProvider } from './session'
-import { localRideTime, rideTimeToInstant } from './pages/Rides'
+import { localRideTime, rideTimeToInstant } from './ride-time'
 import { mergeMessages } from './pages/RideDetail'
 import { dateParts, formatRideDateTime, validNext } from './ui'
 import type { Message, User } from './types'
@@ -162,6 +162,7 @@ describe('application navigation', () => {
   // The top bar links the section; the tab bar shows places and routes as Map, and bikes as Me.
   it.each([
     ['/', 'rides'], ['/rides/test-ride', 'rides'], ['/rides/test-ride/edit', 'rides'], ['/rides/new', 'create'], ['/rides/new/', 'create'],
+    ['/ride-polls/new', 'create'], ['/ride-polls/poll-id', 'rides'],
     ['/places', 'places'], ['/places/new', 'places'], ['/places/place/suggest', 'places'], ['/places/submissions', 'places'],
     ['/routes', 'routes'], ['/routes/new', 'routes'], ['/routes/record', 'routes'], ['/routes/route', 'routes'], ['/routes/route/edit', 'routes'],
     ['/clubs', 'clubs'], ['/clubs/new', 'clubs'], ['/clubs/club', 'clubs'], ['/clubs/club/edit', 'clubs'],

@@ -64,6 +64,7 @@ type Repository interface {
 	ReminderRepository
 	PlacesRepository
 	RoutesRepository
+	RidePollsRepository
 }
 
 // The implementation locks the ride first, then runs the decision and commits.

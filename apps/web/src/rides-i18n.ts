@@ -13,6 +13,16 @@ export const ridesEn = {
   rideShare: 'Share ride', rideShareApps: 'Share to an app', rideShareTelegram: 'Share to Telegram',
   rideShareFailed: 'Sharing failed. Try Telegram or copy the link.',
   rideNavigateMeeting: 'Navigate to meeting point', rideLatestUpdate: 'Latest organizer update', rideRouteStops: 'Route stops ({count})',
+  rideBriefTitle: 'Ride-day brief', rideBriefStops: 'Meetup and stops', rideBriefSave: 'Save offline copy', rideBriefSavedAt: 'Saved on',
+  rideBriefHeadCounts: 'Head counts at stops', rideBriefCountAtStop: 'Rider count at {stop}', rideBriefRecordedCount: 'Riders counted: {count}',
+  rideBriefCountsNote: 'For the lead and sweep. Counts stay in this open brief and are included in the next download.',
+  rideBriefPrivateCopy: 'This file contains private ride details. Keep it on your device and delete it after the ride.',
+  rideBriefStaleCopy: 'The file is a snapshot. Check the Ride Room for changes after saving.',
+  rideBriefDirectionsOnline: 'The directions link needs a connection.', rideBriefConnect: 'Connect to save the current brief.',
+  rideBriefLoadingUpdate: 'Loading the latest update…', rideBriefNoEarlierUpdates: 'No earlier updates.',
+  rideBriefChecking: 'Checking for changes…',
+  rideBriefDownloadStarted: 'Download started. Look for the dated brief in your downloads.',
+  rideBriefDownloadFailed: 'Your browser could not download the brief. Try again.',
 }
 
 export const ridesRu: Record<keyof typeof ridesEn, string> = {
@@ -30,6 +40,16 @@ export const ridesRu: Record<keyof typeof ridesEn, string> = {
   rideShare: 'Поделиться поездкой', rideShareApps: 'Поделиться в приложении', rideShareTelegram: 'Поделиться в Telegram',
   rideShareFailed: 'Не удалось поделиться. Попробуйте Telegram или скопируйте ссылку.',
   rideNavigateMeeting: 'Как доехать до места встречи', rideLatestUpdate: 'Последнее объявление организатора', rideRouteStops: 'Остановки на маршруте ({count})',
+  rideBriefTitle: 'План на день поездки', rideBriefStops: 'Встреча и остановки', rideBriefSave: 'Сохранить офлайн-копию', rideBriefSavedAt: 'Сохранено',
+  rideBriefHeadCounts: 'Подсчёт участников на остановках', rideBriefCountAtStop: 'Число участников, {stop}', rideBriefRecordedCount: 'Число участников: {count}',
+  rideBriefCountsNote: 'Для ведущего и замыкающего. Числа сохраняются, пока открыт этот план, и войдут в следующий скачанный файл.',
+  rideBriefPrivateCopy: 'В файле есть закрытые сведения о поездке. Храните его на своём устройстве и удалите после поездки.',
+  rideBriefStaleCopy: 'Это копия плана на момент сохранения. Проверяйте изменения в комнате поездки.',
+  rideBriefDirectionsOnline: 'Для построения маршрута по ссылке нужен интернет.', rideBriefConnect: 'Подключитесь к интернету, чтобы сохранить текущий план.',
+  rideBriefLoadingUpdate: 'Загрузка последнего объявления…', rideBriefNoEarlierUpdates: 'Более ранних объявлений пока нет.',
+  rideBriefChecking: 'Проверяем изменения…',
+  rideBriefDownloadStarted: 'Загрузка началась. Файл с датой в названии появится в загрузках.',
+  rideBriefDownloadFailed: 'Браузеру не удалось скачать план. Попробуйте ещё раз.',
 }
 
 export const ridesKk: Record<keyof typeof ridesEn, string> = {
@@ -47,4 +67,14 @@ export const ridesKk: Record<keyof typeof ridesEn, string> = {
   rideShare: 'Сапармен бөлісу', rideShareApps: 'Қолданбада бөлісу', rideShareTelegram: 'Telegram арқылы бөлісу',
   rideShareFailed: 'Бөлісу мүмкін болмады. Telegram қолданып көріңіз немесе сілтемені көшіріңіз.',
   rideNavigateMeeting: 'Кездесу орнына бағыт алу', rideLatestUpdate: 'Ұйымдастырушының соңғы хабарламасы', rideRouteStops: 'Бағыттағы аялдамалар ({count})',
+  rideBriefTitle: 'Сапар күнінің жоспары', rideBriefStops: 'Кездесу және аялдамалар', rideBriefSave: 'Офлайн көшірмені сақтау', rideBriefSavedAt: 'Сақталған уақыт',
+  rideBriefHeadCounts: 'Аялдамаларда қатысушыларды санау', rideBriefCountAtStop: 'Қатысушылар саны, {stop}', rideBriefRecordedCount: 'Қатысушылар саны: {count}',
+  rideBriefCountsNote: 'Топты бастап және соңында жүретіндерге арналған. Сандар осы жоспар ашық тұрғанда сақталады және келесі жүктелетін файлға қосылады.',
+  rideBriefPrivateCopy: 'Файлда сапардың жабық мәліметтері бар. Оны құрылғыңызда сақтап, сапардан кейін жойыңыз.',
+  rideBriefStaleCopy: 'Бұл көшірме сақтау кезіндегі жоспарды көрсетеді. Өзгерістерді сапар бөлмесінен тексеріңіз.',
+  rideBriefDirectionsOnline: 'Сілтеме арқылы бағыт алу үшін интернет қажет.', rideBriefConnect: 'Ағымдағы жоспарды сақтау үшін интернетке қосылыңыз.',
+  rideBriefLoadingUpdate: 'Соңғы хабарлама жүктелуде…', rideBriefNoEarlierUpdates: 'Бұрынғы хабарламалар әзірге жоқ.',
+  rideBriefChecking: 'Өзгерістер тексеріліп жатыр…',
+  rideBriefDownloadStarted: 'Жүктеу басталды. Атауында күні көрсетілген файлды жүктемелерден таба аласыз.',
+  rideBriefDownloadFailed: 'Браузер жоспарды жүктей алмады. Қайталап көріңіз.',
 }

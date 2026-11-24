@@ -14,7 +14,8 @@ import (
 func removeMVPAdditions(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
 	removeNotificationPreferencesAndReminders(t, pool)
-	_, err := pool.Exec(context.Background(), `DROP TABLE push_deliveries,push_subscriptions,notifications,announcements;
+	_, err := pool.Exec(context.Background(), `DROP TABLE ride_poll_votes,ride_poll_options,ride_polls;
+DROP TABLE push_deliveries,push_subscriptions,notifications,announcements;
 ALTER TABLE users DROP COLUMN country_code,DROP COLUMN currency_code;
 DROP TABLE trust_audit,trust_reports,community_badges,moderation_hidden,user_blocks,trust_admins;
 ALTER TABLE users DROP CONSTRAINT users_current_avatar_scope;

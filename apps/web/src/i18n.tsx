@@ -12,6 +12,7 @@ import { installEn, installKk, installRu } from './install-i18n'
 import { preferencesEn, preferencesKk, preferencesRu } from './preferences-i18n'
 import { mvpEn, mvpKk, mvpRu } from './mvp-i18n'
 import { ridesEn, ridesKk, ridesRu } from './rides-i18n'
+import { pollsEn, pollsKk, pollsRu } from './ride-polls-i18n'
 import { clubNotificationsEn, clubNotificationsKk, clubNotificationsRu } from './club-notifications-i18n'
 import { clubDiscoveryEn, clubDiscoveryKk, clubDiscoveryRu } from './club-discovery-i18n'
 import { notificationFeaturesEn, notificationFeaturesKk, notificationFeaturesRu } from './notification-features-i18n'
@@ -27,6 +28,7 @@ const en = {
   ...notificationFeaturesEn,
   ...clubNotificationsEn,
   ...ridesEn,
+  ...pollsEn,
   ...mvpEn,
   ...preferencesEn,
   ...installEn,
@@ -111,6 +113,7 @@ const ru: Record<Key, string> = {
   ...notificationFeaturesRu,
   ...clubNotificationsRu,
   ...ridesRu,
+  ...pollsRu,
   ...mvpRu,
   ...preferencesRu,
   ...installRu,
@@ -194,6 +197,7 @@ const kk: Record<Key, string> = {
   ...notificationFeaturesKk,
   ...clubNotificationsKk,
   ...ridesKk,
+  ...pollsKk,
   ...mvpKk,
   ...preferencesKk,
   ...installKk,
@@ -307,6 +311,9 @@ export function errorText(error: unknown, t: Translate) {
   if (['route_limited', 'track_limited', 'collection_limited'].includes(code)) return t('routesStorageLimit')
   if (code === 'condition_limited') return t('routesDailyConditionLimit')
   if (code === 'route_preview_changed') return t('mapRidePreviewChanged')
+  if (code === 'poll_closed') return t('pollClosed')
+  if (code === 'poll_option_past') return t('pollOptionPastError')
+  if (code === 'invalid_poll') return t('pollErrorInvalid')
   const specific: Record<string, Key> = { maps_unavailable: 'mapServiceUnavailable', maps_busy: 'errorRateLimit', route_not_found: 'mapRouteUnavailable', avatar_upload_busy: 'avatarBusy', album_photo_limit: 'albumPhotoLimit', album_video_limit: 'albumVideoLimit', invalid_video_link: 'httpsVideoRequired', announcement_id_conflict: 'announcementConflict', action_id_conflict: 'actionConflict', block_limit: 'blockLimit', push_subscription_limit: 'pushLimit', push_unavailable: 'pushUnavailable', push_not_ready: 'pushNotReady', push_subscription_in_use: 'pushInUse', user_blocked: 'blockedJoining', admin_required: 'errorForbidden', club_image_busy: 'clubImageBusy', photo_too_large: 'photoTooLarge', unsupported_photo: 'photoInvalidType', invalid_photo: 'photoInvalid', invalid_photo_choice: 'photoChoiceInvalid', photo_limit: 'photoLimit', photo_storage_limit: 'photoStorageLimit', photo_upload_expired: 'photoUploadExpired', photo_upload_busy: 'photoUploadBusy', photo_rate_limited: 'photoRateLimited', profile_required: 'errorProfileRequired', capacity_too_small: 'errorCapacityTooSmall', participation_changed: 'errorParticipationChanged', message_id_conflict: 'errorMessageConflict', organizer_cannot_leave: 'errorOrganizerCannotLeave', account_unavailable: 'errorAccountUnavailable', stale_version: 'errorChanges', club_closed: 'errorClubClosed', owner_transfer_required: 'errorClubOwnerLeave', membership_changed: 'errorClubMembership', invalid_owner: 'errorTransferTarget' }
   if (specific[code]) return t(specific[code])
   if (code.includes('full')) return t('errorRideFull')

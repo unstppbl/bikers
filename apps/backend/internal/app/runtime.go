@@ -24,6 +24,7 @@ import (
 	"bikers.kz/backend/internal/managers/notifications"
 	"bikers.kz/backend/internal/managers/photos"
 	"bikers.kz/backend/internal/managers/places"
+	"bikers.kz/backend/internal/managers/polls"
 	"bikers.kz/backend/internal/managers/reminders"
 	"bikers.kz/backend/internal/managers/rides"
 	"bikers.kz/backend/internal/managers/rooms"
@@ -100,7 +101,8 @@ func New(cfg config.Config, repository database.Repository, gateway accounts.Gat
 	reminderManager := reminders.New(repository, now)
 	placeManager := places.New(repository, cfg.MapsArchiveURL, now)
 	routeManager := routes.New(repository, mapManager, now)
-	transport := httpapi.New(httpapi.Settings{Origin: origin, TrustedProxies: proxies, WebDistDir: cfg.WebDistDir}, httpapi.Managers{Accounts: a, Rides: r, Rooms: rm, System: sy, Events: events, Garage: g, Geo: mapManager, Clubs: c, Media: md, Trust: tr, Notifications: nf, Reminders: reminderManager, Places: placeManager, Routes: routeManager})
+	pollManager := polls.New(repository, now)
+	transport := httpapi.New(httpapi.Settings{Origin: origin, TrustedProxies: proxies, WebDistDir: cfg.WebDistDir}, httpapi.Managers{Accounts: a, Rides: r, Rooms: rm, System: sy, Events: events, Garage: g, Geo: mapManager, Clubs: c, Media: md, Trust: tr, Notifications: nf, Reminders: reminderManager, Places: placeManager, Routes: routeManager, Polls: pollManager})
 	return &Runtime{Handler: transport.Handler(), System: sy, Trust: tr, Notifications: nf, Reminders: reminderManager, Places: placeManager, Routes: routeManager, settings: cfg}, nil
 }
 

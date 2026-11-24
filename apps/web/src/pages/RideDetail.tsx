@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { Dispatch, FormEvent, SetStateAction } from 'react'
+import type { Dispatch, FormEvent, ReactNode, SetStateAction } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeftIcon as ArrowLeft, ArrowRightIcon as ArrowRight, ArrowUpRightIcon as ArrowUpRight, CalendarDotsIcon as CalendarDays, CaretRightIcon as ChevronRight, CheckIcon as Check, ClockIcon as Clock3, FlagIcon as Flag, DoorOpenIcon as DoorOpen, LockKeyIcon as LockKeyhole, MapPinIcon as MapPin, ChatCircleIcon as MessageCircle, NavigationArrowIcon as Navigation, PencilSimpleIcon as Pencil, PaperPlaneTiltIcon as Send, ShieldCheckIcon as ShieldCheck, UsersThreeIcon as Users, XIcon as X } from '@phosphor-icons/react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -18,11 +18,14 @@ import { Announcements } from '../components/Announcements'
 import type { AnnouncementDraft } from '../components/Announcements'
 import { RideMedia } from '../components/RideMedia'
 import { RideSchedule } from '../components/RideSchedule'
+import { RideDayBrief } from '../components/RideDayBrief'
 import { RideShare } from '../components/RideShare'
 import { SavedRideMap } from '../components/maps/MapPlanEditor'
 import { MessageActions } from '../components/MessageActions'
 import { CommunityBadge, ReportButton } from '../components/Trust'
 import { resetTrustQueries } from '../trust-cache'
+import { announcementPageQuery } from '../ride-announcements'
+import { directionsTo } from '../ride-brief'
 import type { Message, MessagesResponse, Ride } from '../types'
 
 interface RoomDraft {
@@ -76,6 +79,7 @@ export function RideDetailPage() {
   })
   const ride = rideQuery.data?.ride
   const canAccess = !!user && !!ride?.title && !!(ride.can_manage || ride.participation_state === 'approved') && !rideQuery.isError && !rechecking
+  const firstAnnouncements = useQuery({ ...announcementPageQuery(rideId, user?.id), enabled: canAccess })
 
   const recheckAccess = useCallback(() => {
     setRechecking(true)
@@ -130,6 +134,10 @@ export function RideDetailPage() {
   const status = ride.participation_state
   const city = cityLabel(ride.city, locale, cities.data?.cities ?? [])
   const meetingPin = ride.map_plan?.points[0]
+  async function refreshRideForBrief() {
+    const result = await rideQuery.refetch({ cancelRefetch: false })
+    return result.isSuccess ? result.data.ride : undefined
+  }
   return <div className="page-content ride-detail">{dialog}<Link className="back-link" to="/"><ArrowLeft size={17} />{t('back')}</Link>
     {rideQuery.isError && <ErrorNotice error={rideQuery.error} retry={() => void rideQuery.refetch()} />}
     <section className={`ride-hero${ride.status === 'cancelled' ? ' is-cancelled' : ''}${canAccess ? ' is-ride-room' : ''}`} aria-labelledby="ride-title">
@@ -150,8 +158,8 @@ export function RideDetailPage() {
     {actionError != null && <ErrorNotice error={actionError} />}
     {canAccess ? <div className="ride-layout">
       <div className="ride-main">
-        <RidePlan ride={ride} />
-        <Announcements key={`announcements:${ride.id}:${user?.id}`} ride={ride} draft={announcementDraft} setDraft={setAnnouncementDraft} onAccessLost={recheckAccess} />
+        <RidePlan ride={ride}>{ride.status !== 'cancelled' && <RideDayBrief key={`${ride.id}:${user?.id}:${ride.plan_version}`} ride={ride} announcements={firstAnnouncements} refreshRide={refreshRideForBrief} />}</RidePlan>
+        <Announcements key={`announcements:${ride.id}:${user?.id}`} ride={ride} firstPage={firstAnnouncements} latestInBrief={ride.status !== 'cancelled'} draft={announcementDraft} setDraft={setAnnouncementDraft} onAccessLost={recheckAccess} />
         <p className="ride-description">{ride.description}</p>
         {ride.map_plan && <SavedRideMap key={`map:${ride.id}:${user?.id}:${ride.plan_version}`} plan={ride.map_plan} />}
         <RideRoom key={`room:${ride.id}:${user?.id}`} ride={ride} draft={roomDraft} setDraft={setRoomDraft} onAccessLost={recheckAccess} onConnected={markConnected} />
@@ -173,25 +181,22 @@ export function RideDetailPage() {
   </div>
 }
 
-function directionsTo(destination: string) {
-  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}`
-}
-
-function RidePlan({ ride }: { ride: Ride }) {
+function RidePlan({ ride, children }: { ride: Ride; children: ReactNode }) {
   const { t, locale } = useI18n()
   const timezone = ride.timezone ?? 'Asia/Almaty'
   const route = safeExternalUrl(ride.route_url)
   const last = ride.map_plan && ride.map_plan.points.length > 1 ? ride.map_plan.points.at(-1) : undefined
   const stops = ride.map_plan?.points.slice(1, -1) ?? []
   return <section className="surface plan-card" aria-labelledby="plan-heading">
-    <h2 id="plan-heading">{t('planTitle')}</h2>
+    <h2 id="plan-heading">{t(children ? 'rideBriefTitle' : 'planTitle')}</h2>
     <ol className="roadbook">
       {ride.starts_at && <li><span className="roadbook-marker"><Clock3 size={19} /></span><div className="roadbook-copy"><span className="roadbook-label">{t('departure')}</span><strong className="roadbook-time">{formatInTimeZone(ride.starts_at, timezone, 'HH:mm')}</strong><span className="roadbook-sub">{formatRideDateTime(ride.starts_at, timezone, locale)}, {timezone}</span></div></li>}
       <li><span className="roadbook-marker"><Flag size={19} /></span><div className="roadbook-copy"><span className="roadbook-label">{t('meetingPoint')}</span><p>{ride.meeting_point}</p></div></li>
       {route && <li><span className="roadbook-marker"><Navigation size={19} /></span><div className="roadbook-copy"><span className="roadbook-label">{t('planRoute')}</span><a className="inline-link" href={route} target="_blank" rel="noopener noreferrer">{t('routeLink')}<ArrowUpRight size={14} /></a></div></li>}
-      {stops.length > 0 && <li><span className="roadbook-marker"><MapPin size={19} /></span><details className="roadbook-stops"><summary>{t('rideRouteStops', { count: stops.length })}</summary><ol>{stops.map((stop, index) => <li key={index}>{stop.label}</li>)}</ol></details></li>}
+      {stops.length > 0 && <li><span className="roadbook-marker"><MapPin size={19} /></span><div className="roadbook-copy roadbook-stops"><span className="roadbook-label">{t('rideRouteStops', { count: stops.length })}</span><ol>{stops.map((stop, index) => <li key={index}>{stop.label}</li>)}</ol></div></li>}
       {ride.destination && <li><span className="roadbook-marker"><MapPin size={19} /></span><div className="roadbook-copy"><span className="roadbook-label">{t('destination')}</span><p>{ride.destination}</p><a className="inline-link" href={directionsTo(last ? `${last.lat},${last.lon}` : ride.destination)} target="_blank" rel="noopener noreferrer">{t('navigate')}<ArrowUpRight size={14} /></a></div></li>}
     </ol>
+    {children}
     <dl className="plan-facts"><div><dt><Users size={17} />{t('capacity')}</dt><dd>{ride.capacity}<small>{t('capacityHint')}</small></dd></div></dl>
     {ride.expectations && <div className="expectations"><h3>{t('expectations')}</h3><p>{ride.expectations}</p></div>}
   </section>
