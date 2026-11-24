@@ -8,6 +8,7 @@ import (
 	"bikers.kz/backend/internal/managers/media"
 	"bikers.kz/backend/internal/managers/notifications"
 	"bikers.kz/backend/internal/managers/places"
+	"bikers.kz/backend/internal/managers/polls"
 	"bikers.kz/backend/internal/managers/reminders"
 	"bikers.kz/backend/internal/managers/rides"
 	"bikers.kz/backend/internal/managers/rooms"
@@ -53,6 +54,7 @@ type Managers struct {
 	Trust         *trust.Manager
 	Places        *places.Manager
 	Routes        *routes.Manager
+	Polls         *polls.Manager
 }
 type Server struct {
 	settings       Settings
@@ -83,6 +85,7 @@ func New(settings Settings, managers Managers) *Server {
 	m.HandleFunc("GET /api/v1/admin/place-submissions", s.adminPlaceSubmissions)
 	m.HandleFunc("POST /api/v1/admin/place-submissions/{submissionID}/review", s.reviewPlaceSubmission)
 	s.communityRouteEndpoints(m)
+	s.ridePollEndpoints(m)
 	m.HandleFunc("DELETE /api/v1/session", s.logout)
 	m.HandleFunc("POST /api/v1/auth/challenges", s.challenge)
 	m.HandleFunc("POST /api/v1/auth/challenges/verify", s.verify)
@@ -188,6 +191,9 @@ func New(settings Settings, managers Managers) *Server {
 	s.handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Referrer-Policy", "same-origin")
+		if strings.HasPrefix(r.URL.Path, "/ride-polls/") || strings.HasPrefix(r.URL.Path, ridePollPath+"/") {
+			w.Header().Set("X-Robots-Tag", "noindex, nofollow")
+		}
 		if strings.HasPrefix(r.URL.Path, "/api/") {
 			w.Header().Set("Cache-Control", "no-store")
 			if r.URL.Path != "/api/v1/events" {
@@ -284,8 +290,10 @@ func failure(w http.ResponseWriter, err error) {
 		status = 403
 	case "not_found", "report_content_unavailable":
 		status = 404
-	case "route_limited", "track_limited", "collection_limited", "route_preview_changed":
+	case "route_limited", "track_limited", "collection_limited", "route_preview_changed", "poll_closed":
 		status = 409
+	case "invalid_poll", "poll_option_past":
+		status = 422
 	case "profile_required", "ride_cancelled", "ride_unavailable", "stale_plan", "capacity_too_small", "organizer_cannot_leave", "participation_changed", "ride_full", "message_id_conflict", "stale_version", "club_closed", "owner_transfer_required", "membership_changed", "invalid_owner", "photo_limit", "photo_storage_limit", "photo_upload_expired", "club_image_busy", "ride_cover_busy", "avatar_upload_busy", "album_photo_limit", "album_video_limit", "block_limit", "action_id_conflict", "announcement_id_conflict", "user_blocked", "push_subscription_limit", "push_subscription_in_use":
 		status = 409
 	case "invalid_phone", "invalid_profile", "invalid_ride", "invalid_decision", "invalid_message", "invalid_cursor", "invalid_bike", "invalid_maintenance", "invalid_query", "invalid_club", "invalid_photo", "invalid_photo_choice", "invalid_video_link", "invalid_report", "invalid_block", "invalid_admin_action", "invalid_announcement", "invalid_reminders", "invalid_preferences", "invalid_push_subscription", "invalid_map", "route_not_found", "invalid_place", "invalid_submission", "invalid_route", "invalid_track", "invalid_collection", "invalid_condition", "publication_consent_required":

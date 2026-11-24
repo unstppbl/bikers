@@ -1,0 +1,135 @@
+.ride-poll-panel {
+  display: grid;
+  gap: var(--spacing-200);
+  padding: var(--spacing-300);
+  margin-block: var(--spacing-200);
+  min-width: 0;
+}
+
+.ride-poll-panel > :where(h2, p),
+.ride-poll-panel .field,
+.ride-poll-times p {
+  margin: 0;
+}
+
+.ride-poll-times {
+  display: grid;
+  gap: var(--spacing-100);
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+  border: 0;
+}
+
+.ride-poll-times legend {
+  padding: 0;
+  margin-bottom: var(--spacing-75);
+  font: var(--type-title-3);
+}
+
+.ride-poll-times input[type="datetime-local"] {
+  min-width: 0;
+  width: 100%;
+}
+
+.ride-poll-proposal {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ride-poll-proposal-field {
+  display: grid;
+  gap: var(--spacing-50);
+}
+
+.ride-poll-proposal-field p {
+  margin: 0;
+}
+
+.ride-poll-option {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: var(--spacing-100);
+  align-items: center;
+  min-height: 48px;
+  padding: var(--spacing-100);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow-wrap: anywhere;
+}
+
+.ride-poll-option:has(input:not(:disabled)) {
+  cursor: pointer;
+}
+
+.ride-poll-option:has(input:checked), .ride-poll-option[data-selected="true"] {
+  background: var(--accent-surface);
+  border-color: var(--accent-border);
+}
+
+.ride-poll-option input[type="checkbox"], .ride-poll-option input[type="radio"] {
+  width: 20px;
+  height: 20px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--accent);
+}
+
+.ride-poll-option > span {
+  display: grid;
+  gap: var(--spacing-50);
+}
+
+.ride-poll-option time,
+.ride-poll-selected time {
+  font: var(--type-title-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.ride-poll-panel .text-button {
+  justify-self: start;
+}
+
+.ride-poll-actions, .ride-poll-entry {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-100);
+  align-items: center;
+}
+
+.ride-poll-actions .button,
+.ride-poll-entry .button,
+.ride-poll-panel .ride-share .button {
+  min-height: 44px;
+  white-space: normal;
+  text-align: center;
+}
+
+.ride-poll-selected {
+  border-color: var(--accent-border);
+}
+
+.ride-poll-selected h2 {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-100);
+  font: var(--type-heading-6);
+}
+
+.ride-poll-selected h2 svg {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+.ride-poll-start-entry {
+  margin-bottom: var(--spacing-200);
+}
+
+.ride-poll-panel .ride-share {
+  justify-self: start;
+}
+
+@media (max-width: 760px) {
+  .ride-poll-panel { padding: var(--spacing-200); }
+}

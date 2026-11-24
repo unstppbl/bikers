@@ -4,6 +4,7 @@ import { BellIcon as Bell, MapTrifoldIcon as MapIcon, MotorcycleIcon as Motorbik
 import { Link, matchRoutes, useLocation, useNavigationType, useRoutes } from 'react-router-dom'
 import { useRegisterSW } from 'virtual:pwa-register/react'
 import { bindRecorderAccount } from './route-recorder'
+import { newRidePollPath, ridePollsPath } from './ride-polls'
 import { useI18n } from './i18n'
 import { useSession, RequireUser } from './session'
 import { Loading, useOnline } from './ui'
@@ -18,6 +19,8 @@ import { NotificationBadge, useUnreadNotifications } from './components/Notifica
 import type { Locale } from './types'
 
 const RoutesPage = lazy(() => import('./pages/Routes').then((module) => ({ default: module.RoutesPage })))
+const NewRidePollPage = lazy(() => import('./pages/RidePolls').then((module) => ({ default: module.NewRidePollPage })))
+const RidePollPage = lazy(() => import('./pages/RidePolls').then((module) => ({ default: module.RidePollPage })))
 const RouteDetailPage = lazy(() => import('./pages/Routes').then((module) => ({ default: module.RouteDetailPage })))
 const RouteFormPage = lazy(() => import('./pages/Routes').then((module) => ({ default: module.RouteFormPage })))
 const TrackRecorderPage = lazy(() => import('./pages/Routes').then((module) => ({ default: module.TrackRecorderPage })))
@@ -72,6 +75,8 @@ function appRoutes(userId?: string): AppRoute[] {
     { path: '/install', section: 'me', element: <InstallPage /> },
     ...RideFlowPreview ? [{ path: '/preview/ride-flow', element: <RideFlowPreview /> }] : [],
     { path: '/rides/new', section: 'create', element: <RequireUser><RideFormPage /></RequireUser> },
+    { path: newRidePollPath, section: 'create', element: <RequireUser><NewRidePollPage key={userId} /></RequireUser> },
+    { path: ridePollsPath + '/:pollId', section: 'rides', element: <RidePollPage /> },
     { path: '/rides/:rideId/edit', section: 'rides', element: <RequireUser><RideFormPage edit /></RequireUser> },
     { path: '/rides/:rideId', section: 'rides', element: <RideDetailPage /> },
     { path: '/garage', section: 'garage', element: <RequireUser><GaragePage key={userId} /></RequireUser> },

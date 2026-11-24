@@ -84,6 +84,33 @@ The web client translates error codes into its selected language; the server mes
 | DELETE | `/rides/{rideID}/cover` | Organizer removes with JSON `{version}`; direct `{image: null, version}` |
 | GET / HEAD | `/rides/{rideID}/cover/{coverID}/content` | Current public JPEG; replaced, removed, missing or moderation-hidden covers return `404` |
 
+### Ride scheduling polls
+
+Scheduling polls are unlisted. Anyone with the link can read the city,
+public proposal, time options and aggregate counts. A browser can vote for
+multiple future options or clear its selection. The API returns that
+browser's selected options and whether the signed-in rider can manage the
+poll. The organizer and voters' identities and the browser digest are absent
+from the response. The exact ride plan belongs in the approved Ride Room.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| POST | `/ride-polls` | Onboarded organizer creates a poll with `{city,description,options}` and two or three distinct future instants |
+| GET | `/ride-polls/{id}` | Read `{poll}` using the unlisted link |
+| PUT | `/ride-polls/{id}/vote` | Replace this browser's availability with `{option_ids}` |
+| PUT | `/ride-polls/{id}/selection` | Organizer locks voting by choosing `{option_id}` and can continue to New ride |
+
+The selection and votes serialize on the poll. Availability is bound to an
+opaque browser cookie and the stored digest is scoped to the poll. The selected
+time and public proposal prefill the ride form. Publishing and participant
+approval use the normal ride actions. Poll links are excluded from search
+indexing.
+
+The Ride-day brief uses the existing approved ride and announcements reads.
+Saving revalidates access and the plan before generating a dated HTML file on
+the device. Counts entered at stops stay in the open brief and can be included
+in that file. The app does not synchronize them across riders.
+
 ### Ride lists and cities
 
 `GET /rides` returns `{rides: [...], next_cursor: "..."}` with 20 summaries per

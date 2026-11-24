@@ -14,6 +14,7 @@ All paths below are relative to `apps/backend/internal`.
 | `database/postgres` | SQL, schema migrations, stored-record mapping, locks, transaction boundaries, and persistence concurrency guards. |
 | `managers/accounts` | OTP challenges, account and session rules, profiles, authentication limits, the external Gateway interface, and strict provider request/phone/status binding decisions. |
 | `managers/rides` | Ride plans, public and participant visibility, organizer decisions, participation, capacity, plan versions, discovery/personal-list selection, filter validation, signed pagination cursors, and public ride-cover access, reservations, and replacement. |
+| `managers/polls` | Unlisted ride scheduling, proposal and time validation, anonymous browser availability, and organizer-only time selection. |
 | `managers/geo` | Kazakhstan map envelope, language/point/query validation, per-user request budgets, bounded geocoder/routing concurrency, normalized map plans, and the external Geocoder/Router interfaces. |
 | `managers/places` | Public useful-place discovery, moderated new/correction/closure suggestions, contribution quotas, publication/version decisions, and pinned local OSM import validation/preservation. |
 | `managers/routes` | Community route discovery/publication, private GPS recordings and collections, consent, geometry validation, dated condition reports and creation quotas. |
@@ -56,6 +57,8 @@ Managers declare the interfaces for external services. `app` injects client impl
 Managers own application decisions and coordinate operations through the contracts in `database`. PostgreSQL repositories own transaction boundaries, SQL, lock acquisition, and lock ordering. When a repository operation is atomic, it passes locked state to a manager-supplied callback and persists the resulting decision within the same transaction.
 
 Garage operations lock the owning account before the bike, then revalidate ownership, active account state, and versions in manager callbacks. Club operations lock the club before account/ride rows; callbacks decide membership transitions, ownership, and whether a published ride may be linked. Linked rides remain public summaries and do not alter ride participation or permissions. Managers supply clocks and result limits to repositories, including upcoming-first club ride selection.
+
+Scheduling poll writes lock the poll before replacing availability or selecting a time. The manager revalidates the open state and option times under that lock. Time selection also revalidates the organizer's account. Poll data is independent of published rides and participation.
 
 Aggregate transactions acquire the common exclusive trust advisory lock first, serializing blocks/moderation with membership changes, reads and upload finalization. Image operations acquire the shared photo advisory key next, followed by their entity/account locks. Bike operations then lock owner → bike; club-image operations lock club → actor account; ride-cover operations lock ride → actor account. This consistent order avoids feature-to-trust lock inversions. Managers revalidate active accounts under the transaction; profile patches also apply to fresh locked state.
 

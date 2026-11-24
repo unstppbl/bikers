@@ -49,3 +49,17 @@ Use an aggregate session tally without account identifiers, chat, invite URLs
 or GPS traces. Record the number of attempts, period, city, locale coverage and
 recurring obstacles. Use the results to decide whether to test recording
 endpoint trimming, same-day ride expiry or private service reminders.
+
+## Scheduling and ride-day trial
+
+Ask two or three organizers to share a scheduling poll with a group they
+already ride with. Select the agreed time and publish the prefilled New ride
+form. Share the published ride link so riders can request approval. Close the
+loop by having an approved participant open **Ride-day brief**, save a dated
+copy and open the file in airplane mode. Use a named regroup or fuel stop
+and a head count during a stationary check. [Implementation issue #60](https://github.com/unstppbl/bikers/issues/60)
+
+At the end of the trial, count the organizers who use the poll and brief for a
+second ride without prompting. The proposed signal for testing the **Today**
+home is two repeat organizers. Log only aggregate completion and repeat-use
+counts.

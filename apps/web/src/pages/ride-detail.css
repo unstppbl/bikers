@@ -359,18 +359,80 @@
   min-width: 0;
 }
 
-.roadbook-stops summary {
-  min-height: 44px;
-  align-content: center;
-  color: var(--accent);
-  font: var(--type-button-sm);
-  cursor: pointer;
-}
-
 .roadbook-stops ol {
   padding-inline-start: 20px;
   color: var(--text-muted);
   overflow-wrap: anywhere;
+}
+
+.ride-brief {
+  display: grid;
+  gap: 16px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.ride-brief-update h3 {
+  margin-bottom: 12px;
+  font: var(--type-heading-6);
+}
+
+.ride-brief-update > .announcement {
+  padding: 0;
+  border-top: 0;
+}
+
+.ride-brief-counts {
+  min-width: 0;
+  padding: 0 16px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.ride-brief-counts:not([open]) {
+  padding-bottom: 0;
+}
+
+.ride-brief-counts > summary {
+  min-height: 44px;
+  padding-block: 12px;
+  font: var(--type-body-1);
+  cursor: pointer;
+}
+
+.ride-brief-counts ol {
+  display: grid;
+  gap: 8px;
+  padding-inline-start: 20px;
+}
+
+.ride-brief-counts label {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 76px;
+  align-items: center;
+  gap: 12px;
+  overflow-wrap: anywhere;
+}
+
+.ride-brief-counts input {
+  min-height: 44px;
+  min-width: 0;
+  width: 100%;
+  padding-inline: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ride-brief-download {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+
+.ride-brief-download .button {
+  min-height: 44px;
+  white-space: normal;
+  text-align: left;
 }
 
 .announcement-latest {

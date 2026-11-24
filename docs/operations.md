@@ -75,10 +75,10 @@ Activation atomically changes only `APP_IMAGE` in the private runtime file and
 runs Compose with an explicit environment path, checkout directory and project
 name. The default app-only mode replaces the app with `--no-deps --no-build --wait`
 and never runs migrations or starts/recreates the database. The explicit
-[schema-14 ride-cover mode](#ride-cover-schema-upgrade) coordinates its schema cutover. It verifies retained environment,
+[schema-15 ride poll mode](#ride-poll-schema-upgrade) coordinates the schema cutover. It verifies retained environment,
 ports and media mounts, an unchanged database container/start time, and a
 healthy non-root/read-only app. App-only failures, or migration failures with
-confirmed unchanged schema 13, restore the previous environment bytes and app
+confirmed unchanged schema, restore the previous environment bytes and app
 image using the resolved configuration held in memory. A committed or unknown
 schema upgrade keeps the app stopped for roll-forward recovery. It does
 not create environment copies, database dumps or backups.
@@ -468,8 +468,8 @@ Cover bytes count against the existing 100 MiB per-uploader and 1 GiB global
 image budgets, and the existing 13 MiB edge request limit covers the 12 MiB
 upload limit.
 
-The following is the prepared rollout procedure, not evidence of production
-execution. Before merging a revision that requires schema 14, preserve a
+This procedure describes the release tree that introduced schema 14. Before
+merging that revision, preserve a
 private database dump, its matching image and private `.env`, validate the
 dump, and pause **both** [automatic deployment controls](github-actions-deployment.md#pause-retry-and-recovery).
 After the intended main push CI passes, use the clean pushed source on Jarvis:
@@ -507,6 +507,37 @@ the private deployment result, exact live Git revision and release/schema
 receipts, retained data/container state and public readiness before resuming
 both automatic controls. The automatic path never applies migration 14; it
 refuses releases while the database receipts differ from the source.
+
+## Ride poll schema upgrade
+
+[Issue #60](https://github.com/unstppbl/bikers/issues/60) adds unlisted ride
+polls. Migration 15 creates `ride_polls`, `ride_poll_options` and
+`ride_poll_votes`. It adds no columns to existing tables and creates no
+sequences. Votes store only a poll-specific browser digest and selected option.
+
+Keep the current image and a validated private database and environment backup.
+Pause [both automatic deployment controls](github-actions-deployment.md#pause-retry-and-recovery)
+before merging the schema-dependent release. After the exact `main` revision
+passes all four push CI jobs, fast-forward the clean Jarvis checkout and run:
+
+```sh
+cd /home/user/apps/bikerskz/repo
+git pull --ff-only
+make deploy-jarvis DEPLOY_ARGS='--migrate-to 15'
+```
+
+The helper requires exact schema 14 receipts. It builds before stopping the app,
+then fingerprints every existing table and sequence. It verifies exact schema 15
+receipts, retained data parity and three empty poll tables before activating the
+target app. On failure it restores the previous image only if schema 14 is
+confirmed and the migration container has terminated. A schema 15 commit or an
+uncertain outcome requires roll-forward recovery.
+
+Verify the live image label, release receipt, database container and readiness.
+Install both tested deployment helpers together in the existing Jarvis `bin`
+directory. Resume both controls and dispatch the same main SHA through the
+private workflow. Check the resulting `already-deployed` receipt for the live
+revision and main CI run.
 
 ## Administrator access
 

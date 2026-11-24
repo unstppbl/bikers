@@ -18,6 +18,7 @@ const response = (value: unknown) => new Response(JSON.stringify(value), { statu
 const update = { id: 'announcement', sequence: 1, owner_id: 'organizer', owner_name: 'Ride organizer', body: 'Meet by the east entrance', created_at: '2026-11-28T08:15:00Z', client_announcement_id: 'announcement-client' }
 let viewer: User | null
 let currentRide: Ride
+let currentUpdate: typeof update
 let announcementReads: number
 
 class TestSocket { onopen: (() => void) | null = null; onclose: (() => void) | null = null; onmessage: ((event: { data: string }) => void) | null = null; close() {} }
@@ -25,6 +26,7 @@ beforeEach(() => {
   localStorage.setItem('bikerskz.locale', 'en')
   viewer = rider
   currentRide = ride
+  currentUpdate = update
   announcementReads = 0
   setCsrfToken(); vi.stubGlobal('WebSocket', TestSocket)
   vi.stubGlobal('fetch', vi.fn(async (raw: string) => {
@@ -34,7 +36,7 @@ beforeEach(() => {
     if (pathname === '/api/v1/rides') return response({ rides: [], next_cursor: '' })
     if (pathname.endsWith('/participants')) return response({ participants: [] })
     if (pathname.endsWith('/messages')) return response({ messages: [], next_sequence: 0 })
-    if (pathname.endsWith('/announcements')) { announcementReads++; return response({ announcements: [update], next_cursor: '' }) }
+    if (pathname.endsWith('/announcements')) { announcementReads++; return response({ announcements: [currentUpdate], next_cursor: '' }) }
     if (pathname.endsWith('/reminders')) return response({ day_before: false, hour_before: false })
     if (pathname.endsWith('/album')) return response({ photos: [], videos: [], version: 1 })
     if (pathname.endsWith('/geo/config')) return response({ enabled: false, archive_url: '' })
@@ -67,7 +69,7 @@ describe('ride plan', () => {
   ])('names the organizer’s route link in words instead of its host name (%s)', async (locale, label, name) => {
     localStorage.setItem('bikerskz.locale', locale)
     mount()
-    const plan = await screen.findByRole('region', { name: { en: 'The plan', ru: 'План', kk: 'Жоспар' }[locale] })
+    const plan = await screen.findByRole('region', { name: { en: 'Ride-day brief', ru: 'План на день поездки', kk: 'Сапар күнінің жоспары' }[locale] })
     expect(within(plan).getByText(label)).toBeInTheDocument()
     expect(within(plan).getByRole('link', { name })).toHaveAttribute('href', routeUrl)
     expect(plan).not.toHaveTextContent('a'.repeat(63))
@@ -95,6 +97,7 @@ describe('ride plan', () => {
 
     expect(await screen.findByRole('heading', { name: 'A ride in Almaty' })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Navigate to meeting point' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Save offline copy' })).not.toBeInTheDocument()
     expect(screen.queryByText(ride.meeting_point!)).not.toBeInTheDocument()
     expect(screen.queryByText(update.body)).not.toBeInTheDocument()
     expect(announcementReads).toBe(0)
@@ -107,6 +110,69 @@ describe('ride plan', () => {
     expect(await screen.findByText(ride.meeting_point!)).toBeInTheDocument()
     expect(await screen.findByText(update.body)).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Navigate to meeting point' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Save offline copy' })).not.toBeInTheDocument()
+  })
+})
+
+describe('offline ride-day brief', () => {
+  function mockDownload() {
+    const createObjectURL = vi.fn<(blob: Blob) => string>(() => 'blob:ride-brief')
+    vi.stubGlobal('URL', class extends URL {
+      static createObjectURL = createObjectURL
+      static revokeObjectURL = vi.fn()
+    })
+    const files: string[] = []
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) { files.push(this.download) })
+    return { createObjectURL, files }
+  }
+
+  it('downloads a dated static brief with fresh updates, ordered stops and local counts', async () => {
+    const title = '<img src=x onerror="alert(1)">'
+    const stop = 'Fuel & regroup'
+    currentRide = {
+      ...ride, title, map_plan: { points: [
+        { label: 'Medeu parking', lat: 43.16, lon: 77.06 }, { label: stop, lat: 43.58, lon: 77.43 }, { label: 'Charyn canyon', lat: 43.35, lon: 79.07 },
+      ], distance_meters: 255000, duration_seconds: 15000 },
+    }
+    const { createObjectURL, files } = mockDownload()
+    mount()
+    const brief = await screen.findByRole('region', { name: 'Ride-day brief' })
+    await within(brief).findByText(update.body)
+    fireEvent.click(within(brief).getByText('Head counts at stops'))
+    fireEvent.change(await within(brief).findByRole('spinbutton', { name: `Rider count at ${stop}` }), { target: { value: '5' } })
+    currentUpdate = { ...update, body: '<script>alert("latest")</script>' }
+
+    fireEvent.click(within(brief).getByRole('button', { name: 'Save offline copy' }))
+    await waitFor(() => expect(createObjectURL).toHaveBeenCalledOnce())
+    expect(announcementReads).toBe(2)
+    expect(files[0]).toMatch(/^bikers-kz-ride-brief-2026-12-01-\d{4}-\d{2}-\d{2}\.html$/)
+    const blob = createObjectURL.mock.calls[0][0]
+    expect(blob.type).toBe('text/html;charset=utf-8')
+    const doc = new DOMParser().parseFromString(await blob.text(), 'text/html')
+    expect(doc.querySelector('h1')?.textContent).toBe(title)
+    expect(doc.querySelector('script, img, iframe, link')).toBeNull()
+    expect(doc.querySelector('meta[http-equiv="Content-Security-Policy"]')?.getAttribute('content')).toContain("default-src 'none'")
+    expect(doc.querySelector('a')?.href).toBe('https://www.google.com/maps/dir/?api=1&destination=43.16%2C77.06')
+    expect([...doc.querySelectorAll('li')].map((item) => item.textContent)).toEqual(['Medeu parking (43.16, 77.06)', `${stop} (43.58, 77.43)Riders counted: 5`, 'Charyn canyon (43.35, 79.07)'])
+    expect(doc.body.textContent).toContain(currentUpdate.body)
+    expect(doc.body.textContent).not.toContain(update.body)
+    expect(doc.body.textContent).not.toContain(update.owner_name)
+    expect(doc.body.textContent).toContain('Check the Ride Room for changes after saving.')
+    expect(doc.querySelectorAll('time')).toHaveLength(3)
+  })
+
+  it('rechecks authorization before saving and refuses a rider removed since the brief loaded', async () => {
+    const { createObjectURL } = mockDownload()
+    mount()
+    const save = await screen.findByRole('button', { name: 'Save offline copy' })
+    await waitFor(() => expect(save).toBeEnabled())
+    currentRide = { ...ride, participation_state: 'removed' }
+    fireEvent.click(save)
+
+    expect(await screen.findByRole('heading', { name: 'A ride in Almaty' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Save offline copy' })).not.toBeInTheDocument()
+    expect(createObjectURL).not.toHaveBeenCalled()
+    expect(announcementReads).toBe(1)
   })
 })
 

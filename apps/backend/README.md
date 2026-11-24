@@ -1,14 +1,13 @@
 # BIKERS.KZ backend
 
 The backend implements Telegram OTP and cookie sessions, profiles, planned rides
-and private Ride Rooms, paginated discovery/My rides, garages and private
+and private Ride Rooms, unlisted scheduling polls, paginated discovery/My rides, garages and private
 maintenance, clubs, processed media, moderation, and durable inbox/opt-in push.
 Club membership requests notify the current owner, and approval/rejection/removal
 notify the affected rider. These transitions and their inbox/push work commit
 atomically. Push payloads remain generic and open `/inbox`.
 
-This executable requires schema 14; its source implementation is
-separate from the currently deployed release. Migration is explicit and must be
+This executable requires schema 15. Migration is explicit and must be
 coordinated with the matching app. See [Operations](../../docs/operations.md).
 Photo bytes remain in bounded PostgreSQL `bytea` storage; the persistent media
 directory is reserved for future media and checked for writability.
@@ -101,9 +100,10 @@ ride reminder state; version 10 adds private ride map plans; version 11 adds
 public places and moderated submissions; version 12 adds community routes,
 private tracks/collections and dated conditions; version 13 adds the speed-camera
 place category; version 14 adds public ride covers, the current-cover reference
-and the `ride_cover` moderation target. Versions 1–13 remain unchanged. Applied
+and the `ride_cover` moderation target. Version 15 adds scheduling polls,
+time options and browser-scoped votes. Versions 1–14 remain unchanged. Applied
 receipts are verified before proceeding; unknown versions or changed checksums
-fail. Readiness requires all fourteen receipts.
+fail. Readiness requires all fifteen receipts.
 Run `migrate` with the new executable before serving an older installation.
 
 ## API behavior
@@ -252,7 +252,7 @@ idempotency and ordering, plan versions, WebSocket revocation, and public HTML.
 Garage/club regressions cover public bike projections, private log ownership and
 cross-bike IDs, cursor pages, model aliases, club approval/transfer/closure,
 concurrent transfer versus leaving, and public-only ride associations. Migration
-tests cover historical upgrades through version 14, replay, receipt drift, and unsupported versions.
+tests cover historical upgrades, replay, receipt drift, and unsupported versions.
 Photo regressions cover visibility/content authorization, cover reset, deletion
 cascades, processing limits/metadata stripping, competing global reservations,
 uploader quotas, lazy expiry, and failed-attempt limits across application restart.
