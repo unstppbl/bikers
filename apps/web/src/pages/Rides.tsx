@@ -248,7 +248,7 @@ function RideForm({ ride, source, poll, reload }: { ride?: Ride; source?: Commun
             <h3>{t('previewApprovedTab')}</h3>
             <strong>{form.meeting_point.trim() || t('meetingPlaceholder')}</strong>
             <span className="caption-2 muted">{[form.starts_at.replace('T', ' '), form.destination.trim()].filter(Boolean).join(' · ') || '—'}</span>
-            <span className="caption-5 muted"><ShieldCheck size={12} /> {t('spotsCount', { approved: 1, capacity: Number(form.capacity) || 8 })}</span>
+            <span className="caption-5 muted"><ShieldCheck size={12} /> {t('spotsCount', { approved: ride?.approved_count ?? 1, capacity: Number(form.capacity) || 8 })}</span>
           </div>
         </div>
       </section>

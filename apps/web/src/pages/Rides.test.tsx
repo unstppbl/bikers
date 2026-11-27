@@ -121,6 +121,7 @@ describe('editing ride publication and distance', () => {
     expect(preview).toHaveTextContent('By Ride host')
     expect(preview).toHaveTextContent('Morning')
     expect(preview).toHaveTextContent('3/8 spots')
+    expect(screen.getByRole('heading', { name: 'What approved riders see' }).parentElement!).toHaveTextContent('3/8 spots')
     const basics = screen.getByRole('heading', { name: 'Basics & vibe' }).closest('section')!
     expect(within(basics).getByLabelText(/Participant limit/)).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Save plan' }))
