@@ -1,52 +1,57 @@
-/* Night road theme: warm asphalt surfaces, bone text, signal-orange actions and condensed display type.
+/* Adaptive Instrument & Roadbook theme:
+   - Telemetry Dark: crisp neutral obsidian/slate surfaces with luminous signal orange.
+   - Daylight Roadbook: outdoor sunlight-ready light surfaces with high-contrast slate ink.
    Components use these semantic tokens; layout stays with its owner. */
 
 :root {
-  color-scheme: dark;
-  --font-body: 'Fira Sans', system-ui, sans-serif;
-  --font-display: 'Fira Sans Extra Condensed', 'Arial Narrow', sans-serif;
+  color-scheme: dark light;
+  --font-body: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-display: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  --canvas: #131211;
-  --chrome: #100f0e;
-  --surface: #1d1b19;
-  --surface-raised: #2a2724;
-  --surface-hover: #34302c;
-  --media-backdrop: #1d1b19;
-  --text: #f3eee6;
-  --text-muted: #c4bcb0;
-  --text-subtle: #aba397;
-  --border: #34302b;
-  --border-strong: #6e665b;
-  --accent: #ff5a1f;
-  --accent-hover: #ff7543;
-  --accent-surface: #2e1a10;
-  --accent-border: #a9471f;
-  --on-accent: #1a0900;
-  --plate: #f3eee6;
-  --on-plate: #131211;
-  --focus: #ff9a6b;
-  --success: #8fd9a4;
-  --success-surface: #16261b;
-  --success-border: #3f6b4c;
-  --warning: #f2c76e;
-  --warning-surface: #2c2414;
-  --warning-border: #7a6232;
-  --danger: #ff9e8f;
-  --danger-surface: #34191a;
-  --danger-border: #9b4b45;
-  --info: #a9c7ea;
-  --info-surface: #182433;
-  --info-border: #4a6585;
-  --overlay: #0a0908cc;
-  --scrim: linear-gradient(to top, rgb(19 18 17 / 96%) 0%, rgb(19 18 17 / 78%) 34%, rgb(19 18 17 / 0%) 68%);
-  --shadow-card: none;
-  --shadow-floating: 0 16px 48px #00000080;
-  --shadow-dialog: 0 24px 80px #000000a6;
+  /* Telemetry Dark (default) */
+  --canvas: #0b0e13;
+  --chrome: #0f131b;
+  --surface: #141923;
+  --surface-raised: #1c2432;
+  --surface-hover: #253044;
+  --media-backdrop: #141923;
+  --text: #f1f5f9;
+  --text-muted: #9aa8bc;
+  --text-subtle: #8b9bb0;
+  --border: #232d3f;
+  --border-strong: #394862;
+  --accent: #ff6229;
+  --accent-hover: #ff7a49;
+  --accent-text: #ff7a49;
+  --accent-surface: #2a1610;
+  --accent-border: #8c3a1d;
+  --on-accent: #140802;
+  --plate: #1c2432;
+  --on-plate: #f1f5f9;
+  --focus: #ff8c5c;
+  --success: #34d399;
+  --success-surface: #0d281f;
+  --success-border: #1e5b46;
+  --warning: #fbbf24;
+  --warning-surface: #2b210d;
+  --warning-border: #72551b;
+  --danger: #fb7185;
+  --danger-surface: #2e1218;
+  --danger-border: #7f2938;
+  --info: #60a5fa;
+  --info-surface: #112036;
+  --info-border: #2c5282;
+  --overlay: rgb(5 8 14 / 76%);
+  --scrim: linear-gradient(to top, rgb(11 14 19 / 94%) 0%, rgb(11 14 19 / 68%) 42%, rgb(11 14 19 / 12%) 100%);
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 28%);
+  --shadow-floating: 0 14px 40px rgb(0 0 0 / 52%);
+  --shadow-dialog: 0 24px 72px rgb(0 0 0 / 68%);
 
-  --radius-sm: 6px;
+  --radius-sm: 8px;
   --radius-md: 12px;
-  --radius-lg: 18px;
-  --radius-xl: 24px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
   --radius-pill: 999px;
 
   --spacing-0: 0;
@@ -65,51 +70,48 @@
 
   --text-xs: 12px;
   --text-sm: 14px;
-  --text-base: 16px;
-  --text-lg: 18px;
+  --text-base: 15px;
+  --text-lg: 17px;
   --text-xl: 20px;
   --text-2xl: 24px;
   --text-3xl: 30px;
   --text-4xl: 36px;
-  --text-5xl: 48px;
-  --text-6xl: 60px;
-  --text-7xl: 72px;
-  --text-8xl: 96px;
-  --text-9xl: 128px;
-  --text-control: var(--text-base);
+  --text-control: 16px;
 
-  /* Headings use the condensed display face; titles and body copy stay in Fira Sans. */
-  --type-heading-1: 800 72px/0.92 var(--font-display);
-  --type-heading-2: 800 56px/0.95 var(--font-display);
-  --type-heading-3: 800 44px/1 var(--font-display);
-  --type-heading-4: 800 36px/1.02 var(--font-display);
-  --type-heading-5: 700 30px/1.05 var(--font-display);
-  --type-heading-6: 700 24px/1.1 var(--font-display);
-  --type-title-1: 500 20px/28px var(--font-body);
-  --type-title-2: 600 18px/26px var(--font-body);
-  --type-title-3: 500 16px/24px var(--font-body);
+  /* Crisp, app-native typography scale that reads cleanly in EN, RU, and KK. */
+  --type-heading-1: 700 36px/1.12 var(--font-display);
+  --type-heading-2: 700 30px/1.16 var(--font-display);
+  --type-heading-3: 700 24px/1.2 var(--font-display);
+  --type-heading-4: 700 20px/1.25 var(--font-display);
+  --type-heading-5: 600 18px/1.3 var(--font-display);
+  --type-heading-6: 600 16px/1.35 var(--font-display);
+  --type-title-1: 600 18px/26px var(--font-body);
+  --type-title-2: 600 16px/24px var(--font-body);
+  --type-title-3: 600 15px/22px var(--font-body);
   --type-title-4: 500 14px/20px var(--font-body);
   --type-title-5: 500 12px/16px var(--font-body);
-  --type-body-1: 600 16px/24px var(--font-body);
-  --type-body-2: 500 16px/24px var(--font-body);
-  --type-body-3: 400 16px/24px var(--font-body);
+  --type-body-1: 600 15px/22px var(--font-body);
+  --type-body-2: 500 15px/22px var(--font-body);
+  --type-body-3: 400 15px/23px var(--font-body);
   --type-body-4: 600 14px/20px var(--font-body);
   --type-body-5: 500 14px/20px var(--font-body);
   --type-body-6: 400 14px/20px var(--font-body);
-  --type-button-lg: 600 18px/28px var(--font-body);
-  --type-button-md: 600 16px/24px var(--font-body);
-  --type-button-sm: 600 14px/20px var(--font-body);
+  --type-button-lg: 600 16px/22px var(--font-body);
+  --type-button-md: 600 15px/20px var(--font-body);
+  --type-button-sm: 600 13px/18px var(--font-body);
   --type-button-xsm: 600 12px/16px var(--font-body);
-  --type-caption-1: 500 14px/20px var(--font-body);
-  --type-caption-2: 400 14px/20px var(--font-body);
+  --type-caption-1: 500 13px/18px var(--font-body);
+  --type-caption-2: 400 13px/18px var(--font-body);
   --type-caption-3: 600 12px/16px var(--font-body);
   --type-caption-4: 500 12px/16px var(--font-body);
   --type-caption-5: 400 12px/16px var(--font-body);
+  --type-mono-sm: 600 12px/16px var(--font-mono);
+  --type-mono-md: 600 14px/20px var(--font-mono);
 
-  --motion-fast: 180ms;
+  --motion-fast: 160ms;
   --motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
 
-  --tab-bar-height: 64px;
+  --tab-bar-height: 62px;
 
   font-family: var(--font-body);
   font-size: var(--text-base);
@@ -121,12 +123,101 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-.heading-1 { font: var(--type-heading-1); }
-.heading-2 { font: var(--type-heading-2); }
-.heading-3 { font: var(--type-heading-3); }
-.heading-4 { font: var(--type-heading-4); }
-.heading-5 { font: var(--type-heading-5); }
-.heading-6 { font: var(--type-heading-6); }
+/* Daylight Roadbook theme: automatic via OS preference unless overridden */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light;
+    --canvas: #f4f6f9;
+    --chrome: #ffffff;
+    --surface: #ffffff;
+    --surface-raised: #eef2f6;
+    --surface-hover: #e2e8f0;
+    --media-backdrop: #e6ecf4;
+    --text: #0f172a;
+    --text-muted: #475569;
+    --text-subtle: #5c6b80;
+    --border: #dce3ed;
+    --border-strong: #b4c0d2;
+    --accent: #d9410c;
+    --accent-hover: #be3708;
+    --accent-text: #c43707;
+    --accent-surface: #fff2ec;
+    --accent-border: #f5b9a2;
+    --on-accent: #ffffff;
+    --plate: #0f172a;
+    --on-plate: #ffffff;
+    --focus: #d9410c;
+    --success: #047857;
+    --success-surface: #e8f8f1;
+    --success-border: #9be0c5;
+    --warning: #92400e;
+    --warning-surface: #fef7e6;
+    --warning-border: #f3ce7b;
+    --danger: #be123c;
+    --danger-surface: #fff0f3;
+    --danger-border: #f8b4c4;
+    --info: #1d4ed8;
+    --info-surface: #eff6ff;
+    --info-border: #bfdbfe;
+    --overlay: rgb(15 23 42 / 55%);
+    --scrim: linear-gradient(to top, rgb(15 23 42 / 86%) 0%, rgb(15 23 42 / 48%) 42%, rgb(15 23 42 / 8%) 100%);
+    --shadow-card: 0 1px 2px rgb(15 23 42 / 5%), 0 4px 14px rgb(15 23 42 / 4%);
+    --shadow-floating: 0 14px 36px rgb(15 23 42 / 14%);
+    --shadow-dialog: 0 24px 64px rgb(15 23 42 / 22%);
+  }
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --canvas: #f4f6f9;
+  --chrome: #ffffff;
+  --surface: #ffffff;
+  --surface-raised: #eef2f6;
+  --surface-hover: #e2e8f0;
+  --media-backdrop: #e6ecf4;
+  --text: #0f172a;
+  --text-muted: #475569;
+  --text-subtle: #5c6b80;
+  --border: #dce3ed;
+  --border-strong: #b4c0d2;
+  --accent: #d9410c;
+  --accent-hover: #be3708;
+  --accent-text: #c43707;
+  --accent-surface: #fff2ec;
+  --accent-border: #f5b9a2;
+  --on-accent: #ffffff;
+  --plate: #0f172a;
+  --on-plate: #ffffff;
+  --focus: #d9410c;
+  --success: #047857;
+  --success-surface: #e8f8f1;
+  --success-border: #9be0c5;
+  --warning: #92400e;
+  --warning-surface: #fef7e6;
+  --warning-border: #f3ce7b;
+  --danger: #be123c;
+  --danger-surface: #fff0f3;
+  --danger-border: #f8b4c4;
+  --info: #1d4ed8;
+  --info-surface: #eff6ff;
+  --info-border: #bfdbfe;
+  --overlay: rgb(15 23 42 / 55%);
+  --scrim: linear-gradient(to top, rgb(15 23 42 / 86%) 0%, rgb(15 23 42 / 48%) 42%, rgb(15 23 42 / 8%) 100%);
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 5%), 0 4px 14px rgb(15 23 42 / 4%);
+  --shadow-floating: 0 14px 36px rgb(15 23 42 / 14%);
+  --shadow-dialog: 0 24px 64px rgb(15 23 42 / 22%);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+.heading-1 { font: var(--type-heading-1); letter-spacing: -0.025em; }
+.heading-2 { font: var(--type-heading-2); letter-spacing: -0.022em; }
+.heading-3 { font: var(--type-heading-3); letter-spacing: -0.02em; }
+.heading-4 { font: var(--type-heading-4); letter-spacing: -0.015em; }
+.heading-5 { font: var(--type-heading-5); letter-spacing: -0.01em; }
+.heading-6 { font: var(--type-heading-6); letter-spacing: -0.005em; }
 .title-1 { font: var(--type-title-1); }
 .title-2 { font: var(--type-title-2); }
 .title-3 { font: var(--type-title-3); }
@@ -147,6 +238,7 @@
 .caption-3 { font: var(--type-caption-3); }
 .caption-4 { font: var(--type-caption-4); }
 .caption-5 { font: var(--type-caption-5); }
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
 .heading-1,.heading-2,.heading-3,.heading-4,.heading-5,.heading-6 {
   text-wrap: balance;

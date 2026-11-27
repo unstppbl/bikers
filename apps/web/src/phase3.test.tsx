@@ -274,7 +274,7 @@ describe('club owner transitions and private access', () => {
       if (url.endsWith(`/clubs/${club.id}/ownership`)) { current = { ...club, owner_id: other.id, version: 2, can_manage: false }; return response({ club: current }) }
       if (url.endsWith(`/clubs/${club.id}`)) return response({ club: current })
       if (url.endsWith('/members')) return response({ members: [{ user_id: rider.id, display_name: rider.profile.display_name, state: 'approved', role: current.owner_id === rider.id ? 'owner' : 'member' }, { user_id: other.id, display_name: other.profile.display_name, state: 'approved', role: current.owner_id === other.id ? 'owner' : 'member' }, ...(current.can_manage ? [{ user_id: 'pending', display_name: 'Pending Private Name', state: 'requested', role: 'member' }] : [])] })
-      if (url.endsWith(`/clubs/${club.id}/rides`)) return response({ rides: [{ id: 'ride', city: 'Almaty', date: '2026-12-01', description: 'Public ride summary', status: 'published', title: 'Secret ride title', meeting_point: 'Secret place' }] })
+      if (url.endsWith(`/clubs/${club.id}/rides`)) return response({ rides: [{ id: 'ride', city: 'Almaty', date: '2026-12-01', title: 'Linked ride title', description: 'Public ride summary', status: 'published', meeting_point: 'Secret place', destination: 'Secret pass' }] })
       if (new URL(url, 'https://bikers.kz').pathname === '/api/v1/rides') return response({ rides: [], next_cursor: '' })
       if (url.endsWith('/rides')) return response({ rides: [] })
       throw new Error(`Unexpected API ${url} ${options?.method}`)
@@ -294,8 +294,8 @@ describe('club owner transitions and private access', () => {
     await waitFor(() => expect(screen.queryByRole('heading', { name: 'Owner tools' })).not.toBeInTheDocument())
     expect(screen.queryByText('Pending Private Name')).not.toBeInTheDocument()
     expect(client.getQueryData(['club-members', club.id, rider.id, 'owner'])).toBeUndefined()
-    expect(screen.queryByText('Secret ride title')).not.toBeInTheDocument()
     expect(screen.queryByText('Secret place')).not.toBeInTheDocument()
+    expect(screen.queryByText('Secret pass')).not.toBeInTheDocument()
     const call = fetch.mock.calls.find(([url]) => url.endsWith('/ownership'))!
     expect(JSON.parse(call[1]!.body as string)).toEqual({ version: 1, user_id: other.id })
     expect(new Headers(call[1]!.headers).get('X-CSRF-Token')).toBe('csrf-rider-a')

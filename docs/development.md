@@ -4,7 +4,7 @@ The internal implementation covers all agreed [MVP feature slices](mvp-and-roadm
 
 The current deployment is [https://bikers.kz](https://bikers.kz), running the verified Linux/amd64 image on Jarvis behind the VPS HTTPS route. The existing account is explicitly granted administrator access and Web Push credentials are configured. Public TLS, assets, API privacy boundaries and certificate-renewal checks passed. The owner signed in, administrator navigation was verified, and one browser subscription was enabled. The provider accepted one diagnostic push, and the owner confirmed that it appeared on this Mac and clicking it opened the inbox. See [current deployment](operations.md#current-deployment).
 
-The owner-approved photo-led visual default uses semantic tokens in `apps/web/src/theme.css`: warm asphalt surfaces, bone text, signal-orange actions and a cream date plate, set in self-hosted Fira Sans and Fira Sans Extra Condensed. Shared controls live in `styles.css`; the shell, discovery, collection and ride-detail stylesheets own their screens. Forms, garages, club/media controls, admin, inbox and settings share the same surfaces, text, focus and semantic status colors. Model selection and photo-upload defaults retain their existing behavior. The [design review](design-review.md) records each visual pass without changing catalogue scope.
+The visual default uses adaptive semantic tokens in `apps/web/src/theme.css`: Telemetry Dark (`#0b0e13` / `#141923`) and Daylight Roadbook (`#f4f6f9` / `#ffffff`) with OS `prefers-color-scheme` auto-follow and an explicit Auto/Daylight/Dark toggle, signal-orange actions (`#ff5a1f` / `#d9440a`), and self-hosted Inter paired with JetBrains Mono for tabular numbers. Shared controls live in `styles.css`; the shell, discovery, collection and ride-detail stylesheets own their screens. Forms, garages, club/media controls, admin, inbox and settings share the same surfaces, text, focus and semantic status colors. Model selection and photo-upload defaults retain their existing behavior. The [design review](design-review.md) records each visual pass without changing catalogue scope.
 
 ## Runtime boundary
 
@@ -22,7 +22,7 @@ An OTP challenge binds the original normalized phone number to a server-side Tel
 
 The session cookie is opaque and HttpOnly; its digest is stored in PostgreSQL. Initial session defaults are seven days of inactivity and a thirty-day absolute lifetime. Public HTTPS uses a Secure `__Host-` cookie. Explicit loopback HTTP is supported for local development. Authenticated writes require an `X-CSRF-Token` header obtained from the session endpoint. Keep this token in memory. Neither session tokens nor OTP codes belong in browser storage or logs.
 
-Public ride responses contain only ID, city, calendar date, description, publication status and, when the ride has a visible cover, the public `cover` metadata (see [ride covers](#ride-covers)). Authenticated callers can additionally see their own participation state and whether they manage the ride. Only the organizer of a ride that still accepts edits receives `cover_version`. Title, exact time and meeting details, destination, route, expectations, capacity, organizer identity, roster, and chat require approval or ownership. Pending requests do not reserve a place. The initial capacity default includes the organizer; this is an implementation default subject to product review.
+Public ride responses contain ID, city, calendar date, title, description, publication status, coarse time window (`morning` / `afternoon` / `evening` / `night`), optional ride fit metadata (`style`, `surface`, 5 km-rounded `distance_km`), `capacity`, `approved_count`, organizer display name (`organizer_name`), and, when the ride has a visible cover, the public `cover` metadata (see [ride covers](#ride-covers)). Authenticated callers can additionally see their own participation state and whether they manage the ride. Only the organizer of a ride that still accepts edits receives `cover_version`. Exact departure time (`starts_at`), timezone, meeting details, destination, route URL, expectations, organizer ID, private map geometry, roster, announcements, album, and chat require approval or ownership. Pending requests do not reserve a place. The initial capacity default includes the organizer; this is an implementation default subject to product review.
 
 The organizer approves or rejects requests and removes participants. Approval and capacity checks share a database lock. Cancellation and edits use `plan_version` to reject stale writes. Removing a participant revokes private HTTP and realtime access.
 
@@ -122,10 +122,12 @@ Past includes earlier or cancelled rides the caller organized or has an
 approved/requested relationship with. It is not an attendance record.
 
 Optional filters are `city`, `from` and `to` (`YYYY-MM-DD`, inclusive in each
-ride's timezone), and `q` (a literal case-insensitive substring of the public
-description, at most 200 bytes). Known city spellings/aliases match the same
-city, including existing stored localized names. Filters precede pagination.
-Unknown views, invalid ranges and invalid cursors fail with `422` errors.
+ride's timezone), `style` (`chill` | `touring` | `sport` | `enduro` | `city`),
+`surface` (`asphalt` | `mixed` | `unpaved`), and `q` (a literal case-insensitive
+substring of the public title or description, at most 200 bytes). Known city
+spellings/aliases match the same city, including existing stored localized
+names. Filters precede pagination. Unknown views, invalid ranges, unknown
+style/surface values, and invalid cursors fail with `422` errors.
 
 Pages order by the public ride-local date then UUID, ascending except Past,
 which is descending. A cursor binds its filters, user and clock snapshot and
@@ -142,7 +144,7 @@ all three forms and discovery. Existing data needs no rewrite or migration.
 
 Profile fields are `display_name`, `city`, `languages`, `interests`, and UI `locale` (`en`, `ru`, or `kk`). Display name, city, and at least one spoken language complete onboarding.
 
-A full ride uses `title`, `city`, `description`, `starts_at` (RFC 3339), `timezone` (IANA name), `meeting_point`, `destination`, `route_url`, `expectations`, and `capacity`. Public `date` is calculated in the ride's timezone. Editing includes `plan_version` from the last authorized response.
+A full ride uses `title`, `city`, `description`, `starts_at` (RFC 3339), `timezone` (IANA name), `meeting_point`, `destination`, `route_url`, `expectations`, `capacity`, and optional public fit fields `style`, `surface`, and `distance_km`. Public `date` and coarse `time_window` are calculated in the ride's timezone. Editing includes `plan_version` from the last authorized response.
 
 A message uses a caller-generated UUID `client_message_id` and `body`. Retrying the same ID with the same body returns the existing message; a different body conflicts. Database-assigned room sequences determine ordering. Use `GET .../messages?after={sequence}` and follow `next_sequence` to catch up in batches of up to 100. Persisted messages remain the source of truth after reconnects; WebSocket events are hints, not durable background delivery. Cancelled rooms retain their history and reject new messages.
 
@@ -169,7 +171,7 @@ Club summaries contain `id`, `name`, `city`, `description`, and `status`, plus t
 
 Club owners link only their own published rides and may unlink any association in their club. Links expose public ride summaries and never confer ride approval or private plans, rosters, chat, or photo access. Club pages use ascending UUID cursors, 50 records per page, and `next_cursor`.
 
-Health endpoints are `/health/live` and `/health/ready`. Readiness checks all twelve migration receipts and writable reserved media storage. The explicit migration command applies versions 1–12, verifying checksums and rejecting unknown versions. Versions 5–7 add avatars/ride media, trust/admin state and preferences/announcements/notifications; 8–9 add club notifications, reminder consent and push categories; 10 adds private ride maps; 11 adds places/submissions; 12 adds community routes, private GPS recordings/collections, dated conditions and creation budgets. Applied SQL stays unchanged. Existing installations must run the new migration command before readiness. Server startup does not apply migrations.
+Health endpoints are `/health/live` and `/health/ready`. Readiness checks all sixteen migration receipts and writable reserved media storage. The explicit migration command applies versions 1–16, verifying checksums and rejecting unknown versions. Versions 5–7 add avatars/ride media, trust/admin state and preferences/announcements/notifications; 8–9 add club notifications, reminder consent and push categories; 10 adds private ride maps; 11 adds places/submissions; 12 adds community routes, private GPS recordings/collections, dated conditions and creation budgets; 13 adds speed-camera places; 14 adds public ride covers; 15 adds unlisted ride scheduling polls; 16 adds optional public ride fit fields (`style`, `surface`, `distance_km`). Applied SQL stays unchanged. Existing installations must run the new migration command before readiness. Server startup does not apply migrations.
 
 ## Community routes and recordings
 

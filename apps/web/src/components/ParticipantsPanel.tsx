@@ -132,16 +132,18 @@ function ParticipantRoster({ ride, onAccessLost, actorId }: Props & { actorId: s
   </section>
 }
 interface ActionsProps { person: Participant; disabled: boolean; decide: (person: Participant, decision: Decision) => Promise<void> }
-function DecisionItems({ person, disabled, decide, select, pending }: ActionsProps & { select: SelectRiderAction; pending: boolean }) {
+function DecisionItems({ person, disabled, decide, select }: ActionsProps & { select: SelectRiderAction }) {
   const { t } = useI18n()
   return <DropdownMenu.Group aria-label={t('participantDecisionGroup')}><DropdownMenu.Label className="message-menu-label">{t('participantDecisionGroup')}</DropdownMenu.Label>
-    {pending ? <><DropdownMenu.Item className="message-menu-item" disabled={disabled} onSelect={() => select(() => { void decide(person, 'approve') })}><CheckIcon size={18} />{t('approve')}</DropdownMenu.Item><DropdownMenu.Item className="message-menu-item" disabled={disabled} onSelect={() => select(() => { void decide(person, 'reject') })}><XIcon size={18} />{t('reject')}</DropdownMenu.Item></> : <DropdownMenu.Item className="message-menu-item" disabled={disabled} onSelect={() => select(() => { void decide(person, 'remove') })}><UserMinusIcon size={18} />{t('remove')}</DropdownMenu.Item>}
+    <DropdownMenu.Item className="message-menu-item" disabled={disabled} onSelect={() => select(() => { void decide(person, 'remove') })}><UserMinusIcon size={18} />{t('remove')}</DropdownMenu.Item>
   </DropdownMenu.Group>
 }
 function PendingActions(props: ActionsProps) {
   const { t } = useI18n()
-  const trigger = useRef<HTMLButtonElement>(null)
-  return <div className="participant-action-owner"><RiderActionMenu trigger={trigger} label={t('participantActions', { name: props.person.display_name })} title={t('participantActionsMenu')}>{(select) => <DecisionItems {...props} select={select} pending />}</RiderActionMenu></div>
+  return <div className="pending-decision-buttons">
+    <button type="button" className="button button-primary" disabled={props.disabled} aria-label={`${t('approve')} ${props.person.display_name}`} onClick={() => void props.decide(props.person, 'approve')}><CheckIcon size={15} weight="bold" />{t('approve')}</button>
+    <button type="button" className="button button-outline" disabled={props.disabled} aria-label={`${t('reject')} ${props.person.display_name}`} onClick={() => void props.decide(props.person, 'reject')}><XIcon size={15} />{t('reject')}</button>
+  </div>
 }
 function ApprovedActions({ person, rideId, actorId, canRemove, disabled, decide }: ActionsProps & { rideId: string; actorId: string; canRemove: boolean }) {
   const { t } = useI18n()
@@ -149,7 +151,7 @@ function ApprovedActions({ person, rideId, actorId, canRemove, disabled, decide 
   const report = useReportAction({ focusOnOpen: true, onClose: () => trigger.current?.focus({ preventScroll: true }) })
   const safety = useRiderSafetyActions({ userId: person.user_id, name: person.display_name, actorId, scope: { kind: 'ride', id: rideId }, report })
   return <><div className="participant-action-owner"><RiderActionMenu trigger={trigger} label={t('participantActions', { name: person.display_name })} title={t('participantActionsMenu')}>{(select) => <>
-    {canRemove && <><DecisionItems person={person} disabled={disabled || safety.busy} decide={decide} select={select} pending={false} /><DropdownMenu.Separator className="message-menu-separator" /></>}
+    {canRemove && <><DecisionItems person={person} disabled={disabled || safety.busy} decide={decide} select={select} /><DropdownMenu.Separator className="message-menu-separator" /></>}
     {safety.items(select)}
   </>}</RiderActionMenu></div><div className="participant-action-feedback">{report.content}{safety.feedback}</div></>
 }

@@ -216,7 +216,7 @@ func TestRideCallbackRollbackAndCommittedMessageSequence(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	ride := models.Ride{RideSummary: models.RideSummary{ID: uuid.NewString(), City: "Almaty", Description: "Public description", Status: "published"}, Title: "Private title", StartsAt: now.Add(time.Hour), Timezone: "Asia/Almaty", MeetingPoint: "Private meeting", Capacity: 2, PlanVersion: 1, OrganizerID: owner}
+	ride := models.Ride{RideSummary: models.RideSummary{ID: uuid.NewString(), City: "Almaty", Title: "Public title", Description: "Public description", Status: "published", Capacity: 2}, StartsAt: now.Add(time.Hour), Timezone: "Asia/Almaty", MeetingPoint: "Private meeting", PlanVersion: 1, OrganizerID: owner}
 	if _, err := store.CreateRide(ctx, ride, "approved", now, func(models.GarageOwner) error { return nil }); err != nil {
 		t.Fatal(err)
 	}

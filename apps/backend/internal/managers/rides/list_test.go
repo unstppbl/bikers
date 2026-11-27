@@ -23,7 +23,7 @@ func TestListValidatesFiltersAndPersonalAuthentication(t *testing.T) {
 	for _, input := range []models.RideListInput{
 		{View: "unknown"}, {From: "2026-02-30"}, {To: "2026-2-03"},
 		{From: "2026-11-04", To: "2026-11-03"}, {City: strings.Repeat("x", 161)},
-		{Search: strings.Repeat("x", 201)},
+		{Search: strings.Repeat("x", 201)}, {Style: "flying"}, {Surface: "water"},
 	} {
 		_, err := m.List(context.Background(), &models.Session{User: owner}, input)
 		requireFault(t, err, "invalid_query")

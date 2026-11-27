@@ -156,7 +156,7 @@ func (t *clubTransaction) Members(includeRequested bool) ([]models.ClubMember, e
 	return out, repositoryError(rows.Err())
 }
 func (t *clubTransaction) LinkedRides(now time.Time, limit int) ([]models.RideSummary, error) {
-	rows, err := t.tx.Query(t.ctx, `SELECT r.id::text,r.city,to_char(r.starts_at AT TIME ZONE r.timezone,'YYYY-MM-DD'),r.description,r.status FROM club_rides cr JOIN rides r ON r.id=cr.ride_id WHERE cr.club_id=$1 AND NOT EXISTS(SELECT 1 FROM moderation_hidden h WHERE h.target_type='ride' AND h.target_id=r.id) ORDER BY (r.status='published' AND r.starts_at >= $2) DESC,r.starts_at,r.id LIMIT $3`, t.club.ID, now, limit)
+	rows, err := t.tx.Query(t.ctx, `SELECT r.id::text,r.city,to_char(r.starts_at AT TIME ZONE r.timezone,'YYYY-MM-DD'),r.title,r.description,r.status,`+rideTimeWindowExpr+`,r.style,r.surface,`+ridePublicDistanceExpr+`,r.capacity,`+rideApprovedCountExpr+`,`+rideOrganizerNameExpr+` FROM club_rides cr JOIN rides r ON r.id=cr.ride_id WHERE cr.club_id=$1 AND NOT EXISTS(SELECT 1 FROM moderation_hidden h WHERE h.target_type='ride' AND h.target_id=r.id) ORDER BY (r.status='published' AND r.starts_at >= $2) DESC,r.starts_at,r.id LIMIT $3`, t.club.ID, now, limit)
 	if err != nil {
 		return nil, repositoryError(err)
 	}
@@ -165,7 +165,7 @@ func (t *clubTransaction) LinkedRides(now time.Time, limit int) ([]models.RideSu
 	ids := []string{}
 	for rows.Next() {
 		var ride models.RideSummary
-		if err := rows.Scan(&ride.ID, &ride.City, &ride.Date, &ride.Description, &ride.Status); err != nil {
+		if err := rows.Scan(&ride.ID, &ride.City, &ride.Date, &ride.Title, &ride.Description, &ride.Status, &ride.TimeWindow, &ride.Style, &ride.Surface, &ride.DistanceKm, &ride.Capacity, &ride.ApprovedCount, &ride.OrganizerName); err != nil {
 			return nil, repositoryError(err)
 		}
 		out = append(out, ride)
@@ -187,7 +187,7 @@ func (t *clubTransaction) LinkedRides(now time.Time, limit int) ([]models.RideSu
 func (t *clubTransaction) RideForLink(id string) (models.ClubRideCandidate, error) {
 	var ride models.ClubRideCandidate
 	s := &ride.Summary
-	err := t.tx.QueryRow(t.ctx, `SELECT id::text,city,to_char(starts_at AT TIME ZONE timezone,'YYYY-MM-DD'),description,status,organizer_id::text FROM rides WHERE id=$1 FOR SHARE`, id).Scan(&s.ID, &s.City, &s.Date, &s.Description, &s.Status, &ride.OrganizerID)
+	err := t.tx.QueryRow(t.ctx, `SELECT id::text,city,to_char(starts_at AT TIME ZONE timezone,'YYYY-MM-DD'),title,description,status,organizer_id::text FROM rides WHERE id=$1 FOR SHARE`, id).Scan(&s.ID, &s.City, &s.Date, &s.Title, &s.Description, &s.Status, &ride.OrganizerID)
 	return ride, repositoryError(err)
 }
 func (t *clubTransaction) LinkRide(ride, user string, at time.Time) error {

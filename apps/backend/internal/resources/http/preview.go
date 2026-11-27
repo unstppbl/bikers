@@ -58,13 +58,17 @@ func (s *Server) publicHTML(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unavailable", 503)
 		return
 	}
-	preview := ridePreview{
-		Title:       "Ride in " + v.City,
-		Description: v.Date + " · " + v.Description,
-		URL:         s.origin.ResolveReference(&url.URL{Path: "/rides/" + v.ID}).String(),
+	title := strings.TrimSpace(v.Title)
+	if title == "" {
+		title = "Ride in " + v.City
 	}
 	if v.Status == "cancelled" {
-		preview.Title = "Cancelled ride in " + v.City
+		title = "Cancelled · " + title
+	}
+	preview := ridePreview{
+		Title:       title,
+		Description: v.City + " · " + v.Date + " · " + v.Description,
+		URL:         s.origin.ResolveReference(&url.URL{Path: "/rides/" + v.ID}).String(),
 	}
 	if v.Cover != nil {
 		preview.CoverURL = s.origin.ResolveReference(&url.URL{Path: v.Cover.URL}).String()

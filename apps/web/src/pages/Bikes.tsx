@@ -21,7 +21,12 @@ export function BikesPage() {
   const { t } = useI18n()
   if (loading) return <Loading />
   if (error) return <div className="page-content"><ErrorNotice text={t('serviceUnavailable')} retry={() => void refresh()} /></div>
-  return <div className="page-content collection-page"><div className="collection-heading"><div className="page-heading"><span className="eyebrow">{t('bikeCatalogueEyebrow')}</span><h1>{t('bikeCatalogueTitle')}</h1><p>{t('bikeCatalogueText')}</p></div><Link className="button button-outline" to="/garage"><Wrench size={17} />{t('garage')}</Link></div><BikeList /></div>
+  return <div className="page-content collection-page"><div className="collection-heading"><div className="page-heading"><span className="eyebrow">{t('bikeCatalogueEyebrow')}</span><h1>{t('bikeCatalogueTitle')}</h1><p>{t('bikeCatalogueText')}</p></div><Link className="button button-outline" to="/garage"><Wrench size={17} />{t('garage')}</Link></div>
+    <nav className="pillar-tabs" aria-label={t('communityHeading')}>
+      <Link to="/clubs">{t('communityClubsTab')}</Link>
+      <Link to="/bikes" aria-current="page">{t('communityBikesTab')}</Link>
+    </nav>
+    <BikeList /></div>
 }
 
 function BikeList() {

@@ -95,9 +95,9 @@ describe('ride discovery filters and personal views', () => {
     expect(screen.getByLabelText('From date').closest('details')!.querySelector('summary')).toHaveAccessibleName('1–31 Dec')
     expect(screen.getByLabelText('From date')).toHaveValue('2026-12-01')
     expect(screen.getByLabelText('To date')).toHaveValue('2026-12-31')
-    expect(screen.getByLabelText('Search public descriptions')).toHaveValue('touring')
+    expect(screen.getByLabelText('Search rides by title or notes')).toHaveValue('touring')
     // The placeholder is the only visible label, so the accessible name says the same.
-    expect(screen.getByRole('searchbox', { name: 'Search public descriptions' })).toHaveAttribute('placeholder', 'Search public descriptions')
+    expect(screen.getByRole('searchbox', { name: 'Search rides by title or notes' })).toHaveAttribute('placeholder', 'Search rides by title or notes')
     expect(screen.getByRole('combobox', { name: 'City' })).toHaveAttribute('placeholder', 'City')
     const initial = parsed(fetch.mock.calls.find(([url]) => isRideList(url))![0]).searchParams
     expect(initial.get('city')).toBe('Almaty')
@@ -106,7 +106,7 @@ describe('ride discovery filters and personal views', () => {
     expect(initial.get('q')).toBe('touring')
     expect(initial.get('cursor')).toBe('original-page-two')
 
-    fireEvent.change(screen.getByLabelText('Search public descriptions'), { target: { value: 'city loop' } })
+    fireEvent.change(screen.getByLabelText('Search rides by title or notes'), { target: { value: 'city loop' } })
     fireEvent.change(screen.getByLabelText('City'), { target: { value: 'Astana' } })
     fireEvent.change(screen.getByLabelText('From date'), { target: { value: '2027-01-01' } })
     fireEvent.change(screen.getByLabelText('To date'), { target: { value: '2027-01-31' } })
@@ -123,7 +123,7 @@ describe('ride discovery filters and personal views', () => {
     await waitFor(() => expect(screen.getByLabelText('City')).toHaveValue(''))
     expect(screen.getByLabelText('From date')).toHaveValue('')
     expect(screen.getByLabelText('To date')).toHaveValue('')
-    expect(screen.getByLabelText('Search public descriptions')).toHaveValue('')
+    expect(screen.getByLabelText('Search rides by title or notes')).toHaveValue('')
     expect(parsed(screen.getByTestId('location').textContent!).searchParams.has('city')).toBe(false)
   })
 
@@ -152,7 +152,7 @@ describe('ride discovery filters and personal views', () => {
     mount()
     await screen.findByText('A discovery ride')
     const actor = userEvent.setup()
-    const search = screen.getByLabelText('Search public descriptions')
+    const search = screen.getByLabelText('Search rides by title or notes')
     await actor.type(search, 'loop')
     const apply = screen.getByRole('button', { name: 'Apply filters' })
     await actor.click(apply)
@@ -310,13 +310,12 @@ describe('ride discovery filters and personal views', () => {
     expect(fetch.mock.calls.some(([url]) => isRideList(url))).toBe(false)
     await act(async () => { finishSession(response({ user: null })); await session })
     await screen.findByText('Public ride')
-    expect(screen.queryByText('Private title')).not.toBeInTheDocument()
     expect(screen.queryByText('Private place')).not.toBeInTheDocument()
     expect(screen.queryByText('Organizer')).not.toBeInTheDocument()
     expect(screen.queryByText('Approved')).not.toBeInTheDocument()
     const listings = client.getQueriesData<{ rides: Ride[] }>({ queryKey: ['rides'] })
     expect(listings.some(([, page]) => page?.rides.some((ride) => ride.id === 'public'))).toBe(true)
-    expect(listings.some(([, page]) => page?.rides.some((ride) => ride.meeting_point !== undefined || ride.title !== undefined || ride.can_manage))).toBe(false)
+    expect(listings.some(([, page]) => page?.rides.some((ride) => ride.meeting_point !== undefined || ride.can_manage))).toBe(false)
   })
 
   it('discards an old account listing response after switching riders', async () => {
@@ -365,5 +364,40 @@ describe('ride discovery filters and personal views', () => {
     expect(listReads.filter((read) => read.actor === nextRider.id)).toEqual([{ actor: nextRider.id, cursor: null }])
     expect(parsed(screen.getByTestId('location').textContent!).searchParams.has('cursor')).toBe(false)
     expect(screen.queryByText('Original account second page')).not.toBeInTheDocument()
+  })
+
+  it('applies quick style and surface chips and renders public ride telemetry on ride cards', async () => {
+    const requests: string[] = []
+    const rideWithSpecs: Ride = {
+      ...summary('telemetry-1', 'Scenic pass ride over Medeu'),
+      title: 'Medeu Dawn Run',
+      time_window: 'morning',
+      style: 'touring',
+      surface: 'asphalt',
+      distance_km: 145,
+      capacity: 12,
+      approved_count: 5,
+      organizer_name: 'Arman',
+    }
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url.endsWith('/session')) return response({ user: null })
+      if (isRideList(url)) {
+        requests.push(url)
+        return response({ rides: [rideWithSpecs], next_cursor: '' })
+      }
+      const extra = ancillaryRead(url); if (extra) return extra
+      throw new Error(`Unexpected request ${url}`)
+    }))
+    mount()
+    await screen.findByText('Medeu Dawn Run')
+    expect(screen.getByText('~145 km')).toBeInTheDocument()
+    expect(screen.getByText('5/12 spots')).toBeInTheDocument()
+    expect(screen.getByText('By Arman')).toBeInTheDocument()
+    const actor = userEvent.setup()
+    await actor.click(screen.getByRole('button', { name: 'Touring' }))
+    await waitFor(() => expect(parsed(screen.getByTestId('location').textContent!).searchParams.get('style')).toBe('touring'))
+    await actor.click(screen.getByRole('button', { name: 'Paved' }))
+    await waitFor(() => expect(parsed(screen.getByTestId('location').textContent!).searchParams.get('surface')).toBe('asphalt'))
+    expect(requests.some((url) => url.includes('style=touring') && url.includes('surface=asphalt'))).toBe(true)
   })
 })

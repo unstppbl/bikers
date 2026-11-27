@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { MapTrifoldIcon, RoadHorizonIcon, UserCircleIcon, UsersThreeIcon, WrenchIcon } from '@phosphor-icons/react'
+import { CompassIcon, RoadHorizonIcon, UserCircleIcon, UsersThreeIcon } from '@phosphor-icons/react'
 import type { Icon } from '@phosphor-icons/react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter, useLocation, useNavigate } from 'react-router-dom'
@@ -10,6 +10,7 @@ import { App, pageSection } from './App'
 import { setCsrfToken } from './api'
 import { I18nProvider } from './i18n'
 import { SessionProvider } from './session'
+import { ThemeProvider } from './theme'
 import { localRideTime, rideTimeToInstant } from './ride-time'
 import { mergeMessages } from './pages/RideDetail'
 import { dateParts, formatRideDateTime, validNext } from './ui'
@@ -58,7 +59,7 @@ function HistoryControls() {
 
 function mount(path = '/', historyControls = false) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 }, mutations: { retry: false } } })
-  render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[path]}><I18nProvider><SessionProvider><App />{historyControls && <HistoryControls />}</SessionProvider></I18nProvider></MemoryRouter></QueryClientProvider>)
+  render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[path]}><ThemeProvider><I18nProvider><SessionProvider><App />{historyControls && <HistoryControls />}</SessionProvider></I18nProvider></ThemeProvider></MemoryRouter></QueryClientProvider>)
   return client
 }
 
@@ -69,6 +70,7 @@ afterEach(() => { vi.unstubAllGlobals(); setCsrfToken() })
 function navigationReads(url: string) {
   if (url.endsWith('/session')) return response({ user, csrf_token: 'test-csrf' })
   if (url.endsWith('/me/trust')) return response({ is_admin: true })
+  if (url.endsWith('/me/bikes')) return response({ bikes: [], next_cursor: '' })
   if (new URL(url, 'https://bikers.kz').pathname === '/api/v1/rides') return response({ rides: [], next_cursor: '' })
   if (url.endsWith('/clubs')) return response({ clubs: [], next_cursor: '' })
   const extra = mvpRead(url)
@@ -94,7 +96,7 @@ function expectCurrent(nav: HTMLElement, name?: string) {
   expect(within(nav).queryAllByRole('link', { current: 'page' })).toEqual(name ? [within(nav).getByRole('link', { name })] : [])
 }
 // Phosphor draws each weight with its own paths, so a tab's drawing shows whether its icon is filled.
-const tabIcons: [name: string, icon: Icon][] = [['Rides', RoadHorizonIcon], ['Map', MapTrifoldIcon], ['Clubs', UsersThreeIcon], ['My garage', WrenchIcon], ['Me', UserCircleIcon]]
+const tabIcons: [name: string, icon: Icon][] = [['Rides', RoadHorizonIcon], ['Explore', CompassIcon], ['Community', UsersThreeIcon], ['You', UserCircleIcon]]
 function drawing(markup: string) {
   const template = document.createElement('template')
   template.innerHTML = markup
@@ -103,7 +105,7 @@ function drawing(markup: string) {
 function expectFilledIcon(tabs: HTMLElement, current?: string) {
   for (const [name, TabIcon] of tabIcons) {
     const shown = within(tabs).getByRole('link', { name }).querySelector('svg')?.innerHTML
-    expect(shown, name).toBe(drawing(renderToStaticMarkup(<TabIcon size={24} weight={name === current ? 'fill' : 'regular'} />)))
+    expect(shown, name).toBe(drawing(renderToStaticMarkup(<TabIcon size={22} weight={name === current ? 'fill' : 'regular'} />)))
   }
 }
 // The unread dot is decorative; the inbox bell carries the count for assistive technology.
@@ -111,40 +113,36 @@ const hasUnreadDot = (meTab: HTMLElement) => meTab.querySelector('.tab-dot') !==
 
 describe('application navigation', () => {
   it.each([
-    ['en', ['Main navigation', 'Sections'], ['Rides', 'Map', 'Routes', 'Clubs', 'Motorcycles', 'My garage'], ['New ride', 'New ride', 'Me', 'Garage']],
-    ['ru', ['Основная навигация', 'Разделы'], ['Поездки', 'Карта', 'Маршруты', 'Клубы', 'Мотоциклы', 'Мой гараж'], ['Создать поездку', 'Создать', 'Я', 'Гараж']],
-    ['kk', ['Негізгі навигация', 'Бөлімдер'], ['Сапарлар', 'Карта', 'Бағыттар', 'Клубтар', 'Мотоциклдер', 'Менің гаражым'], ['Сапар құру', 'Құру', 'Мен', 'Гараж']],
-  ])('lists the localized sections in the top bar and the phone tab bar (%s)', async (locale, [mainLabel, tabsLabel], [rides, map, routes, clubs, bikes, garage], [createName, createText, me, garageText]) => {
+    ['en', ['Main navigation', 'Sections'], ['Rides', 'Explore', 'Community', 'You'], ['New ride', 'New ride']],
+    ['ru', ['Основная навигация', 'Разделы'], ['Поездки', 'Обзор', 'Клубы', 'Профиль'], ['Создать поездку', 'Создать']],
+    ['kk', ['Негізгі навигация', 'Бөлімдер'], ['Сапарлар', 'Шолу', 'Қауым', 'Мен'], ['Сапар құру', 'Құру']],
+  ])('lists the 4 localized pillars in the top bar and phone tab bar (%s)', async (locale, [mainLabel, tabsLabel], [rides, explore, community, me], [createName, createText]) => {
     localStorage.setItem('bikerskz.locale', locale)
     vi.stubGlobal('fetch', vi.fn(navigationReads))
     mount()
     await screen.findByRole('heading', { level: 1, name: rides })
     const primary = primaryNav(mainLabel)
     const tabs = tabBar(tabsLabel)
-    expectLinks(primary, [[rides, '/'], [map, '/places'], [routes, '/routes'], [clubs, '/clubs'], [bikes, '/bikes'], [garage, '/garage']])
-    expectLinks(tabs, [[rides, '/'], [map, '/places'], [createName, '/rides/new'], [clubs, '/clubs'], [garage, '/garage'], [me, '/me']])
-    expect(within(tabs).getByRole('link', { name: garage })).toHaveTextContent(garageText)
+    expectLinks(primary, [[rides, '/'], [explore, '/places'], [community, '/clubs'], [me, '/me']])
+    expectLinks(tabs, [[rides, '/'], [explore, '/places'], [community, '/clubs'], [me, '/me']])
     expectCurrent(primary, rides)
     expectCurrent(tabs, rides)
-    // Both create buttons show a short label. Their accessible name contains it, so speech users can say what they see.
-    const create = [within(primary.closest('header')!).getByRole('link', { name: createName }), within(tabs).getByRole('link', { name: createName })]
-    create.forEach((link) => {
-      expect(link).toHaveAttribute('href', '/rides/new')
-      expect(link).toHaveTextContent(createText)
-    })
+    const create = within(primary.closest('header')!).getByRole('link', { name: createName })
+    expect(create).toHaveAttribute('href', '/rides/new')
+    expect(create).toHaveTextContent(createText)
     expect(createName.toLocaleLowerCase(locale)).toContain(createText.toLocaleLowerCase(locale))
   })
 
   it.each([
-    ['/places', 'Map', 'Map', 'Map'],
-    ['/routes', 'Routes', 'Routes', 'Map'],
-    ['/clubs', 'Clubs', 'Clubs', 'Clubs'],
-    ['/me', 'Test Rider', undefined, 'Me'],
-    ['/garage', 'My garage', 'My garage', 'My garage'],
-    ['/settings', 'Settings', undefined, 'Me'],
-    ['/bikes', 'Motorcycles', 'Motorcycles', 'Me'],
+    ['/places', 'Map', 'Explore', 'Explore'],
+    ['/routes', 'Routes', 'Explore', 'Explore'],
+    ['/clubs', 'Clubs', 'Community', 'Community'],
+    ['/bikes', 'Motorcycles', 'Community', 'Community'],
+    ['/me', 'Test Rider', 'You', 'You'],
+    ['/garage', 'My garage', 'You', 'You'],
+    ['/settings', 'Settings', 'You', 'You'],
     ['/rides/test-ride', 'A ride in Almaty', 'Rides', 'Rides'],
-  ])('marks the current section on %s', async (path, heading, primaryCurrent, tabCurrent) => {
+  ])('marks the current pillar on %s', async (path, heading, primaryCurrent, tabCurrent) => {
     vi.stubGlobal('fetch', vi.fn((url: string) => {
       if (url.endsWith('/rides/test-ride')) return response({ ride: { ...summary, participation_state: 'requested' } })
       if (new URL(url, 'https://bikers.kz').pathname === '/api/v1/bikes') return response({ bikes: [], next_cursor: '' })
@@ -154,34 +152,40 @@ describe('application navigation', () => {
     await screen.findByRole('heading', { level: 1, name: heading })
     expectCurrent(primaryNav(), primaryCurrent)
     expectCurrent(tabBar(), tabCurrent)
-    // The current tab is not shown by colour alone: its icon is filled and the others stay outlined.
     expectFilledIcon(tabBar(), tabCurrent)
   })
 
-  // Every route in App.tsx, including those whose pages need more data than these tests provide.
-  // The top bar links the section; the tab bar shows places and routes as Map, and bikes as Me.
+  // Every route in App.tsx maps cleanly into one of the four pillars or none.
   it.each([
-    ['/', 'rides'], ['/rides/test-ride', 'rides'], ['/rides/test-ride/edit', 'rides'], ['/rides/new', 'create'], ['/rides/new/', 'create'],
-    ['/ride-polls/new', 'create'], ['/ride-polls/poll-id', 'rides'],
-    ['/places', 'places'], ['/places/new', 'places'], ['/places/place/suggest', 'places'], ['/places/submissions', 'places'],
-    ['/routes', 'routes'], ['/routes/new', 'routes'], ['/routes/record', 'routes'], ['/routes/route', 'routes'], ['/routes/route/edit', 'routes'],
-    ['/clubs', 'clubs'], ['/clubs/new', 'clubs'], ['/clubs/club', 'clubs'], ['/clubs/club/edit', 'clubs'],
-    ['/me', 'me'], ['/my-rides', 'me'], ['/my-clubs', 'me'], ['/inbox', 'me'], ['/profile', 'me'], ['/settings', 'me'], ['/admin', 'me'], ['/install', 'me'],
-    ['/garage', 'garage'], ['/garage/new', 'garage'], ['/garage/bike', 'garage'], ['/garage/bike/edit', 'garage'], ['/bikes', 'bikes'], ['/bikes/bike', 'bikes'],
+    ['/', 'rides'], ['/my-rides', 'rides'], ['/rides/test-ride', 'rides'], ['/rides/test-ride/edit', 'rides'], ['/rides/new', 'rides'], ['/rides/new/', 'rides'],
+    ['/ride-polls/new', 'rides'], ['/ride-polls/poll-id', 'rides'],
+    ['/explore', 'explore'], ['/places', 'explore'], ['/places/new', 'explore'], ['/places/place/suggest', 'explore'], ['/places/submissions', 'explore'],
+    ['/routes', 'explore'], ['/routes/new', 'explore'], ['/routes/record', 'explore'], ['/routes/route', 'explore'], ['/routes/route/edit', 'explore'],
+    ['/community', 'community'], ['/clubs', 'community'], ['/my-clubs', 'community'], ['/clubs/new', 'community'], ['/clubs/club', 'community'], ['/clubs/club/edit', 'community'],
+    ['/bikes', 'community'], ['/bikes/bike', 'community'],
+    ['/me', 'me'], ['/inbox', 'me'], ['/profile', 'me'], ['/settings', 'me'], ['/admin', 'me'], ['/install', 'me'],
+    ['/garage', 'me'], ['/garage/new', 'me'], ['/garage/bike', 'me'], ['/garage/bike/edit', 'me'],
     ['/login', undefined], ['/preview/ride-flow', undefined], ['/rides', undefined], ['/no-such-page', undefined],
-    // Unknown paths under a section render the not-found page, so they select nothing either.
     ['/clubs/club/extra', undefined], ['/settings/extra', undefined], ['/rides/test-ride/edit/extra', undefined], ['/places/place', undefined],
     ['/routes/route/edit/extra', undefined], ['/garage/bike/edit/extra', undefined], ['/bikes/bike/extra', undefined], ['/me/extra', undefined],
   ])('assigns %s to the %s section', (path, section) => {
     expect(pageSection(path)).toBe(section)
   })
 
-  it('takes a guest from the Garage tab to sign-in with a return path', async () => {
+  it('switches appearance between Auto, Daylight, and Dark without persisting Auto', async () => {
     vi.stubGlobal('fetch', vi.fn(guestReads))
-    mount('/', true)
-    await userEvent.click(within(tabBar()).getByRole('link', { name: 'My garage' }))
-    await waitFor(() => expect(screen.getByTestId('test-location')).toHaveTextContent('/login?next=%2Fgarage'))
-    expectCurrent(tabBar())
+    mount()
+    await screen.findByRole('heading', { level: 1, name: 'Rides' })
+    expect(localStorage.getItem('bikerskz.theme')).toBeNull()
+    const toggle = screen.getByRole('button', { name: 'Switch appearance (Auto)' })
+    await userEvent.click(toggle)
+    expect(document.documentElement.getAttribute('data-theme')).toBe('light')
+    expect(localStorage.getItem('bikerskz.theme')).toBe('light')
+    await userEvent.click(screen.getByRole('button', { name: 'Switch appearance (Daylight)' }))
+    expect(document.documentElement.getAttribute('data-theme')).toBe('dark')
+    await userEvent.click(screen.getByRole('button', { name: 'Switch appearance (Dark)' }))
+    expect(document.documentElement.getAttribute('data-theme')).toBeNull()
+    expect(localStorage.getItem('bikerskz.theme')).toBeNull()
   })
 
   it.each(['/clubs/club/extra', '/settings/extra', '/bikes/bike/extra'])('shows the not-found page on %s with no section current', async (path) => {
@@ -231,7 +235,7 @@ describe('application navigation', () => {
     expect(await screen.findByRole('link', { name: inboxName })).toHaveAttribute('href', '/inbox')
     expect(screen.getByRole('link', { name: 'Your space and settings' })).toHaveAttribute('href', '/me')
     expect(screen.queryByRole('link', { name: 'Sign in' })).not.toBeInTheDocument()
-    expect(hasUnreadDot(within(tabBar()).getByRole('link', { name: 'Me' }))).toBe(dot)
+    expect(hasUnreadDot(within(tabBar()).getByRole('link', { name: 'You' }))).toBe(dot)
   })
 
   it('offers guests sign-in instead of account controls', async () => {
@@ -240,7 +244,7 @@ describe('application navigation', () => {
     expect(await screen.findByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/login')
     expect(screen.queryByRole('link', { name: /^Inbox/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Your space and settings' })).not.toBeInTheDocument()
-    const me = within(tabBar()).getByRole('link', { name: 'Me' })
+    const me = within(tabBar()).getByRole('link', { name: 'You' })
     expect(me).toHaveAttribute('href', '/me')
     expect(hasUnreadDot(me)).toBe(false)
   })
@@ -254,7 +258,7 @@ describe('application navigation', () => {
     const location = screen.getByTestId('test-location')
     const scroll = vi.mocked(window.scrollTo)
     scroll.mockClear()
-    await actor.click(within(primaryNav()).getByRole('link', { name: 'Clubs' }))
+    await actor.click(within(primaryNav()).getByRole('link', { name: 'Community' }))
     await screen.findByRole('heading', { level: 1, name: 'Clubs' })
     // The lazy page can render before the parent route's scroll and focus effects finish.
     await waitFor(() => {

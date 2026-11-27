@@ -1,32 +1,52 @@
-.map-discovery-switch { display: none; }
+/* Visible on all viewports inside the unified Explore pillar (Places + Routes). */
+.map-discovery-switch {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 4px;
+  gap: 4px;
+  width: fit-content;
+  max-width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+
+.map-discovery-switch a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 14px;
+  min-height: 36px;
+  border-radius: 9px;
+  color: var(--text-muted);
+  font: var(--type-button-sm);
+  text-align: center;
+  white-space: nowrap;
+  transition: color var(--motion-fast) var(--motion-ease), background-color var(--motion-fast) var(--motion-ease);
+}
+
+.map-discovery-switch a:hover {
+  color: var(--text);
+}
+
+.map-discovery-switch a[aria-current="page"] {
+  color: var(--text);
+  background: var(--surface-raised);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
 
 @media (max-width: 900px) {
   .map-discovery-switch {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    align-self: start;
-    flex-shrink: 0;
-    padding: 2px;
-    gap: 2px;
-    width: min(100%, 320px);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    background: var(--surface);
+    width: 100%;
   }
 
   .map-discovery-switch a {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 4px 8px;
-    min-height: 44px;
-    border-radius: var(--radius-sm);
-    color: var(--text-muted);
-    font: var(--type-button-sm);
-    text-align: center;
+    min-height: 40px;
+    padding: 6px 10px;
   }
-
-  .map-discovery-switch a:hover { color: var(--text); }
-  .map-discovery-switch a[aria-current="page"] { color: var(--text); background: var(--surface-raised); }
 }

@@ -72,7 +72,7 @@ func TestVersionNineMapUpgradePreservesRideAndOldReceipts(t *testing.T) {
 	if err := pool.QueryRow(ctx, `SELECT map_plan IS NULL FROM rides WHERE id=$1`, id).Scan(&unset); err != nil || !unset {
 		t.Fatal("clear did not restore SQL NULL", err)
 	}
-	_, err = store.CreateRide(ctx, models.Ride{RideSummary: models.RideSummary{ID: uuid.NewString(), City: "Almaty", Description: "Public preview", Status: "published"}, Title: "Text plan", StartsAt: time.Now().Add(time.Hour), Timezone: "Asia/Almaty", MeetingPoint: "Meeting", Capacity: 2, PlanVersion: 1, OrganizerID: owner}, "approved", time.Now(), func(models.GarageOwner) error { return nil })
+	_, err = store.CreateRide(ctx, models.Ride{RideSummary: models.RideSummary{ID: uuid.NewString(), City: "Almaty", Title: "Text plan", Description: "Public preview", Status: "published", Capacity: 2}, StartsAt: time.Now().Add(time.Hour), Timezone: "Asia/Almaty", MeetingPoint: "Meeting", PlanVersion: 1, OrganizerID: owner}, "approved", time.Now(), func(models.GarageOwner) error { return nil })
 	if err != nil {
 		t.Fatal("text-only creation failed after map migration", err)
 	}

@@ -17,7 +17,8 @@ func TestRideSharePreviewUsesOnlyCurrentPublicFields(t *testing.T) {
 	grantTestAdmin(t, f, admin)
 	const description = `A paved & easy loop <script>alert("test")</script>`
 	created := f.request("POST", "/api/v1/rides", map[string]any{
-		"city": "Almaty", "description": description, "title": "PRIVATE TITLE",
+		"city": "Almaty", "description": description, "title": "Charyn Canyon Loop",
+		"style": "touring", "surface": "asphalt", "distance_km": 180,
 		"starts_at": "2026-11-07T23:30:00Z", "timezone": "Asia/Almaty",
 		"meeting_point": "PRIVATE MEETUP", "destination": "PRIVATE DESTINATION",
 		"route_url": "https://example.org/private-route", "expectations": "PRIVATE PACE", "capacity": 4,
@@ -62,8 +63,8 @@ func TestRideSharePreviewUsesOnlyCurrentPublicFields(t *testing.T) {
 	guest := read(nil, http.StatusOK)
 	for _, want := range []string{
 		`property="og:url" content="` + pageURL + `"`,
-		`property="og:title" content="Ride in Almaty"`,
-		`property="og:description" content="2026-11-08 · ` + html.EscapeString(description) + `"`,
+		`property="og:title" content="Charyn Canyon Loop"`,
+		`property="og:description" content="Almaty · 2026-11-08 · ` + html.EscapeString(description) + `"`,
 		`property="og:image" content="` + coverURL + `"`, "/assets/app.js",
 	} {
 		if !strings.Contains(guest, want) {
@@ -89,7 +90,7 @@ func TestRideSharePreviewUsesOnlyCurrentPublicFields(t *testing.T) {
 		t.Fatalf("preview kept a moderated cover: %s", got)
 	}
 	expect(t, f.request("POST", "/api/v1/rides/"+id+"/cancel", map[string]any{"plan_version": 1}, owner), http.StatusOK)
-	if got := read(nil, http.StatusOK); !strings.Contains(got, `property="og:title" content="Cancelled ride in Almaty"`) {
+	if got := read(nil, http.StatusOK); !strings.Contains(got, `property="og:title" content="Cancelled · Charyn Canyon Loop"`) {
 		t.Fatalf("preview is missing the cancelled state: %s", got)
 	}
 	expect(t, trustAction(f, admin, "hide_content", "ride", id, "Hide ride", ""), http.StatusOK)

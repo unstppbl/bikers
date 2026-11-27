@@ -356,3 +356,38 @@ English, Russian and Kazakh, and the same views with covers at 390 and 1440px
 in English. The 110 screenshots show no page or console errors, no failed
 requests, no broken images and no horizontal overflow. Titles and metadata
 over each photo were checked by eye on the existing scrim.
+
+## Adaptive Telemetry & Daylight Redesign · 27 November 2026
+
+This whole-app redesign replaces the warm-asphalt dark-only theme and condensed
+display typography with an adaptive visual system (**Telemetry Dark** `#0b0e13`
+and **Daylight Roadbook** `#f4f6f9`) that follows `prefers-color-scheme` by
+default and offers an explicit theme toggle (`Auto` / `Daylight` / `Dark`) in
+the top bar and Settings. Typography moves to self-hosted `Inter` (`--font-body`,
+`--font-display`) paired with `JetBrains Mono` (`--font-mono`) for tabular dates,
+distances, capacities, and coordinates across English, Russian, and Kazakh.
+
+Key information-architecture and UX changes:
+- **Four-pillar navigation:** `Rides` (`/` + `/my-rides`), `Explore` (`/places`
+  and `/routes` with an always-visible view switcher), `Community` (`/clubs` and
+  `/bikes` unified under a shared tab switcher), and `You` (`/me`, `/garage`,
+  `/inbox`, `/settings`, `/profile`, `/admin`).
+- **Scannable Ride Tickets & public fit fields:** Backend migration 16 adds
+  optional `style`, `surface`, and `distance_km` columns to `rides` and promotes
+  public-safe fit metadata (`title`, coarse `time_window`, `style`, `surface`,
+  5 km-rounded `distance_km`, `capacity`, `approved_count`, `organizer_name`)
+  onto `RideSummary`. Exact departure time (`starts_at`), meeting coordinates,
+  destination, route link, expectations, roster, announcements, chat, and map
+  geometry remain strictly private until organizer approval.
+- **Instant discovery filters:** Ride discovery adds one-tap quick-filter chips
+  for date shortcuts (Today / Weekend), ride style, and surface alongside city
+  and keyword search (which searches both `title` and `description`).
+- **Tabbed Ride Room & 1-tap approvals:** Approved riders get a compact hero
+  with one-tap map navigation and a 4-tab Ride Room (`Plan | Chat | Riders |
+  Album`) on mobile/tablet while desktop displays Plan and Chat side by side
+  without disconnecting WebSocket updates. Pending join requests expose direct
+  1-tap `Approve` / `Decline` buttons instead of hiding them inside a row menu.
+- **Structured Ride Creation & Rider Identity Hub:** The ride creation form is
+  grouped into Ride basics, Meetup & route (private until approved), and
+  Settings, with a live Guest vs. Approved privacy preview. The `You` hub leads
+  with the rider's identity and primary garage bike.

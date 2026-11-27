@@ -1,38 +1,31 @@
-/* Ride detail: a hero with the date plate, then the plan, group updates and chat beside the rider list. */
+/* Ride detail & Ride Room: compact hero, pinned Navigate CTA, and tabbed workspace without nested scroll traps. */
 
 .ride-detail {
-  max-width: 1360px;
+  max-width: 1240px;
 }
 
 .ride-hero {
   position: relative;
   display: flex;
   align-items: flex-end;
-  min-height: 360px;
+  min-height: 240px;
   margin-top: 4px;
-  padding: 36px 40px;
+  padding: 24px 28px;
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
   background: var(--surface);
+  box-shadow: var(--shadow-card);
   isolation: isolate;
-  container-type: inline-size;
 }
 
-.ride-hero .city-art {
-  top: 28px;
-  --city-art-left: 40px;
-  right: -8px;
-  --city-art-max: 240px;
-}
-
-/* A cover photo gets more height, like the featured card. */
 .ride-hero:has(.ride-hero-cover) {
-  min-height: 440px;
+  min-height: 290px;
+  color: #f8fafc;
 }
 
 .ride-hero.is-ride-room {
-  min-height: 260px;
+  min-height: 200px;
 }
 
 .ride-hero-cover {
@@ -53,69 +46,64 @@
   position: absolute;
   inset: 0;
   z-index: -1;
-  background: var(--scrim);
+  background: linear-gradient(to top, rgb(11 14 19 / 92%) 0%, rgb(11 14 19 / 60%) 48%, rgb(11 14 19 / 18%) 100%);
 }
 
 .ride-hero.is-cancelled .ride-hero-cover {
   filter: grayscale(1);
 }
 
+.ride-hero:has(.ride-hero-cover) h1,
+.ride-hero:has(.ride-hero-cover) .detail-meta {
+  color: #f8fafc;
+}
+
+.ride-hero:has(.ride-hero-cover) .detail-meta {
+  color: #cbd5e1;
+}
+
 .ride-hero:has(.ride-hero-cover) h1 {
-  text-shadow: 0 1px 12px color-mix(in srgb, var(--canvas) 70%, transparent);
+  text-shadow: 0 2px 14px rgb(0 0 0 / 45%);
 }
 
 .ride-hero-body {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-end;
-  gap: 28px;
+  justify-content: space-between;
+  gap: 20px;
+  width: 100%;
   min-width: 0;
-}
-
-.date-plate-hero {
-  flex-shrink: 0;
-  min-width: 92px;
-  padding: 10px 18px 11px;
-}
-
-.date-plate-hero strong {
-  font-size: 72px;
-}
-
-.date-plate-hero span {
-  font-size: 19px;
 }
 
 .ride-hero-copy {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   min-width: 0;
-  max-width: 880px;
+  max-width: 780px;
 }
 
 .ride-hero-status {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-}
-
-.ride-hero-status:empty {
-  display: none;
+  align-items: center;
+  gap: 8px;
 }
 
 .ride-hero h1 {
-  font: var(--type-heading-2);
+  font: var(--type-heading-1);
   overflow-wrap: anywhere;
 }
 
 .ride-hero.is-cancelled h1 {
-  color: var(--text-muted);
+  opacity: 0.78;
 }
 
 .ride-hero .detail-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 20px;
+  gap: 8px 16px;
   color: var(--text-muted);
   font: var(--type-body-5);
 }
@@ -123,31 +111,23 @@
 .ride-hero .detail-meta > span {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-}
-
-.ride-hero .detail-meta > span:first-child {
-  color: var(--text);
+  gap: 6px;
 }
 
 .ride-meeting-action {
-  align-self: flex-start;
-  min-height: 44px;
-  padding-inline: 14px;
-  white-space: normal;
-  text-align: left;
-}
-
-.ride-meeting-action svg {
   flex-shrink: 0;
+  min-height: 44px;
+  padding: 10px 18px;
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
 }
 
 .ride-toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px 12px;
-  margin: 16px 0 28px;
+  gap: 8px 10px;
+  margin: 14px 0 20px;
 }
 
 .ride-share[open] {
@@ -179,19 +159,18 @@
 }
 
 .ride-toolbar .button {
-  min-height: 44px;
-  padding: 8px 16px;
+  min-height: 40px;
+  padding: 7px 14px;
   font: var(--type-button-sm);
   border-radius: var(--radius-pill);
 }
 
-/* Sharing and editing sit together on the left, the report controls on the right. */
 .ride-toolbar-reports {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
   align-items: flex-start;
-  gap: 0 20px;
+  gap: 0 18px;
   margin-left: auto;
 }
 
@@ -199,7 +178,6 @@
   display: none;
 }
 
-/* An open report form drops into its own row under both report buttons, aligned to the right. */
 .ride-toolbar-reports:has(.report-control-open) {
   flex-basis: 100%;
 }
@@ -208,7 +186,6 @@
   display: contents;
 }
 
-/* A full-width empty item breaks the line after the buttons, so the form always starts a new row. */
 .ride-toolbar-reports:has(.report-control-open)::after {
   content: '';
   flex-basis: 100%;
@@ -221,23 +198,26 @@
   margin: 12px 0 0 auto;
 }
 
+/* Tab bar visible on phones/tablets; on wide desktop Plan + Chat sit side-by-side */
+.room-tabs {
+  display: none;
+}
+
 .ride-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
-  gap: 32px;
+  grid-template-columns: minmax(0, 1.15fr) minmax(340px, 0.85fr);
+  gap: 24px;
   align-items: start;
 }
 
-/* The aside scrolls with the page and is not sticky: for an organizer it is taller
-   than the viewport, and a pinned aside would keep its lower controls out of view. */
-.ride-main, .ride-aside {
+.ride-main, .ride-aside, .room-pane {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 20px;
   min-width: 0;
 }
 
-.ride-main > .surface, .ride-aside > .surface {
+.ride-main .surface, .ride-aside .surface {
   margin: 0;
 }
 
@@ -246,7 +226,6 @@
   max-width: 720px;
   color: var(--text-muted);
   font: var(--type-body-3);
-  font-size: var(--text-lg);
   line-height: 1.6;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -254,17 +233,17 @@
 
 .ride-detail .ride-lead {
   color: var(--text);
-  font-size: 20px;
+  font-size: var(--text-lg);
 }
 
-/* The plan as a route: a dashed line joins the stops. */
+/* Roadbook plan */
 .plan-card {
-  padding: 24px;
+  padding: 20px 22px;
 }
 
 .plan-card > h2 {
   font: var(--type-heading-5);
-  margin-bottom: 20px;
+  margin-bottom: 18px;
 }
 
 .roadbook {
@@ -276,8 +255,8 @@
 .roadbook > li {
   position: relative;
   display: flex;
-  gap: 16px;
-  padding-bottom: 22px;
+  gap: 14px;
+  padding-bottom: 18px;
 }
 
 .roadbook > li:last-child {
@@ -287,8 +266,8 @@
 .roadbook > li:not(:last-child)::after {
   content: '';
   position: absolute;
-  left: 19px;
-  top: 42px;
+  left: 17px;
+  top: 38px;
   bottom: 4px;
   border-left: 2px dashed var(--border-strong);
 }
@@ -298,16 +277,17 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  border: 2px solid var(--accent);
+  width: 36px;
+  height: 36px;
+  border: 1.5px solid var(--accent);
   border-radius: 50%;
-  background: var(--surface);
-  color: var(--accent);
+  background: var(--accent-surface);
+  color: var(--accent-text);
 }
 
 .plan-locked .roadbook-marker {
   border-color: var(--border-strong);
+  background: var(--surface-raised);
   color: var(--text-subtle);
 }
 
@@ -323,18 +303,16 @@
 .roadbook-label {
   color: var(--text-subtle);
   font: var(--type-caption-3);
-  font-size: 13px;
 }
 
 .roadbook-time {
-  font: 800 34px/1 var(--font-display);
+  font: 700 24px/1.1 var(--font-mono);
   color: var(--text);
-  font-variant-numeric: tabular-nums;
 }
 
 .roadbook-sub {
   color: var(--text-subtle);
-  font: var(--type-body-6);
+  font: var(--type-caption-2);
 }
 
 .roadbook-copy > p {
@@ -346,10 +324,8 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  /* A full 44px target; the negative margins keep the roadbook's spacing as tight as the text. */
-  min-height: 44px;
-  margin: -2px 0 -6px;
-  color: var(--accent);
+  min-height: 40px;
+  color: var(--accent-text);
   font: var(--type-button-sm);
   text-decoration: underline;
   text-underline-offset: 3px;
@@ -367,14 +343,14 @@
 
 .ride-brief {
   display: grid;
-  gap: 16px;
-  margin-top: 24px;
-  padding-top: 20px;
+  gap: 14px;
+  margin-top: 20px;
+  padding-top: 18px;
   border-top: 1px solid var(--border);
 }
 
 .ride-brief-update h3 {
-  margin-bottom: 12px;
+  margin-bottom: 10px;
   font: var(--type-heading-6);
 }
 
@@ -385,7 +361,7 @@
 
 .ride-brief-counts {
   min-width: 0;
-  padding: 0 16px 12px;
+  padding: 0 14px 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
 }
@@ -396,8 +372,8 @@
 
 .ride-brief-counts > summary {
   min-height: 44px;
-  padding-block: 12px;
-  font: var(--type-body-1);
+  padding-block: 10px;
+  font: var(--type-body-4);
   cursor: pointer;
 }
 
@@ -416,7 +392,7 @@
 }
 
 .ride-brief-counts input {
-  min-height: 44px;
+  min-height: 40px;
   min-width: 0;
   width: 100%;
   padding-inline: 8px;
@@ -425,19 +401,21 @@
 
 .ride-brief-download {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   justify-items: start;
 }
 
 .ride-brief-download .button {
-  min-height: 44px;
+  min-height: 40px;
+  padding: 8px 14px;
+  font: var(--type-button-sm);
   white-space: normal;
   text-align: left;
 }
 
 .announcement-latest {
   font: var(--type-heading-6);
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .roadbook-locked {
@@ -449,8 +427,8 @@
 }
 
 .plan-facts {
-  margin: 22px 0 0;
-  padding-top: 18px;
+  margin: 18px 0 0;
+  padding-top: 16px;
   border-top: 1px solid var(--border);
 }
 
@@ -458,7 +436,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 4px 12px;
+  gap: 4px 10px;
 }
 
 .plan-facts dt {
@@ -475,7 +453,7 @@
   align-items: baseline;
   gap: 4px 10px;
   margin: 0;
-  font: 800 24px/1 var(--font-display);
+  font: 700 18px/1 var(--font-mono);
 }
 
 .plan-facts dd small {
@@ -484,25 +462,25 @@
 }
 
 .plan-card .expectations {
-  margin-top: 18px;
+  margin-top: 16px;
 }
 
-/* Preview: the join card leads, the locked plan follows. */
+/* Preview access card */
 .access-card {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  gap: 4px 18px;
+  gap: 4px 16px;
   align-items: start;
-  padding: 24px;
+  padding: 22px;
   text-align: left;
   border-color: var(--accent-border);
-  background: linear-gradient(var(--accent-surface), var(--accent-surface)) padding-box;
+  background: var(--accent-surface);
 }
 
 .access-icon {
   grid-row: span 2;
-  width: 52px;
-  height: 52px;
+  width: 48px;
+  height: 48px;
   margin: 0;
   border-radius: 50%;
   background: var(--accent);
@@ -510,7 +488,7 @@
 }
 
 .access-copy h2 {
-  font: var(--type-heading-6);
+  font: var(--type-heading-5);
 }
 
 .access-copy p {
@@ -523,25 +501,37 @@
 .access-card > .button {
   grid-column: 2;
   justify-self: start;
-  margin-top: 16px;
-  min-height: 52px;
-  padding: 12px 28px;
-  font: var(--type-button-lg);
+  margin-top: 14px;
+  min-height: 48px;
+  padding: 10px 24px;
+  border-radius: var(--radius-pill);
 }
 
 .access-footnote {
   grid-column: 2;
-  margin-top: 12px;
+  margin-top: 10px;
   color: var(--text-subtle);
 }
 
-.ride-preview .ride-aside {
-  padding: 4px;
+/* Direct 1-tap pending request actions */
+.pending-decision-buttons {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
-/* The ride chat gets more room and quieter chrome. */
+.pending-decision-buttons .button {
+  min-height: 36px;
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  font: var(--type-button-xsm);
+}
+
+/* Ride Room chat */
 .ride-detail .room-heading {
-  padding: 18px 20px;
+  padding: 16px 18px;
 }
 
 .ride-detail .room-heading h2 {
@@ -549,11 +539,11 @@
 }
 
 .ride-detail .messages {
-  padding: 20px;
+  padding: 16px 18px;
 }
 
 .ride-detail .message-content > p {
-  border-radius: 4px var(--radius-lg) var(--radius-lg) var(--radius-lg);
+  border-radius: 4px var(--radius-md) var(--radius-md) var(--radius-md);
   background: var(--surface-raised);
 }
 
@@ -563,19 +553,19 @@
 }
 
 .ride-detail .message-composer {
-  padding: 14px 16px;
+  padding: 12px 14px;
   background: var(--surface);
 }
 
 .ride-detail .message-composer textarea {
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: var(--canvas);
   border-color: var(--border-strong);
 }
 
 .ride-detail .send-button {
-  width: 48px;
-  height: 48px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
 }
 
@@ -594,85 +584,88 @@
   color: var(--danger);
 }
 
-@media (max-width: 1100px) {
+/* Mobile & Tablet: tabbed Ride Room — no 2,500px scroll wall! */
+@media (max-width: 1024px) {
+  .room-tabs {
+    display: flex;
+    width: 100%;
+    position: sticky;
+    top: calc(var(--topbar-height) + 6px);
+    z-index: 20;
+  }
+
   .ride-layout {
     grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .ride-layout[data-room-tab="plan"] .room-pane-chat,
+  .ride-layout[data-room-tab="plan"] .room-pane-riders,
+  .ride-layout[data-room-tab="plan"] .room-pane-album {
+    display: none;
+  }
+
+  .ride-layout[data-room-tab="chat"] .room-pane-plan,
+  .ride-layout[data-room-tab="chat"] .room-pane-riders,
+  .ride-layout[data-room-tab="chat"] .room-pane-album {
+    display: none;
+  }
+
+  .ride-layout[data-room-tab="riders"] .room-pane-plan,
+  .ride-layout[data-room-tab="riders"] .room-pane-chat,
+  .ride-layout[data-room-tab="riders"] .room-pane-album {
+    display: none;
+  }
+
+  .ride-layout[data-room-tab="album"] .room-pane-plan,
+  .ride-layout[data-room-tab="album"] .room-pane-chat,
+  .ride-layout[data-room-tab="album"] .room-pane-riders {
+    display: none;
+  }
+
+  .ride-layout[data-room-tab="chat"] .messages {
+    min-height: 360px;
+    max-height: 58dvh;
   }
 }
 
 @media (max-width: 760px) {
   .ride-hero {
-    min-height: 300px;
-    padding: 20px 18px;
+    min-height: 200px;
+    padding: 18px;
     border-radius: var(--radius-lg);
   }
 
   .ride-hero-body {
     flex-direction: column;
-    align-items: flex-start;
-    gap: 18px;
-  }
-
-  /* The plate stacks above the title here and can share the top row with the city name, so the name starts
-     clear of it, as on the cards: 18px padding, the plate's widest 78px, its 3.5px ring and a 12px gap. */
-  .ride-hero .city-art {
-    top: 18px;
-    --city-art-left: 112px;
-  }
-
-  .ride-hero:has(.ride-hero-cover) {
-    min-height: 340px;
-  }
-
-  .ride-hero.is-ride-room {
-    min-height: 216px;
-  }
-
-  .date-plate-hero {
-    min-width: 72px;
-    padding: 8px 14px 9px;
-  }
-
-  .date-plate-hero strong {
-    font-size: 54px;
-  }
-
-  .date-plate-hero span {
-    font-size: 16px;
+    align-items: stretch;
+    gap: 14px;
   }
 
   .ride-hero h1 {
-    font: var(--type-heading-4);
+    font: var(--type-heading-2);
+  }
+
+  .ride-meeting-action {
+    justify-content: center;
   }
 
   .ride-toolbar {
-    margin: 12px 0 20px;
-  }
-
-  .ride-layout, .ride-main, .ride-aside {
-    gap: 20px;
-  }
-
-  .ride-detail .ride-description {
-    font-size: var(--text-base);
-  }
-
-  .ride-detail .ride-lead {
-    font-size: var(--text-lg);
+    margin: 10px 0 16px;
   }
 
   .plan-card {
-    padding: 20px 18px;
+    padding: 18px 16px;
   }
 
   .access-card {
     grid-template-columns: minmax(0, 1fr);
-    padding: 20px;
+    padding: 18px;
   }
 
   .access-icon {
     grid-row: auto;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
   }
 
   .access-card > .button, .access-footnote {

@@ -167,7 +167,7 @@ func (e *rideEvents) Publish(ride, kind string) {
 func rideFixture(t *testing.T) (*Manager, *rideRepository, *rideEvents, models.User) {
 	t.Helper()
 	owner := models.User{ID: uuid.NewString(), OnboardingComplete: true}
-	repo := &rideRepository{ride: models.Ride{RideSummary: models.RideSummary{ID: uuid.NewString(), City: "Almaty", Date: "2026-11-05", Description: "Public preview", Status: "published"}, Title: "Private title", MeetingPoint: "Private place", StartsAt: time.Date(2026, 11, 5, 5, 0, 0, 0, time.UTC), Timezone: "Asia/Almaty", OrganizerID: owner.ID, Capacity: 2, PlanVersion: 1}, states: map[string]string{owner.ID: "approved"}}
+	repo := &rideRepository{ride: models.Ride{RideSummary: models.RideSummary{ID: uuid.NewString(), City: "Almaty", Date: "2026-11-05", Title: "Public ride title", Description: "Public preview", Status: "published", Capacity: 2}, MeetingPoint: "Private place", StartsAt: time.Date(2026, 11, 5, 5, 0, 0, 0, time.UTC), Timezone: "Asia/Almaty", OrganizerID: owner.ID, PlanVersion: 1}, states: map[string]string{owner.ID: "approved"}}
 	events := &rideEvents{t: t, repo: repo}
 	return New(repo, events, func() time.Time { return time.Date(2026, 11, 3, 0, 0, 0, 0, time.UTC) }, nil, nil), repo, events, owner
 }

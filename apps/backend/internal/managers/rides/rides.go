@@ -59,6 +59,9 @@ func (m *Manager) Preview(ctx context.Context, id string) (models.RideSummary, e
 	if hidden {
 		return models.RideSummary{}, models.Fail("not_found", "Ride not found")
 	}
+	if ride.DistanceKm == 0 && ride.MapPlan != nil {
+		ride.DistanceKm = models.PublicRideDistanceKm(0, ride.MapPlan)
+	}
 	return publicSummary(ride.RideSummary), nil
 }
 
@@ -73,6 +76,9 @@ func (m *Manager) View(ctx context.Context, id string, session *models.Session) 
 		hidden, err := tx.ContentHidden("ride", id)
 		if err != nil {
 			return err
+		}
+		if ride.DistanceKm == 0 && ride.MapPlan != nil {
+			ride.DistanceKm = models.PublicRideDistanceKm(0, ride.MapPlan)
 		}
 		ride.RideSummary = publicSummary(ride.RideSummary)
 		if session == nil {
@@ -132,9 +138,20 @@ func (m *Manager) Create(ctx context.Context, actor models.User, input models.Ri
 		return models.Ride{}, models.Fail("route_preview_changed", "The calculated route changed. Calculate it again before publishing")
 	}
 	ride := models.Ride{
-		RideSummary: models.RideSummary{ID: uuid.NewString(), City: input.City, Description: input.Description, Status: "published"},
-		Title:       input.Title, StartsAt: input.StartsAt, Timezone: input.Timezone, MeetingPoint: input.MeetingPoint,
-		Destination: input.Destination, RouteURL: input.RouteURL, Expectations: input.Expectations, Capacity: input.Capacity,
+		RideSummary: models.RideSummary{
+			ID:          uuid.NewString(),
+			City:        input.City,
+			Title:       input.Title,
+			Description: input.Description,
+			Status:      "published",
+			TimeWindow:  models.RideTimeWindow(input.StartsAt, input.Timezone),
+			Style:       input.Style,
+			Surface:     input.Surface,
+			DistanceKm:  input.DistanceKm,
+			Capacity:    input.Capacity,
+		},
+		StartsAt: input.StartsAt, Timezone: input.Timezone, MeetingPoint: input.MeetingPoint,
+		Destination: input.Destination, RouteURL: input.RouteURL, Expectations: input.Expectations,
 		PlanVersion: 1, OrganizerID: actor.ID, MapPlan: plan,
 	}
 	stored, err := m.repo.CreateRide(ctx, ride, "approved", m.now().UTC(), func(owner models.GarageOwner) error {
@@ -205,6 +222,7 @@ func (m *Manager) Update(ctx context.Context, actor models.User, id string, patc
 		}
 		significant := !ride.StartsAt.Equal(input.StartsAt) || ride.MeetingPoint != input.MeetingPoint || ride.Destination != input.Destination || ride.RouteURL != input.RouteURL || ride.Expectations != input.Expectations || !reflect.DeepEqual(ride.MapPlan, plan)
 		ride.City, ride.Description, ride.Title = input.City, input.Description, input.Title
+		ride.Style, ride.Surface, ride.DistanceKm = input.Style, input.Surface, input.DistanceKm
 		ride.StartsAt, ride.Timezone, ride.MeetingPoint = input.StartsAt, input.Timezone, input.MeetingPoint
 		ride.Destination, ride.RouteURL, ride.Expectations, ride.Capacity = input.Destination, input.RouteURL, input.Expectations, input.Capacity
 		ride.MapPlan = plan
@@ -508,9 +526,24 @@ func (m *Manager) publish(ride, kind string) {
 }
 
 // publicSummary keeps only fields that anyone who can see the ride may read.
-// The cover is public; the repository omits covers hidden by moderation.
+// Exact meeting coordinates, departure minute, roster and chat remain private.
 func publicSummary(summary models.RideSummary) models.RideSummary {
-	return models.RideSummary{ID: summary.ID, City: summary.City, Date: summary.Date, Description: summary.Description, Status: summary.Status, Cover: summary.Cover}
+	return models.RideSummary{
+		ID:            summary.ID,
+		City:          summary.City,
+		Date:          summary.Date,
+		Title:         summary.Title,
+		Description:   summary.Description,
+		Status:        summary.Status,
+		TimeWindow:    summary.TimeWindow,
+		Style:         summary.Style,
+		Surface:       summary.Surface,
+		DistanceKm:    summary.DistanceKm,
+		Capacity:      summary.Capacity,
+		ApprovedCount: summary.ApprovedCount,
+		OrganizerName: summary.OrganizerName,
+		Cover:         summary.Cover,
+	}
 }
 
 func ownerView(ride models.Ride) models.Ride {
@@ -542,6 +575,8 @@ func validateInput(input models.RideInput) (models.RideInput, error) {
 	input.City = models.NormalizeCity(input.City)
 	input.Description = strings.TrimSpace(input.Description)
 	input.Title = strings.TrimSpace(input.Title)
+	input.Style = strings.TrimSpace(input.Style)
+	input.Surface = strings.TrimSpace(input.Surface)
 	input.MeetingPoint = strings.TrimSpace(input.MeetingPoint)
 	input.Destination = strings.TrimSpace(input.Destination)
 	input.RouteURL = strings.TrimSpace(input.RouteURL)
@@ -550,6 +585,9 @@ func validateInput(input models.RideInput) (models.RideInput, error) {
 		input.Timezone = "Asia/Almaty"
 	}
 	if _, err := time.LoadLocation(input.Timezone); err != nil {
+		return models.RideInput{}, invalidRide()
+	}
+	if !models.ValidRideStyle(input.Style) || !models.ValidRideSurface(input.Surface) || input.DistanceKm < 0 || input.DistanceKm > 50000 {
 		return models.RideInput{}, invalidRide()
 	}
 	if input.City == "" || len(input.City) > 160 || input.Description == "" || len(input.Description) > 1000 || input.Title == "" || len(input.Title) > 240 || input.MeetingPoint == "" || len(input.MeetingPoint) > 1000 || len(input.Destination) > 1000 || len(input.Expectations) > 4000 || input.StartsAt.IsZero() || input.StartsAt.Year() < 2020 || input.StartsAt.Year() > 2100 || input.Capacity < 1 || input.Capacity > 1000 {
@@ -567,7 +605,7 @@ func validateInput(input models.RideInput) (models.RideInput, error) {
 func invalidRide() error { return models.Fail("invalid_ride", "Check ride fields") }
 
 func patchedInput(ride models.Ride, patch models.RidePatch) models.RideInput {
-	input := models.RideInput{City: ride.City, Description: ride.Description, Title: ride.Title, StartsAt: ride.StartsAt, Timezone: ride.Timezone, MeetingPoint: ride.MeetingPoint, Destination: ride.Destination, RouteURL: ride.RouteURL, Expectations: ride.Expectations, Capacity: ride.Capacity}
+	input := models.RideInput{City: ride.City, Description: ride.Description, Title: ride.Title, Style: ride.Style, Surface: ride.Surface, DistanceKm: ride.DistanceKm, StartsAt: ride.StartsAt, Timezone: ride.Timezone, MeetingPoint: ride.MeetingPoint, Destination: ride.Destination, RouteURL: ride.RouteURL, Expectations: ride.Expectations, Capacity: ride.Capacity}
 	if patch.City != nil {
 		input.City = *patch.City
 	}
@@ -576,6 +614,15 @@ func patchedInput(ride models.Ride, patch models.RidePatch) models.RideInput {
 	}
 	if patch.Title != nil {
 		input.Title = *patch.Title
+	}
+	if patch.Style != nil {
+		input.Style = *patch.Style
+	}
+	if patch.Surface != nil {
+		input.Surface = *patch.Surface
+	}
+	if patch.DistanceKm != nil {
+		input.DistanceKm = *patch.DistanceKm
 	}
 	if patch.StartsAt != nil {
 		input.StartsAt = *patch.StartsAt

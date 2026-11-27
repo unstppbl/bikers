@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeftIcon as ArrowLeft, CheckIcon as Check } from '@phosphor-icons/react'
+import { ArrowLeftIcon as ArrowLeft, CheckIcon as Check, MonitorIcon as Monitor, MoonIcon as Moon, SunIcon as Sun } from '@phosphor-icons/react'
 import { Link } from 'react-router-dom'
 import { ApiError, request } from '../api'
 import { useI18n } from '../i18n'
 import { useSession } from '../session'
+import { useTheme } from '../theme'
+import type { ThemeMode } from '../theme'
 import { useSessionTask } from '../useSessionTask'
 import { ErrorNotice, Field, Loading, useOnline } from '../ui'
 import { PushSettings } from '../components/PushSettings'
@@ -25,7 +27,24 @@ export function SettingsPage() {
   const { user } = useSession()
   const { t } = useI18n()
   const query = useQuery({ queryKey: ['preferences', user?.id], queryFn: async ({ signal }) => safePreferences(await request('/me/preferences', { signal })), enabled: !!user, meta: { private: true }, retry: false })
-  return <div className="page-content narrow-page"><Link className="back-link" to="/me"><ArrowLeft size={17} />{t('backToMe')}</Link><div className="page-heading"><h1>{t('preferencesTitle')}</h1><p>{t('preferencesText')}</p></div>{query.isPending ? <Loading /> : query.isError ? <ErrorNotice error={query.error} retry={() => void query.refetch()} /> : <><PreferencesForm key={user?.id} preferences={query.data} /><PushCategorySettings key={`categories:${user?.id}`} categories={query.data.push_categories} /></>}<PushSettings key={`push:${user?.id}`} /><BlockedUsersPanel key={`blocks:${user?.id}`} /></div>
+  return <div className="page-content narrow-page"><Link className="back-link" to="/me"><ArrowLeft size={17} />{t('backToMe')}</Link><div className="page-heading"><h1>{t('preferencesTitle')}</h1><p>{t('preferencesText')}</p></div><AppearanceCard />{query.isPending ? <Loading /> : query.isError ? <ErrorNotice error={query.error} retry={() => void query.refetch()} /> : <><PreferencesForm key={user?.id} preferences={query.data} /><PushCategorySettings key={`categories:${user?.id}`} categories={query.data.push_categories} /></>}<PushSettings key={`push:${user?.id}`} /><BlockedUsersPanel key={`blocks:${user?.id}`} /></div>
+}
+
+function AppearanceCard() {
+  const { t } = useI18n()
+  const { mode, setMode } = useTheme()
+  const options: { value: ThemeMode; label: string; icon: typeof Monitor }[] = [
+    { value: 'auto', label: t('themeAuto'), icon: Monitor },
+    { value: 'light', label: t('themeLight'), icon: Sun },
+    { value: 'dark', label: t('themeDark'), icon: Moon },
+  ]
+  return <section className="surface profile-form" style={{ marginBottom: 16 }} aria-labelledby="appearance-heading">
+    <h2 id="appearance-heading" className="heading-5" style={{ marginBottom: 6 }}>{t('appearanceTitle')}</h2>
+    <p className="section-intro" style={{ marginBottom: 14 }}>{t('appearanceHint')}</p>
+    <div className="pillar-tabs" role="group" aria-label={t('appearanceTitle')} style={{ marginBottom: 0 }}>
+      {options.map(({ value, label, icon: Icon }) => <button key={value} type="button" aria-pressed={mode === value} onClick={() => setMode(value)}><Icon size={16} />{label}</button>)}
+    </div>
+  </section>
 }
 
 function PreferencesForm({ preferences }: { preferences: Preferences }) {

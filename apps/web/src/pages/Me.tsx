@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
-import { BellIcon as Bell, CalendarDotsIcon as CalendarDays, CaretRightIcon as ChevronRight, DownloadSimpleIcon as Download, GearSixIcon as Settings, MapTrifoldIcon as MapIcon, MotorcycleIcon as Motorbike, PathIcon, PencilSimpleIcon as Pencil, ShieldCheckIcon as ShieldCheck, SignOutIcon as LogOut, UsersThreeIcon as Users, WrenchIcon as Wrench } from '@phosphor-icons/react'
+import { useQuery } from '@tanstack/react-query'
+import { BellIcon as Bell, CalendarDotsIcon as CalendarDays, CaretRightIcon as ChevronRight, DownloadSimpleIcon as Download, GearSixIcon as Settings, MapTrifoldIcon as MapIcon, MotorcycleIcon as Motorbike, PathIcon, PencilSimpleIcon as Pencil, PlusIcon as Plus, ShieldCheckIcon as ShieldCheck, SignOutIcon as LogOut, UsersThreeIcon as Users, WrenchIcon as Wrench } from '@phosphor-icons/react'
 import { Link, useNavigate } from 'react-router-dom'
-import { mutation } from '../api'
+import { mutation, request } from '../api'
 import { cityLabel } from '../cities'
 import { Avatar } from '../components/Avatar'
 import { useCityOptions } from '../components/CitySelector'
@@ -11,12 +12,13 @@ import { CommunityBadge, useTrust } from '../components/Trust'
 import { useI18n } from '../i18n'
 import { useSession, useSessionGuard } from '../session'
 import { ErrorNotice, Loading, useOnline } from '../ui'
+import type { Bike } from '../types'
 
 function HubLink({ to, icon, label, extra }: { to: string; icon: ReactNode; label: string; extra?: ReactNode }) {
   return <li><Link className="hub-link" to={to}><span className="hub-link-icon">{icon}</span><span className="hub-link-label">{label}</span>{extra}<ChevronRight className="hub-link-arrow" size={18} /></Link></li>
 }
 
-// The phone "Me" tab gathers personal pages, the catalogue and account actions in one place.
+// Personal Rider Hub: identity card, quick primary garage bike, personal spaces, and account controls.
 export function MePage() {
   const { t, locale } = useI18n()
   const { user, loading, error, clear, refresh } = useSession()
@@ -29,6 +31,13 @@ export function MePage() {
   const navigate = useNavigate()
   const [signingOut, setSigningOut] = useState(false)
   const [logoutError, setLogoutError] = useState<unknown>()
+  const garage = useQuery({
+    queryKey: ['garage', user?.id, ''],
+    queryFn: ({ signal }) => request<{ bikes: Bike[]; next_cursor: string }>('/me/bikes', { signal }),
+    enabled: !!user,
+    meta: { private: true },
+    retry: false,
+  })
   async function signOut() {
     const currentSession = captureSession()
     setSigningOut(true)
@@ -40,34 +49,56 @@ export function MePage() {
   if (loading) return <Loading />
   if (error) return <div className="page-content"><ErrorNotice text={t('serviceUnavailable')} retry={() => void refresh()} /></div>
   const explore = <section className="hub-section" aria-labelledby="hub-explore"><h2 id="hub-explore">{t('navExplore')}</h2><ul className="hub-list">
-    <HubLink to="/routes" icon={<PathIcon size={22} />} label={t('routesTitle')} />
-    <HubLink to="/bikes" icon={<Motorbike size={22} />} label={t('bikeCatalogue')} />
-    <HubLink to="/places" icon={<MapIcon size={22} />} label={t('placesTitle')} />
-    <HubLink to="/install" icon={<Download size={22} />} label={t('installApp')} />
+    <HubLink to="/routes" icon={<PathIcon size={20} />} label={t('routesTitle')} />
+    <HubLink to="/bikes" icon={<Motorbike size={20} />} label={t('bikeCatalogue')} />
+    <HubLink to="/places" icon={<MapIcon size={20} />} label={t('placesTitle')} />
+    <HubLink to="/install" icon={<Download size={20} />} label={t('installApp')} />
   </ul></section>
   if (!user) return <div className="page-content me-page">
     <div className="page-heading"><h1>{t('meGuestTitle')}</h1><p>{t('meGuestText')}</p></div>
     <Link className="button button-primary me-sign-in" to="/login?next=%2Fme">{t('signIn')}</Link>
     {explore}
   </div>
+  const primaryBike = garage.data?.bikes?.[0]
   return <div className="page-content me-page">
-    <header className="me-profile">
-      <Avatar userId={user.id} name={user.profile.display_name} className="avatar-large" />
-      <div className="me-profile-copy"><h1>{user.profile.display_name}</h1>{user.profile.city && <span className="me-profile-city">{cityLabel(user.profile.city, locale, cities.data?.cities ?? [])}</span>}<CommunityBadge userId={user.id} /></div>
-      <Link className="button button-outline me-edit" to="/profile"><Pencil size={17} />{t('meEditProfile')}</Link>
-    </header>
+    <div className="me-hero">
+      <header className="me-profile">
+        <Avatar userId={user.id} name={user.profile.display_name} className="avatar-large" />
+        <div className="me-profile-copy"><h1>{user.profile.display_name}</h1>{user.profile.city && <span className="me-profile-city">{cityLabel(user.profile.city, locale, cities.data?.cities ?? [])}</span>}<CommunityBadge userId={user.id} /></div>
+        <Link className="button button-outline me-edit" to="/profile"><Pencil size={16} />{t('meEditProfile')}</Link>
+      </header>
+      <section className="me-garage-card" aria-label={t('mePrimaryBike')}>
+        <div className="me-garage-head">
+          <span className="eyebrow">{t('mePrimaryBike')}</span>
+          <Link className="text-button" to="/garage">{t('meOpenGarage')}</Link>
+        </div>
+        {primaryBike ? <>
+          <div className="me-garage-bike">
+            <div><span className="caption-2 muted">{primaryBike.make}</span><br /><strong>{primaryBike.model}</strong></div>
+            <span className="me-garage-year">{primaryBike.year}</span>
+          </div>
+          <div className="me-garage-actions">
+            <Link className="button button-outline" to={`/garage/${primaryBike.id}`}><Wrench size={15} />{t('maintenance')}</Link>
+            <Link className="button button-outline" to="/garage/new"><Plus size={15} />{t('addBike')}</Link>
+          </div>
+        </> : <>
+          <div><strong>{t('meAddFirstBike')}</strong><p className="caption-2 muted">{t('meAddFirstBikeText')}</p></div>
+          <div className="me-garage-actions"><Link className="button button-primary" to="/garage/new"><Plus size={15} />{t('addBike')}</Link></div>
+        </>}
+      </section>
+    </div>
     <div className="hub-columns">
       <section className="hub-section" aria-labelledby="hub-yours"><h2 id="hub-yours">{t('navYourSpace')}</h2><ul className="hub-list">
-        <HubLink to="/my-rides" icon={<CalendarDays size={22} />} label={t('myRides')} />
-        <HubLink to="/garage" icon={<Wrench size={22} />} label={t('garage')} />
-        <HubLink to="/my-clubs" icon={<Users size={22} />} label={t('myClubs')} />
-        <HubLink to="/inbox" icon={<Bell size={22} />} label={t('inbox')} extra={<NotificationBadge count={unreadCount} />} />
+        <HubLink to="/my-rides" icon={<CalendarDays size={20} />} label={t('myRides')} />
+        <HubLink to="/garage" icon={<Wrench size={20} />} label={t('garage')} />
+        <HubLink to="/my-clubs" icon={<Users size={20} />} label={t('myClubs')} />
+        <HubLink to="/inbox" icon={<Bell size={20} />} label={t('inbox')} extra={<NotificationBadge count={unreadCount} />} />
       </ul></section>
       {explore}
       <section className="hub-section" aria-labelledby="hub-account"><h2 id="hub-account">{t('navAccount')}</h2><ul className="hub-list">
-        <HubLink to="/settings" icon={<Settings size={22} />} label={t('settings')} />
-        {trust.data?.is_admin && <HubLink to="/admin" icon={<ShieldCheck size={22} />} label={t('admin')} />}
-        <li><button className="hub-link hub-sign-out" onClick={() => void signOut()} disabled={signingOut || !online}><span className="hub-link-icon"><LogOut size={22} /></span><span className="hub-link-label">{t('signOut')}</span></button></li>
+        <HubLink to="/settings" icon={<Settings size={20} />} label={t('settings')} />
+        {trust.data?.is_admin && <HubLink to="/admin" icon={<ShieldCheck size={20} />} label={t('admin')} />}
+        <li><button className="hub-link hub-sign-out" onClick={() => void signOut()} disabled={signingOut || !online}><span className="hub-link-icon"><LogOut size={20} /></span><span className="hub-link-label">{t('signOut')}</span></button></li>
       </ul>{logoutError != null && <ErrorNotice error={logoutError} />}</section>
     </div>
   </div>

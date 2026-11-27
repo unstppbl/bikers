@@ -21,8 +21,8 @@ const ridePageSize = 20
 const rideCursorLimit = 4096
 
 type listCursor struct {
-	View, City, From, To, Search, User, Date, ID string
-	Now                                          time.Time
+	View, City, From, To, Search, Style, Surface, User, Date, ID string
+	Now                                                          time.Time
 }
 
 func (m *Manager) encodeListCursor(cursor listCursor) (string, error) {
@@ -84,12 +84,15 @@ func (m *Manager) List(ctx context.Context, session *models.Session, input model
 	}
 	input.City = models.NormalizeCity(input.City)
 	input.Search = strings.TrimSpace(input.Search)
-	if len(input.City) > 160 || len(input.Search) > 200 || (input.From != "" && !validListDate(input.From)) ||
+	input.Style = strings.TrimSpace(input.Style)
+	input.Surface = strings.TrimSpace(input.Surface)
+	if len(input.City) > 160 || len(input.Search) > 200 || !models.ValidRideStyle(input.Style) || !models.ValidRideSurface(input.Surface) || (input.From != "" && !validListDate(input.From)) ||
 		(input.To != "" && !validListDate(input.To)) || (input.From != "" && input.To != "" && input.From > input.To) {
 		return page, models.Fail("invalid_query", "Check city and ride date filters")
 	}
 	query := database.RideListQuery{
 		CityAliases: models.CityAliases(input.City), FromDate: input.From, ToDate: input.To, Search: input.Search,
+		Style: input.Style, Surface: input.Surface,
 		Now: m.now().UTC(), Limit: ridePageSize + 1,
 	}
 	if session != nil {
@@ -107,7 +110,7 @@ func (m *Manager) List(ctx context.Context, session *models.Session, input model
 	case "past":
 		query.RelatedOnly, query.Past = true, true
 	}
-	bound := listCursor{View: input.View, City: input.City, From: input.From, To: input.To, Search: input.Search, User: query.UserID}
+	bound := listCursor{View: input.View, City: input.City, From: input.From, To: input.To, Search: input.Search, Style: input.Style, Surface: input.Surface, User: query.UserID}
 	if input.Cursor != "" {
 		invalid := models.Fail("invalid_cursor", "Invalid ride page cursor; restart this view")
 		cursor, err := m.decodeListCursor(input.Cursor)
@@ -116,7 +119,7 @@ func (m *Manager) List(ctx context.Context, session *models.Session, input model
 		}
 		id, err := uuid.Parse(cursor.ID)
 		if err != nil || cursor.ID != id.String() || !validListDate(cursor.Date) || cursor.Now.IsZero() || cursor.Now.After(query.Now) ||
-			cursor.View != bound.View || cursor.City != bound.City || cursor.From != bound.From || cursor.To != bound.To || cursor.Search != bound.Search || cursor.User != bound.User {
+			cursor.View != bound.View || cursor.City != bound.City || cursor.From != bound.From || cursor.To != bound.To || cursor.Search != bound.Search || cursor.Style != bound.Style || cursor.Surface != bound.Surface || cursor.User != bound.User {
 			return page, invalid
 		}
 		query.AfterDate, query.AfterID, query.Now = cursor.Date, cursor.ID, cursor.Now

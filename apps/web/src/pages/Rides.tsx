@@ -1,37 +1,43 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeftIcon as ArrowLeft, CalendarDotsIcon, CaretRightIcon as ChevronRight, CompassIcon as Compass, ImageSquareIcon as ImageSquare, LockKeyIcon as LockKeyhole, ShieldCheckIcon as ShieldCheck } from '@phosphor-icons/react'
+import { ArrowLeftIcon as ArrowLeft, CalendarDotsIcon, CaretRightIcon as ChevronRight, CompassIcon as Compass, EyeIcon, ImageSquareIcon as ImageSquare, LockKeyIcon as LockKeyhole, ShieldCheckIcon as ShieldCheck } from '@phosphor-icons/react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ApiError, mutation, request, safeExternalUrl } from '../api'
 import { useI18n } from '../i18n'
 import { useSession, useSessionGuard } from '../session'
 import { CreateRideLink, ErrorNotice, Field, Loading, PrivacyNote, TextArea, useOnline } from '../ui'
-import type { MapPlan, Ride, RideInput } from '../types'
+import type { MapPlan, Ride, RideInput, RideStyle, RideSurface } from '../types'
 import type { CommunityRoute } from '../routes'
 import { newRidePollPath, ridePollPath } from '../ride-polls'
 import type { RidePollResponse } from '../ride-polls'
 import { localRideTime, rideTimeToInstant, rideTimezone } from '../ride-time'
 import { CitySelector } from '../components/CitySelector'
 import { RideCoverEditor } from '../components/RideCover'
-import { RideList } from './RideList'
+import { RideList, RidesPillarSwitch } from './RideList'
 import { MapPlanEditor } from '../components/maps/MapPlanEditor'
 import type { MapDraft } from '../components/maps/MapPlanEditor'
 import './ride-polls.css'
 
+const styleChoices: Exclude<RideStyle, ''>[] = ['chill', 'touring', 'sport', 'enduro', 'city']
+const surfaceChoices: Exclude<RideSurface, ''>[] = ['asphalt', 'mixed', 'unpaved']
+
 export function BrowsePage() {
   const { t } = useI18n()
   return <div className="page-content browse-page">
-    <header className="browse-hero">
-      <h1>{t('rides')}</h1>
-      <p>{t('ridesFeedText')}</p>
-      <div className="ride-poll-entry"><CreateRideLink /><PollForTimeLink /></div>
-    </header>
+    <div className="browse-header">
+      <header className="browse-hero">
+        <h1>{t('rides')}</h1>
+        <p>{t('ridesFeedText')}</p>
+      </header>
+      <div className="browse-actions"><CreateRideLink /><PollForTimeLink /></div>
+    </div>
+    <RidesPillarSwitch current="discover" />
     <RideList view="discover" />
     <details className="browse-guide">
       <summary><Compass size={18} />{t('howItWorks')}</summary>
       <div className="browse-guide-content">
-        <section className="how-card"><ol>{(['One', 'Two', 'Three'] as const).map((step, index) => <li key={step}><span className="step-number">{index + 1}</span><div><strong>{t(`step${step}`)}</strong><p>{t(`step${step}Text`)}</p></div></li>)}</ol></section>
+        <section className="how-card"><ol>{(['One', 'Two', 'Three'] as const).map((step, index) => <li key={step}><span className="step-number">0{index + 1}</span><div><strong>{t(`step${step}`)}</strong><p>{t(`step${step}Text`)}</p></div></li>)}</ol></section>
         <PrivacyNote />
       </div>
     </details>
@@ -86,7 +92,7 @@ export function RideFormPage({ edit = false }: { edit?: boolean }) {
 
 function PollForTimeLink() {
   const { t } = useI18n()
-  return <Link className="button button-outline" to={newRidePollPath}><CalendarDotsIcon size={19} />{t('pollForTime')}</Link>
+  return <Link className="button button-outline" to={newRidePollPath}><CalendarDotsIcon size={18} />{t('pollForTime')}</Link>
 }
 
 interface PollPrefill {
@@ -108,9 +114,21 @@ function RideForm({ ride, source, poll, reload }: { ride?: Ride; source?: Commun
   const referenceLine = source?.segments?.[0]
   const timezone = ride?.timezone ?? poll?.timezone ?? rideTimezone
   const initialTime = localRideTime(ride?.starts_at ?? poll?.startsAt, timezone)
+  const initialSurface: RideSurface = ride?.surface ?? (source?.surface && source.surface !== 'unknown' ? source.surface : '')
+  const initialDistance = ride?.distance_km ? String(ride.distance_km) : source?.distance_meters ? String(Math.max(5, Math.round((source.distance_meters / 1000) / 5) * 5)) : ''
   const [form, setForm] = useState({
-    title: ride?.title ?? source?.title ?? '', city: ride?.city ?? poll?.city ?? source?.city ?? user?.profile.city ?? '', description: ride?.description ?? poll?.description ?? '', starts_at: initialTime,
-    meeting_point: ride?.meeting_point ?? source?.points[0]?.label ?? '', destination: ride?.destination ?? source?.points.at(-1)?.label ?? '', route_url: ride?.route_url ?? '', expectations: ride?.expectations ?? '', capacity: String(ride?.capacity ?? 8),
+    title: ride?.title ?? source?.title ?? '',
+    city: ride?.city ?? poll?.city ?? source?.city ?? user?.profile.city ?? '',
+    description: ride?.description ?? poll?.description ?? '',
+    style: (ride?.style ?? '') as RideStyle,
+    surface: initialSurface,
+    distance_km: initialDistance,
+    starts_at: initialTime,
+    meeting_point: ride?.meeting_point ?? source?.points[0]?.label ?? '',
+    destination: ride?.destination ?? source?.points.at(-1)?.label ?? '',
+    route_url: ride?.route_url ?? '',
+    expectations: ride?.expectations ?? '',
+    capacity: String(ride?.capacity ?? 8),
   })
   const [mapDraft, setMapDraft] = useState<MapDraft>({ points: initialPlan?.points ?? [], valid: true })
   const [confirmedPlan, setConfirmedPlan] = useState('')
@@ -119,7 +137,7 @@ function RideForm({ ride, source, poll, reload }: { ride?: Ride; source?: Commun
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<unknown>()
   const [validation, setValidation] = useState('')
-  function update(key: keyof typeof form, value: string) { setForm((current) => ({ ...current, [key]: value })) }
+  function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) { setForm((current) => ({ ...current, [key]: value })) }
   async function submit(event: FormEvent) {
     const currentSession = captureSession()
     event.preventDefault(); setValidation(''); setError(undefined)
@@ -129,8 +147,27 @@ function RideForm({ ride, source, poll, reload }: { ride?: Ride; source?: Commun
     const startsAt = poll && form.starts_at === initialTime ? new Date(poll.startsAt) : rideTimeToInstant(form.starts_at, timezone)
     if (Number.isNaN(startsAt.getTime()) || (!ride && startsAt.getTime() <= Date.now())) { setValidation(t('invalidTime')); return }
     if (!Number.isInteger(Number(form.capacity)) || Number(form.capacity) < 1 || Number(form.capacity) > 1000) { setValidation(t('invalidCapacity')); return }
+    const parsedDistance = form.distance_km.trim() ? Number(form.distance_km.trim()) : 0
+    if (!Number.isInteger(parsedDistance) || parsedDistance < 0 || parsedDistance > 50000) { setValidation(t('errorValidation')); return }
     if (form.route_url.trim() && !safeExternalUrl(form.route_url.trim())) { setValidation(t('invalidUrl')); return }
-    const body: RideInput = { title: form.title.trim(), city: form.city.trim(), description: form.description.trim(), starts_at: startsAt.toISOString(), timezone, meeting_point: form.meeting_point.trim(), destination: form.destination.trim(), route_url: form.route_url.trim(), expectations: form.expectations.trim(), capacity: Number(form.capacity), ...(ride ? { plan_version: ride.plan_version } : {}), ...(JSON.stringify(mapDraft.points) !== JSON.stringify(ride?.map_plan?.points ?? []) ? { map_points: mapDraft.points } : {}), ...(source ? { expected_map_digest: mapDraft.previewDigest } : {}) }
+    const body: RideInput = {
+      title: form.title.trim(),
+      city: form.city.trim(),
+      description: form.description.trim(),
+      style: form.style,
+      surface: form.surface,
+      distance_km: parsedDistance,
+      starts_at: startsAt.toISOString(),
+      timezone,
+      meeting_point: form.meeting_point.trim(),
+      destination: form.destination.trim(),
+      route_url: form.route_url.trim(),
+      expectations: form.expectations.trim(),
+      capacity: Number(form.capacity),
+      ...(ride ? { plan_version: ride.plan_version } : {}),
+      ...(JSON.stringify(mapDraft.points) !== JSON.stringify(ride?.map_plan?.points ?? []) ? { map_points: mapDraft.points } : {}),
+      ...(source ? { expected_map_digest: mapDraft.previewDigest } : {}),
+    }
     setBusy(true)
     try {
       const result = await mutation<{ ride: Ride }>(ride ? `/rides/${ride.id}` : '/rides', ride ? 'PATCH' : 'POST', body)
@@ -147,21 +184,35 @@ function RideForm({ ride, source, poll, reload }: { ride?: Ride; source?: Commun
   }
   const backPath = ride ? `/rides/${ride.id}` : poll ? ridePollPath(poll.id) : '/'
   return <div className="page-content form-page"><Link className="back-link" to={backPath}><ArrowLeft size={17} />{t(ride ? 'backToRide' : poll ? 'pollBack' : 'back')}</Link><div className="page-heading"><span className="eyebrow">{t('createEyebrow')}</span><h1>{t(ride ? 'editTitle' : 'createTitle')}</h1><p>{t('createText')}</p></div>
-    {/* The cover uploads on its own, so it sits outside the ride form. A new ride gets one after it is created. */}
     {ride && <RideCoverEditor ride={ride} />}
     {!ride && !source && !poll && <div className="ride-poll-entry ride-poll-start-entry"><PollForTimeLink /></div>}
     {poll && <div className="inline-note route-source-note"><CalendarDotsIcon size={20} /><p>{t('pollSourceNote')}</p></div>}
     {source && <div className="inline-note route-source-note"><Compass size={20} /><div><p>{t('mapRideSourceNote', { title: source.title })}</p><Link className="inline-link" to="/rides/new">{t('mapRideStartBlank')}</Link></div></div>}
     <form onSubmit={(event) => void submit(event)} noValidate>
       <section className="surface form-section">
-        <div className="form-section-heading"><span className="form-section-number">01</span><div><h2>{t('publicFields')}</h2><p>{t('publicFieldsHint')}</p></div><Compass size={22} /></div>
-        <CitySelector label={t('city')} value={form.city} onChange={(city) => update('city', city)} placeholder={t('cityPlaceholder')} required disabled={busy} />
+        <div className="form-section-heading"><span className="form-section-number">01</span><div><h2>{t('formStepBasics')}</h2><p>{t('publicFieldsHint')}</p></div><Compass size={20} /></div>
+        <Field label={t('title')} value={form.title} onChange={(event) => update('title', event.target.value)} placeholder={t('titlePlaceholder')} maxLength={150} required disabled={busy} />
+        <div className="form-grid">
+          <CitySelector label={t('city')} value={form.city} onChange={(city) => update('city', city)} placeholder={t('cityPlaceholder')} required disabled={busy} />
+          <Field label={`${t('rideDistanceKm')} · ${t('optional')}`} hint={t('rideDistanceHint')} type="number" inputMode="numeric" min="0" max="50000" value={form.distance_km} onChange={(event) => update('distance_km', event.target.value)} disabled={busy} />
+        </div>
+        <div className="field">
+          <span className="field-label">{t('rideStyle')} · {t('optional')}</span>
+          <div className="spec-pills" role="group" aria-label={t('rideStyle')}>
+            {styleChoices.map((value) => <button key={value} type="button" className="spec-pill" aria-pressed={form.style === value} disabled={busy} onClick={() => update('style', form.style === value ? '' : value)}>{t(`style_${value}`)}</button>)}
+          </div>
+        </div>
+        <div className="field">
+          <span className="field-label">{t('rideSurface')} · {t('optional')}</span>
+          <div className="spec-pills" role="group" aria-label={t('rideSurface')}>
+            {surfaceChoices.map((value) => <button key={value} type="button" className="spec-pill" aria-pressed={form.surface === value} disabled={busy} onClick={() => update('surface', form.surface === value ? '' : value)}>{t(`surface_${value}`)}</button>)}
+          </div>
+        </div>
         <TextArea label={t('description')} hint={t('mapRidePublicDescription')} value={form.description} onChange={(value) => update('description', value)} placeholder={t('descriptionPlaceholder')} maxLength={500} required rows={3} />
-        {!ride && <div className="inline-note ride-cover-note"><ImageSquare size={20} /><p>{t('rideCoverAfterCreate')}</p></div>}
+        {!ride && <div className="inline-note ride-cover-note"><ImageSquare size={18} /><p>{t('rideCoverAfterCreate')}</p></div>}
       </section>
       <section className="surface form-section">
-        <div className="form-section-heading"><span className="form-section-number">02</span><div><h2>{t('privateFields')}</h2><p>{t('privateFieldsHint')}</p></div><LockKeyhole size={21} /></div>
-        <Field label={t('title')} value={form.title} onChange={(event) => update('title', event.target.value)} placeholder={t('titlePlaceholder')} maxLength={150} required disabled={busy} />
+        <div className="form-section-heading"><span className="form-section-number">02</span><div><h2>{t('formStepRoute')}</h2><p>{t('privateFieldsHint')}</p></div><LockKeyhole size={20} /></div>
         <div className="form-grid">
           <Field label={t('startsAt')} hint={timezone !== rideTimezone ? timezone : t('timezoneHint')} type="datetime-local" value={form.starts_at} onChange={(event) => update('starts_at', event.target.value)} required disabled={busy} />
           <Field label={t('capacity')} hint={t('capacityHint')} type="number" min="1" max="1000" inputMode="numeric" value={form.capacity} onChange={(event) => update('capacity', event.target.value)} required disabled={busy} />
@@ -173,7 +224,23 @@ function RideForm({ ride, source, poll, reload }: { ride?: Ride; source?: Commun
         </label>}
         <Field label={`${t('route')} · ${t('optional')}`} type="url" value={form.route_url} onChange={(event) => update('route_url', event.target.value)} placeholder={t('routePlaceholder')} maxLength={2000} disabled={busy} />
         <TextArea label={`${t('expectations')} · ${t('optional')}`} value={form.expectations} onChange={(value) => update('expectations', value)} placeholder={t('expectationsPlaceholder')} maxLength={1000} rows={3} />
-        <div className="inline-note"><ShieldCheck size={20} /><p>{t('approvalNote')}</p></div>
+      </section>
+      <section className="surface form-section">
+        <div className="form-section-heading"><span className="form-section-number">03</span><div><h2>{t('formStepReview')}</h2><p>{t('approvalNote')}</p></div><EyeIcon size={20} /></div>
+        <div className="privacy-preview-grid">
+          <div className="privacy-preview-card">
+            <h3>{t('previewGuestTab')}</h3>
+            <strong>{form.title.trim() || t('titlePlaceholder')}</strong>
+            <span className="caption-2 muted">{[form.city.trim(), form.distance_km ? t('approxKm', { km: Number(form.distance_km) }) : '', form.style ? t(`style_${form.style}`) : '', form.surface ? t(`surface_${form.surface}`) : ''].filter(Boolean).join(' · ') || '—'}</span>
+            <span className="caption-5 muted"><LockKeyhole size={12} /> {t('planAfterApproval')}</span>
+          </div>
+          <div className="privacy-preview-card">
+            <h3>{t('previewApprovedTab')}</h3>
+            <strong>{form.meeting_point.trim() || t('meetingPlaceholder')}</strong>
+            <span className="caption-2 muted">{[form.starts_at.replace('T', ' '), form.destination.trim()].filter(Boolean).join(' · ') || '—'}</span>
+            <span className="caption-5 muted"><ShieldCheck size={12} /> {t('spotsCount', { approved: 1, capacity: Number(form.capacity) || 8 })}</span>
+          </div>
+        </div>
       </section>
       {validation && <ErrorNotice text={validation} />}{error != null && <ErrorNotice error={error} retry={ride ? reload : undefined} />}
       <div className="form-actions"><Link className="button button-outline" to={backPath}>{t('notNow')}</Link><button className="button button-primary" type="submit" disabled={busy || !online}>{busy ? t('saving') : t(ride ? 'savePlan' : 'create')}<ChevronRight size={18} /></button></div>

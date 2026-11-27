@@ -76,8 +76,16 @@ type RideSummary struct {
 	ID                 string `json:"id"`
 	City               string `json:"city"`
 	Date               string `json:"date"`
+	Title              string `json:"title"`
 	Description        string `json:"description"`
 	Status             string `json:"status"`
+	TimeWindow         string `json:"time_window,omitempty"`
+	Style              string `json:"style,omitempty"`
+	Surface            string `json:"surface,omitempty"`
+	DistanceKm         int    `json:"distance_km,omitempty"`
+	Capacity           int    `json:"capacity,omitempty"`
+	ApprovedCount      int    `json:"approved_count,omitempty"`
+	OrganizerName      string `json:"organizer_name,omitempty"`
 	ParticipationState string `json:"participation_state,omitempty"`
 	CanManage          *bool  `json:"can_manage,omitempty"`
 	// Cover is the current public cover photo; moderation-hidden covers are omitted.
@@ -85,14 +93,12 @@ type RideSummary struct {
 }
 type Ride struct {
 	RideSummary
-	Title        string    `json:"title"`
 	StartsAt     time.Time `json:"starts_at"`
 	Timezone     string    `json:"timezone"`
 	MeetingPoint string    `json:"meeting_point"`
 	Destination  string    `json:"destination"`
 	RouteURL     string    `json:"route_url"`
 	Expectations string    `json:"expectations"`
-	Capacity     int       `json:"capacity"`
 	PlanVersion  int64     `json:"plan_version"`
 	OrganizerID  string    `json:"organizer_id"`
 	MapPlan      *MapPlan  `json:"map_plan,omitempty"`
@@ -103,6 +109,9 @@ type RideInput struct {
 	City              string     `json:"city"`
 	Description       string     `json:"description"`
 	Title             string     `json:"title"`
+	Style             string     `json:"style,omitempty"`
+	Surface           string     `json:"surface,omitempty"`
+	DistanceKm        int        `json:"distance_km,omitempty"`
 	StartsAt          time.Time  `json:"starts_at"`
 	Timezone          string     `json:"timezone"`
 	MeetingPoint      string     `json:"meeting_point"`
@@ -117,6 +126,9 @@ type RidePatch struct {
 	City         *string     `json:"city"`
 	Description  *string     `json:"description"`
 	Title        *string     `json:"title"`
+	Style        *string     `json:"style"`
+	Surface      *string     `json:"surface"`
+	DistanceKm   *int        `json:"distance_km"`
 	StartsAt     *time.Time  `json:"starts_at"`
 	Timezone     *string     `json:"timezone"`
 	MeetingPoint *string     `json:"meeting_point"`

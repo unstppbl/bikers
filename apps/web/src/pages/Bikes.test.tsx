@@ -160,7 +160,7 @@ describe('public motorcycle catalogue', () => {
     expect(parsed(screen.getByTestId('location').textContent!).searchParams.has('cursor')).toBe(false)
   })
 
-  it('links the guest catalogue from Explore and public details back to the catalogue', async () => {
+  it('links the guest catalogue from Community and public details back to the catalogue', async () => {
     const selected = bike(1, 'CB500X')
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
       if (url.endsWith('/session')) return response({ user: null })
@@ -170,8 +170,8 @@ describe('public motorcycle catalogue', () => {
       throw new Error(`Unexpected request ${url}`)
     }))
     mount('/bikes', true)
-    const explore = await screen.findByRole('link', { name: 'Motorcycles' })
-    expect(explore).toHaveAttribute('aria-current', 'page')
+    const communityTab = await screen.findByRole('link', { name: 'Riders’ bikes' })
+    expect(communityTab).toHaveAttribute('aria-current', 'page')
     await userEvent.click(await screen.findByRole('link', { name: 'View motorcycle' }))
     const back = await screen.findByRole('link', { name: 'Back to motorcycles' })
     expect(back).toHaveAttribute('href', '/bikes')

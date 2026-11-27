@@ -31,22 +31,32 @@ export interface MapPlan { points: MapPoint[]; geometry?: MapGeometry; distance_
 export interface MapPlace extends MapPoint { id: string; kind: string }
 export interface MapConfig { enabled: boolean; archive_url: string }
 
+export type RideStyle = '' | 'chill' | 'touring' | 'sport' | 'enduro' | 'city'
+export type RideSurface = '' | 'asphalt' | 'mixed' | 'unpaved'
+export type RideTimeWindow = '' | 'morning' | 'afternoon' | 'evening' | 'night'
+
 export interface Ride {
   id: string
   city: string
   date: string
+  title?: string
   description: string
   status: string
+  time_window?: RideTimeWindow
+  style?: RideStyle
+  surface?: RideSurface
+  distance_km?: number
+  capacity?: number
+  approved_count?: number
+  organizer_name?: string
   participation_state?: string
   can_manage?: boolean
-  title?: string
   starts_at?: string
   timezone?: string
   meeting_point?: string
   destination?: string
   route_url?: string
   expectations?: string
-  capacity?: number
   plan_version?: number
   organizer_id?: string
   map_plan?: MapPlan
@@ -63,6 +73,9 @@ export interface RideInput {
   title: string
   city: string
   description: string
+  style?: RideStyle
+  surface?: RideSurface
+  distance_km?: number
   starts_at: string
   timezone: string
   meeting_point: string

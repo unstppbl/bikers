@@ -50,7 +50,7 @@ beforeEach(() => {
 afterEach(() => { onlineManager.setOnline(true); setCsrfToken(); vi.unstubAllGlobals() })
 
 describe('participant rider menus', () => {
-  it('keeps identities, states and counts visible while pending rows expose only existing decisions', async () => {
+  it('keeps identities, states and counts visible while pending rows expose direct 1-tap decision buttons', async () => {
     const fetch = vi.fn(async (url: string) => reads(url))
     vi.stubGlobal('fetch', fetch)
     mount()
@@ -60,12 +60,12 @@ describe('participant rider menus', () => {
     expect(screen.queryByRole('button', { name: 'Rider actions for Organizer' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Remove Approved Rider' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Report rider' })).not.toBeInTheDocument()
-    const { menu } = await open('Pending Rider')
-    expect(within(menu).getAllByRole('menuitem').map((item) => item.textContent)).toEqual(['Approve', 'Decline'])
+    expect(screen.getByRole('button', { name: 'Approve Pending Rider' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Decline Pending Rider' })).toBeInTheDocument()
     expect(fetch.mock.calls.some(([url]) => url.includes('/avatars/' + applicant))).toBe(false)
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
-  it.each([['Approve', 'approve', 'approved'], ['Decline', 'reject', 'rejected']])('sends %s with the actual applicant and CSRF after menu dismissal', async (label, decision, state) => {
+  it.each([['Approve', 'approve', 'approved'], ['Decline', 'reject', 'rejected']])('sends %s with the actual applicant and CSRF directly on tap', async (label, decision, state) => {
     let people = initialPeople.map((p) => ({ ...p })), body: unknown, csrf: string | null = null
     vi.stubGlobal('fetch', vi.fn(async (url: string, options?: RequestInit) => {
       if (url.endsWith('/decision')) {
@@ -77,11 +77,9 @@ describe('participant rider menus', () => {
       return reads(url, people)
     }))
     mount()
-    const { menu } = await open('Pending Rider')
-    await userEvent.click(within(menu).getByRole('menuitem', { name: label }))
+    await userEvent.click(await screen.findByRole('button', { name: `${label} Pending Rider` }))
     await waitFor(() => expect(body).toEqual({ decision }))
     expect(csrf).toBe('csrf-test')
-    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
     await waitFor(() => expect(screen.queryByText('Pending Rider')?.closest('.request-participant')).toBeFalsy())
   })
   it('keeps removal confirmation outside the menu, restores cancel focus and focuses the roster after removal', async () => {
@@ -123,10 +121,8 @@ describe('participant rider menus', () => {
     const value = { ...ride, status: 'cancelled' }
     vi.stubGlobal('fetch', vi.fn(async (url: string) => reads(url, initialPeople, value)))
     mount({ value })
-    const pending = await open('Pending Rider')
-    expect(within(pending.menu).getByRole('menuitem', { name: 'Approve' })).toHaveAttribute('aria-disabled', 'true')
-    expect(within(pending.menu).getByRole('menuitem', { name: 'Decline' })).toHaveAttribute('aria-disabled', 'true')
-    await userEvent.keyboard('{Escape}')
+    expect(await screen.findByRole('button', { name: 'Approve Pending Rider' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Decline Pending Rider' })).toBeDisabled()
     const approved = await open('Approved Rider')
     expect(within(approved.menu).getByRole('menuitem', { name: 'Remove' })).not.toHaveAttribute('aria-disabled')
   })
@@ -134,8 +130,7 @@ describe('participant rider menus', () => {
     let finish: (value: Response) => void = () => {}
     vi.stubGlobal('fetch', vi.fn(async (url: string) => url.endsWith('/decision') ? new Promise<Response>((resolve) => { finish = resolve }) : reads(url)))
     mount()
-    const pending = await open('Pending Rider')
-    await userEvent.click(within(pending.menu).getByRole('menuitem', { name: 'Approve' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Approve Pending Rider' }))
     const approved = await open('Approved Rider')
     expect(within(approved.menu).getByRole('menuitem', { name: 'Remove' })).toHaveAttribute('aria-disabled', 'true')
     expect(within(approved.menu).getByRole('menuitem', { name: 'Report rider' })).not.toHaveAttribute('aria-disabled')
@@ -190,17 +185,16 @@ describe('participant decision session and state boundaries', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     expect(writes).toBe(0)
   })
-  it('prevents a queued approval crossing a session handoff', async () => {
+  it('prevents a stale approval crossing a session handoff', async () => {
     let writes = 0
     vi.stubGlobal('fetch', vi.fn(async (url: string) => { if (url.endsWith('/decision')) writes++; return reads(url) }))
     const { client } = mount()
-    const { menu } = await open('Pending Rider')
+    const approveButton = await screen.findByRole('button', { name: 'Approve Pending Rider' })
     await act(async () => {
-      fireEvent.click(within(menu).getByRole('menuitem', { name: 'Approve' }))
       setCsrfToken('replacement')
       client.setQueryData(['session'], { user: actor, csrf_token: 'replacement' })
+      fireEvent.click(approveButton)
     })
-    await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument())
     expect(writes).toBe(0)
   })
   it('aborts a pending request on account change without letting its late reply refresh the next account', async () => {
@@ -210,8 +204,7 @@ describe('participant decision session and state boundaries', () => {
       return reads(url)
     }))
     const { client } = mount()
-    const { menu } = await open('Pending Rider')
-    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Approve' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Approve Pending Rider' }))
     await waitFor(() => expect(signal).toBeDefined())
     await act(async () => { setCsrfToken('replacement'); client.setQueryData(['session'], { user: { ...actor, id: imageId }, csrf_token: 'replacement' }) })
     await waitFor(() => expect(signal?.aborted).toBe(true))
@@ -227,8 +220,7 @@ describe('participant decision session and state boundaries', () => {
       return reads(url)
     }))
     const { onAccessLost } = mount()
-    const { menu } = await open('Pending Rider')
-    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Approve' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Approve Pending Rider' }))
     await screen.findByRole('alert')
     if (status === 403) expect(onAccessLost).toHaveBeenCalled()
     else await waitFor(() => expect(rosterReads).toBeGreaterThan(1))
@@ -276,24 +268,18 @@ describe('participant safety actions and localized menus', () => {
     expect(await within(next.menu).findByRole('menuitem', { name: 'Unblock rider' })).toBeInTheDocument()
   })
   it.each([
-    ['en', 'Rider actions for Pending Rider', 'Approve', 'Decline', 'Rider actions for Approved Rider', 'Remove', 'Participation'],
-    ['ru', 'Действия с участником: Pending Rider', 'Одобрить', 'Отклонить', 'Действия с участником: Approved Rider', 'Удалить', 'Участие'],
-    ['kk', 'Pending Rider қатысушысының әрекеттері', 'Мақұлдау', 'Қабылдамау', 'Approved Rider қатысушысының әрекеттері', 'Шеттету', 'Қатысу'],
-  ])('localizes pending and approved rider menus in %s', async (locale, pendingLabel, approve, decline, approvedLabel, remove, group) => {
+    ['en', 'Approve Pending Rider', 'Decline Pending Rider', 'Rider actions for Approved Rider', 'Remove', 'Participation'],
+    ['ru', 'Одобрить Pending Rider', 'Отклонить Pending Rider', 'Действия с участником: Approved Rider', 'Удалить', 'Участие'],
+    ['kk', 'Мақұлдау Pending Rider', 'Қабылдамау Pending Rider', 'Approved Rider қатысушысының әрекеттері', 'Шеттету', 'Қатысу'],
+  ])('localizes pending buttons and approved rider menus in %s', async (locale, approve, decline, approvedLabel, remove, group) => {
     localStorage.setItem('bikerskz.locale', locale)
     vi.stubGlobal('fetch', vi.fn(async (url: string) => reads(url)))
     mount()
-    const pendingTrigger = await screen.findByRole('button', { name: pendingLabel })
-    pendingTrigger.focus()
-    await userEvent.keyboard('{ArrowDown}')
-    const pending = await screen.findByRole('menu', { name: pendingLabel })
-    expect(within(pending).getByRole('group', { name: group })).toBeInTheDocument()
-    expect(within(pending).getByRole('menuitem', { name: approve })).toBeInTheDocument()
-    expect(within(pending).getByRole('menuitem', { name: decline })).toBeInTheDocument()
-    await userEvent.keyboard('{Escape}')
-    expect(pendingTrigger).toHaveFocus()
+    expect(await screen.findByRole('button', { name: approve })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: decline })).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: approvedLabel }))
     const approved = await screen.findByRole('menu', { name: approvedLabel })
+    expect(within(approved).getByRole('group', { name: group })).toBeInTheDocument()
     expect(within(approved).getByRole('menuitem', { name: remove })).toBeInTheDocument()
   })
 })
