@@ -75,7 +75,7 @@ Activation atomically changes only `APP_IMAGE` in the private runtime file and
 runs Compose with an explicit environment path, checkout directory and project
 name. The default app-only mode replaces the app with `--no-deps --no-build --wait`
 and never runs migrations or starts/recreates the database. The explicit
-[schema-15 ride poll mode](#ride-poll-schema-upgrade) coordinates the schema cutover. It verifies retained environment,
+[schema-16 public ride details mode](#public-ride-details-schema-upgrade) coordinates the schema cutover. It verifies retained environment,
 ports and media mounts, an unchanged database container/start time, and a
 healthy non-root/read-only app. App-only failures, or migration failures with
 confirmed unchanged schema, restore the previous environment bytes and app
@@ -116,8 +116,8 @@ stay outside the checkout.
 The completed club-notification release upgraded schema 7 to 8. The subsequent
 community follow-up upgraded schema 8 to 9, adding preferences, reminders and
 calendar behavior while preserving all prior data. These transitions are
-historical; the current deployment helper supports only the reviewed 13-to-14
-ride-cover transition described below. It never silently applies an older or future
+historical; the current deployment helper supports only the reviewed 15-to-16
+public ride details transition described below. It never silently applies an older or future
 migration.
 
 ## Configure and start
@@ -398,7 +398,7 @@ map plans, while requiring the new places/submission tables to start empty.
 Its unchanged-schema recovery and live acceptance evidence remain in #22.
 The current helper no longer accepts that historical migration target or the
 subsequent schema-12 Routes and schema-13 speed-camera transitions. Its supported upgrade is
-[schema 13 to 14](#ride-cover-schema-upgrade). No GIS environment, network, edge or service restart was needed for
+[schema 15 to 16](#public-ride-details-schema-upgrade). No GIS environment, network, edge or service restart was needed for
 places.
 
 The historical initial country data was extracted from the retained verified PBF, using pinned
@@ -435,7 +435,7 @@ The reviewed 11-to-12 transition built the clean pushed image before stopping
 only the app, then fingerprinted every earlier table row and sequence. It
 excluded only the six newly created route tables and receipt 12, requiring
 those tables to start empty. That transition is historical; the current helper
-accepts only the schema-14 ride-cover upgrade below. Never start a schema-11
+accepts only the schema-16 public ride details upgrade below. Never start a schema-11
 binary against schema 12.
 
 ## Speed-camera category schema upgrade
@@ -450,7 +450,7 @@ review flow as other places.
 The reviewed 12-to-13 transition built the clean pushed image before stopping
 only the app, fingerprinted every existing table and sequence, excluded only
 receipt 13 from parity and applied the constraint change. That transition is historical; the
-current helper accepts only the schema-14 ride-cover upgrade below. A database
+current helper accepts only the schema-16 public ride details upgrade below. A database
 still at schema 12 must first complete the speed-camera upgrade with the helper
 from the release that introduced it (`55f16e3`). Never start a schema-12 binary
 against schema 13.
@@ -510,6 +510,10 @@ refuses releases while the database receipts differ from the source.
 
 ## Ride poll schema upgrade
 
+This is the historical 14-to-15 procedure. Use the helper from that release
+for a database still at schema 14; the current helper accepts only the
+[15-to-16 upgrade](#public-ride-details-schema-upgrade).
+
 [Issue #60](https://github.com/unstppbl/bikers/issues/60) adds unlisted ride
 polls. Migration 15 creates `ride_polls`, `ride_poll_options` and
 `ride_poll_votes`. It adds no columns to existing tables and creates no
@@ -538,6 +542,53 @@ Install both tested deployment helpers together in the existing Jarvis `bin`
 directory. Resume both controls and dispatch the same main SHA through the
 private workflow. Check the resulting `already-deployed` receipt for the live
 revision and main CI run.
+
+## Public ride details schema upgrade
+
+[PR #62](https://github.com/unstppbl/bikers/pull/62) adds optional ride-fit
+metadata and explicit publication of expanded public details. Migration 16
+adds `style` and `surface` (empty text), `distance_km` (zero), and
+`public_details_published` (false) to every existing ride. It creates no tables
+or sequences. Existing ride titles, organizer names and expanded fit details
+remain unpublished until the organizer explicitly publishes them; applying
+the migration does not supply that consent.
+
+Keep the healthy schema-15 image and a validated private database and runtime
+environment backup. Pause [both automatic deployment controls](github-actions-deployment.md#pause-retry-and-recovery)
+before merging this schema-dependent release. After the exact `main` revision
+passes all four push CI jobs, fast-forward the clean Jarvis checkout and run:
+
+```sh
+cd /home/user/apps/bikerskz/repo
+git pull --ff-only
+make deploy-jarvis DEPLOY_ARGS='--migrate-to 16'
+```
+
+The helper requires exact source-matching receipts 1–15 and builds the clean
+pushed image before stopping only the app. With the app quiescent it hashes
+every existing table row and sequence, including poll records, private ride
+plans and titles. The ride-row comparison excludes exactly the four new
+columns; the receipt comparison excludes only receipt 16. All other fields
+and tables must match. Before activation it checks exact receipts 1–16,
+the four columns' types, non-null constraints and defaults, and that every
+existing ride still has empty style/surface, zero distance and false
+publication consent. The release receipt records both the retained state and
+the new-column verification.
+
+An unsuccessful migration command restores the schema-15 image only after
+the migration container has terminated and exact unchanged schema-15 receipts
+are confirmed. A schema-16 commit, altered retained data, nondefault new
+fields, or an uncertain outcome leaves the app stopped with the target image
+selected for explicit roll-forward recovery. Never restore the schema-15
+executable against schema 16.
+
+Verify successful main CI and the live OCI revision, healthy image, release
+and schema receipts, retained data/container state, and public readiness.
+Install both tested deployment helpers together in the existing Jarvis `bin`
+directory. Resume both controls only after those checks, then dispatch the
+same main SHA through the private workflow and verify its `already-deployed`
+acknowledgement and main CI run. This section prepares the rollout; it does
+not establish that migration 16 has run in production.
 
 ## Administrator access
 

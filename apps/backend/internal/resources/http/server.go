@@ -433,7 +433,7 @@ func (s *Server) listRides(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	result, e := s.managers.Rides.List(r.Context(), v, models.RideListInput{
 		View: query.Get("view"), City: query.Get("city"), From: query.Get("from"),
-		To: query.Get("to"), Search: query.Get("q"), Cursor: query.Get("cursor"),
+		To: query.Get("to"), Search: query.Get("q"), Style: query.Get("style"), Surface: query.Get("surface"), Cursor: query.Get("cursor"),
 	})
 	if e != nil {
 		failure(w, e)

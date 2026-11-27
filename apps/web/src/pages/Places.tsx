@@ -68,8 +68,13 @@ export function PlacesPage() {
     change(next)
   }
   return <div className="page-content places-page" data-view={view} data-selected={!!selectedId}>
-    <div className="places-heading"><h1>{t('placesTitle')}</h1><div className="place-actions">{user && !sessionError && <Link className="text-button places-my-suggestions" to="/places/submissions">{t('placesMy')}</Link>}<Link className="button button-outline" to={user && !sessionError ? '/places/new' : '/login?next=%2Fplaces%2Fnew'}><PlusIcon size={16} />{t('placesSuggest')}</Link></div></div>
-    <MapDiscoverySwitch current="places" city={f.city} />
+    <div className="places-heading">
+      <div className="places-heading-main">
+        <h1>{t('placesTitle')}</h1>
+        <MapDiscoverySwitch current="places" city={f.city} />
+      </div>
+      <div className="place-actions">{user && !sessionError && <Link className="text-button places-my-suggestions" to="/places/submissions">{t('placesMy')}</Link>}<Link className="button button-outline" to={user && !sessionError ? '/places/new' : '/login?next=%2Fplaces%2Fnew'}><PlusIcon size={16} />{t('placesSuggest')}</Link></div>
+    </div>
     <PlaceFilters params={params} apply={change} suggestions={!!user && !sessionError} />
     <div className="places-workspace-bar">
       <p className="places-result-count" role="status">{query.data && t('placesCount', { count: query.data.places.length })}</p>

@@ -22,7 +22,7 @@ func seedListedRide(t *testing.T, f *fixture, owner *actor, id, city, descriptio
 	}
 	_, err := f.db.Exec(context.Background(), `INSERT INTO rides
 		(id,organizer_id,city,description,title,starts_at,timezone,meeting_point,capacity,status,created_at)
-		VALUES($1,$2,$3,$4,'PRIVATE PLAN',$5,'Asia/Almaty','PRIVATE LOCATION',10,$6,$7)`,
+		VALUES($1,$2,$3,$4,'Public Ride Title',$5,'Asia/Almaty','PRIVATE LOCATION',10,$6,$7)`,
 		id, owner.id, city, description, starts, status, f.now)
 	if err != nil {
 		t.Fatal(err)

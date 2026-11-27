@@ -1,8 +1,9 @@
-// Self-hosted Fira Sans for text and Fira Sans Extra Condensed for display type.
-// Each weight declares its subsets with unicode-range, so browsers download only the subsets a page uses.
-// Kazakh letters are in cyrillic-ext. vite.config.ts keeps the Greek and Vietnamese files out of the precache.
-import '@fontsource/fira-sans/400.css'
-import '@fontsource/fira-sans/500.css'
-import '@fontsource/fira-sans/600.css'
-import '@fontsource/fira-sans-extra-condensed/700.css'
-import '@fontsource/fira-sans-extra-condensed/800.css'
+// Self-hosted Inter for clean EN/RU/KK UI typography and JetBrains Mono for telemetry metrics.
+// Each weight declares its subsets with unicode-range so browsers only download needed scripts.
+// Kazakh letters live in cyrillic-ext. vite.config.ts excludes Greek and Vietnamese from precache.
+import '@fontsource/inter/400.css'
+import '@fontsource/inter/500.css'
+import '@fontsource/inter/600.css'
+import '@fontsource/inter/700.css'
+import '@fontsource/jetbrains-mono/500.css'
+import '@fontsource/jetbrains-mono/600.css'

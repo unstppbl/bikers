@@ -30,7 +30,7 @@ func (s *Store) WithRideCover(ctx context.Context, id, actor string, decide data
 	if _, err = tx.Exec(ctx, "SELECT pg_advisory_xact_lock($1)", photoQuotaAdvisoryLock); err != nil {
 		return repositoryError(err)
 	}
-	ride, err := scanRide(tx.QueryRow(ctx, "SELECT "+rideColumns+" FROM rides WHERE id=$1 FOR UPDATE", id))
+	ride, err := scanRide(tx.QueryRow(ctx, "SELECT "+rideColumns+" FROM rides r WHERE r.id=$1 FOR UPDATE OF r", id))
 	if err != nil {
 		return err
 	}

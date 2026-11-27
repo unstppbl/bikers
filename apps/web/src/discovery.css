@@ -1,27 +1,50 @@
-/* Ride discovery: a large page title, one compact filter bar and photo-or-typographic ride cards. */
+/* Rides hub: compact header, instant filter chips, and structured Ride Ticket cards. */
+
+.browse-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
 
 .browse-hero {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  max-width: 640px;
-  margin-bottom: 24px;
+  gap: 6px;
+  max-width: 600px;
 }
 
 .browse-hero h1 {
   font: var(--type-heading-1);
-  font-size: 88px;
-  line-height: .88;
 }
 
 .browse-hero p {
   font: var(--type-body-3);
-  font-size: var(--text-lg);
   color: var(--text-muted);
 }
 
+.browse-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.browse-actions .button {
+  min-height: 44px;
+  padding: 8px 16px;
+  border-radius: var(--radius-pill);
+  font: var(--type-button-sm);
+}
+
 .browse-guide {
-  margin-top: 40px;
+  margin-top: 32px;
+  padding: 14px 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
   color: var(--text-muted);
 }
 
@@ -30,8 +53,9 @@
   align-items: center;
   gap: 8px;
   width: fit-content;
-  min-height: 44px;
-  font: var(--type-button-md);
+  min-height: 40px;
+  font: var(--type-button-sm);
+  color: var(--text);
   cursor: pointer;
   list-style: none;
 }
@@ -51,10 +75,6 @@
   content: '−';
 }
 
-.browse-guide > summary:hover {
-  color: var(--text);
-}
-
 .browse-guide > summary:focus-visible, .ride-date-filters > summary:focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 3px;
@@ -65,12 +85,14 @@
   grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   gap: 24px;
   padding-top: 16px;
+  border-top: 1px solid var(--border);
+  margin-top: 12px;
 }
 
 .how-card ol {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 20px;
+  gap: 18px;
   list-style: none;
   padding: 0;
   margin: 0;
@@ -79,41 +101,42 @@
 .how-card li {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
+  gap: 10px;
 }
 
-/* The three join steps are a real sequence, so they keep their numbers, on small plates. */
 .step-number {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 30px;
-  height: 30px;
+  flex-shrink: 0;
+  min-width: 28px;
+  height: 28px;
   border-radius: var(--radius-sm);
-  background: var(--plate);
-  color: var(--on-plate);
-  font: 800 18px/1 var(--font-display);
+  background: var(--accent-surface);
+  border: 1px solid var(--accent-border);
+  color: var(--accent-text);
+  font: var(--type-mono-sm);
 }
 
 .how-card strong {
   display: block;
   color: var(--text);
-  font: var(--type-body-1);
+  font: var(--type-body-4);
 }
 
 .how-card p {
-  font: var(--type-body-6);
+  font: var(--type-caption-2);
   color: var(--text-muted);
-  margin-top: 4px;
+  margin-top: 3px;
 }
 
-/* Filter bar: search, city, dates and apply in one row on wide screens. */
+/* Filter bar: compact search row + instant quick-filter chips. */
 .ride-filters {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 10px;
-  margin-bottom: 24px;
+  margin-bottom: 12px;
 }
 
 .ride-filter-main {
@@ -138,8 +161,8 @@
 
 .ride-filter-icon {
   position: absolute;
-  left: 16px;
-  top: 14px;
+  left: 14px;
+  top: 13px;
   z-index: 1;
   color: var(--text-subtle);
   pointer-events: none;
@@ -150,8 +173,6 @@
   gap: 0;
 }
 
-/* The bar's visible cue is the icon and placeholder; the label stays available to assistive technology.
-   A field error stays visible. */
 .ride-filter-main .field-label, .ride-filter-main .field-hint:not(.field-error) {
   position: absolute;
   width: 1px;
@@ -164,11 +185,12 @@
 .ride-filter-main input {
   width: 100%;
   min-width: 0;
-  min-height: 48px;
-  padding-left: 44px;
-  border-radius: var(--radius-pill);
+  min-height: 44px;
+  padding-left: 42px;
+  border-radius: var(--radius-md);
   background: var(--surface);
   border-color: var(--border);
+  box-shadow: var(--shadow-card);
 }
 
 .ride-filter-main input:hover {
@@ -184,11 +206,12 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 48px;
-  padding: 0 18px;
+  min-height: 44px;
+  padding: 0 14px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-md);
   background: var(--surface);
+  box-shadow: var(--shadow-card);
   font: var(--type-button-sm);
   white-space: nowrap;
   cursor: pointer;
@@ -200,7 +223,7 @@
 }
 
 .ride-date-filters[open] > summary {
-  border-color: var(--plate);
+  border-color: var(--accent);
 }
 
 .ride-date-panel {
@@ -208,7 +231,7 @@
   top: calc(100% + 8px);
   right: 0;
   z-index: 20;
-  width: min(420px, calc(100vw - 32px));
+  width: min(400px, calc(100vw - 32px));
   padding: 16px;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -232,7 +255,7 @@
 }
 
 .ride-filter-note {
-  margin-top: 12px;
+  margin-top: 10px;
   font: var(--type-caption-5);
   color: var(--text-subtle);
 }
@@ -244,8 +267,10 @@
 }
 
 .ride-filter-actions .button {
-  min-height: 48px;
-  border-radius: var(--radius-pill);
+  min-height: 44px;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  font: var(--type-button-sm);
 }
 
 .clear-filters {
@@ -262,62 +287,81 @@
   margin: 0;
 }
 
-/* Ride cards. */
+/* Instant one-tap filter chips */
+.ride-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font: var(--type-caption-3);
+  transition: border-color var(--motion-fast) var(--motion-ease), background-color var(--motion-fast) var(--motion-ease), color var(--motion-fast) var(--motion-ease);
+}
+
+.filter-chip:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.filter-chip[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-surface);
+  color: var(--accent-text);
+}
+
+.filter-chip-sep {
+  width: 1px;
+  height: 18px;
+  background: var(--border);
+  margin: 0 2px;
+}
+
+/* Structured Ride Ticket Cards */
 .ride-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr));
+  gap: 18px;
 }
 
 .ride-card {
   position: relative;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
-  min-height: 320px;
-  padding: 18px;
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
   background: var(--surface);
-  isolation: isolate;
-  container-type: inline-size;
-  transition: border-color var(--motion-fast) var(--motion-ease);
-  --city-art-left: 98px;
+  box-shadow: var(--shadow-card);
+  transition: border-color var(--motion-fast) var(--motion-ease), transform var(--motion-fast) var(--motion-ease);
 }
 
 .ride-card:hover {
   border-color: var(--border-strong);
+  transform: translateY(-2px);
 }
 
 .ride-card:focus-visible {
   outline-offset: 4px;
 }
 
-/* The city name stays inside the card and clear of the date plate: long names wrap at their spaces,
-   and a single word too long for the space breaks rather than running off the left edge.
-   Its size follows the width between --city-art-left and the card's right edge. */
-.city-art {
-  position: absolute;
-  top: 18px;
-  left: var(--city-art-left, 18px);
-  right: -4px;
-  z-index: -1;
-  color: var(--surface-raised);
-  font: 800 clamp(var(--city-art-min, 28px), calc((100cqi - var(--city-art-left, 18px)) * 1.7 / var(--city-characters, 6)), var(--city-art-max, 132px))/.82 var(--font-display);
-  text-align: right;
-  text-transform: uppercase;
-  overflow-wrap: anywhere;
-  transition: color var(--motion-fast) var(--motion-ease);
-}
-
-.ride-card:hover .city-art {
-  color: var(--surface-hover);
-}
-
-/* Status pills share the top row with the city name, so the name starts below them. */
-.ride-card:has(.ride-card-status:not(:empty)) .city-art {
-  top: 56px;
+.ride-card-media {
+  position: relative;
+  height: 168px;
+  overflow: hidden;
+  background: var(--surface-raised);
+  isolation: isolate;
 }
 
 .ride-card-cover {
@@ -329,65 +373,107 @@
   object-fit: cover;
 }
 
-.ride-card-cover + .city-art {
-  display: none;
-}
-
-.ride-card:has(.ride-card-cover)::before {
+.ride-card-media:has(.ride-card-cover)::after {
   content: '';
   position: absolute;
   inset: 0;
   z-index: -1;
-  background: var(--scrim);
+  background: linear-gradient(to bottom, rgb(11 14 19 / 45%) 0%, rgb(11 14 19 / 6%) 55%, rgb(11 14 19 / 28%) 100%);
 }
 
 .ride-card.is-cancelled .ride-card-cover {
   filter: grayscale(1);
+  opacity: 0.7;
 }
 
+/* Subtle route-line graphic fallback when no cover or city photo exists */
+.city-art {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding: 12px 16px;
+  color: var(--accent-text);
+  overflow: hidden;
+}
+
+.city-art-route {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.35;
+}
+
+.city-art-name {
+  position: relative;
+  font: 700 22px/1 var(--font-display);
+  letter-spacing: -0.02em;
+  color: var(--text-subtle);
+  opacity: 0.55;
+  text-align: right;
+}
+
+.ride-card-cover + .city-art {
+  display: none;
+}
+
+/* Compact telemetry date badge */
 .date-plate {
   display: inline-flex;
-  flex-direction: column;
   align-items: center;
-  min-width: 56px;
-  padding: 7px 12px 8px;
-  border-radius: 10px;
-  background: var(--plate);
-  color: var(--on-plate);
-  box-shadow: 0 0 0 2px var(--canvas), 0 0 0 3.5px var(--plate);
-  font-family: var(--font-display);
-  text-transform: uppercase;
-}
-
-.date-plate strong {
-  font-weight: 800;
-  font-size: 40px;
-  line-height: .92;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--chrome) 90%, transparent);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
 
-.date-plate span {
-  font-weight: 800;
-  font-size: 13px;
-  line-height: 1.15;
-  letter-spacing: .6px;
+.date-plate strong {
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1;
 }
 
-.ride-card .date-plate {
+.date-plate span {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.date-plate-window {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--accent-text);
+  padding-left: 5px;
+  border-left: 1px solid var(--border);
+}
+
+.ride-card-media .date-plate {
   position: absolute;
-  top: 18px;
-  left: 18px;
+  top: 12px;
+  left: 12px;
+  z-index: 2;
 }
 
 .ride-card-status {
   position: absolute;
-  top: 18px;
-  right: 18px;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 6px;
-  max-width: 60%;
+  max-width: 58%;
 }
 
 .ride-card-status:empty {
@@ -396,14 +482,15 @@
 
 .ride-card-body {
   display: flex;
+  flex: 1;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
+  padding: 16px;
   min-width: 0;
 }
 
-/* Two lines keep the title inside the darkest part of a cover's scrim, as in the approved cards. */
 .ride-card h3 {
-  font: 700 26px/1.08 var(--font-display);
+  font: var(--type-title-1);
   color: var(--text);
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -412,27 +499,60 @@
   overflow-wrap: anywhere;
 }
 
-.ride-card:has(.ride-card-cover) h3 {
-  text-shadow: 0 1px 12px color-mix(in srgb, var(--canvas) 70%, transparent);
+.ride-card-snippet {
+  color: var(--text-muted);
+  font: var(--type-body-6);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ride-card-specs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ride-spec-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  color: var(--text-muted);
+  font: var(--type-caption-4);
+}
+
+.ride-spec-tag.is-mono {
+  font-family: var(--font-mono);
+  color: var(--text);
 }
 
 .ride-card-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 16px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
   color: var(--text-subtle);
-  font: var(--type-body-5);
+  font: var(--type-caption-2);
 }
 
 .ride-card-meta > span {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   min-width: 0;
 }
 
 .ride-card-meta .ride-card-city {
   color: var(--text);
+  font-weight: 500;
 }
 
 .ride-card.is-cancelled h3 {
@@ -441,7 +561,7 @@
   text-decoration-thickness: 2px;
 }
 
-/* The first ride on the first discovery page is featured. */
+/* Featured first ride on desktop spans 2 columns with horizontal balance */
 @media (min-width: 1101px) {
   .ride-list-featured {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -449,24 +569,22 @@
 
   .ride-list-featured > .ride-card:first-child {
     grid-column: span 2;
-    min-height: 440px;
+    flex-direction: row;
+  }
+
+  .ride-list-featured > .ride-card:first-child .ride-card-media {
+    width: 48%;
+    height: auto;
+    min-height: 240px;
+    flex-shrink: 0;
+  }
+
+  .ride-list-featured > .ride-card:first-child .ride-card-body {
+    padding: 20px 22px;
   }
 
   .ride-list-featured > .ride-card:first-child h3 {
-    font-size: 40px;
-    max-width: 720px;
-  }
-
-  .ride-list-featured > .ride-card:first-child {
-    --city-art-left: 112px;
-  }
-
-  .ride-list-featured > .ride-card:first-child .city-art {
-    --city-art-max: 220px;
-  }
-
-  .ride-list-featured > .ride-card:first-child .date-plate strong {
-    font-size: 52px;
+    font: var(--type-heading-3);
   }
 }
 
@@ -486,7 +604,7 @@
 
 .loading-skeleton > span:first-child {
   width: 48%;
-  height: 24px;
+  height: 22px;
 }
 
 .loading-skeleton > span:last-child {
@@ -494,34 +612,90 @@
 }
 
 @keyframes skeleton-pulse {
+  from { opacity: .45; }
+  to { opacity: 1; }
+}
 
-  from {
-    opacity: .45;
-  }
+/* Ride form style/surface selectors & live privacy preview */
+.spec-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 
-  to {
-    opacity: 1;
-  }
+.spec-pill {
+  min-height: 40px;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  color: var(--text-muted);
+  font: var(--type-button-sm);
+  transition: border-color var(--motion-fast) var(--motion-ease), background-color var(--motion-fast) var(--motion-ease), color var(--motion-fast) var(--motion-ease);
+}
+
+.spec-pill:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.spec-pill[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-surface);
+  color: var(--accent-text);
+}
+
+.privacy-preview-box {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+}
+
+.privacy-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.privacy-preview-card {
+  padding: 14px;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  display: grid;
+  gap: 6px;
+}
+
+.privacy-preview-card h3 {
+  font: var(--type-caption-3);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-subtle);
 }
 
 @media (max-width: 1000px) {
-  .browse-guide-content {
+  .browse-guide-content, .privacy-preview-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 }
 
 @media (max-width: 760px) {
-  .browse-hero {
-    margin-bottom: 18px;
-    gap: 6px;
+  .browse-header {
+    align-items: stretch;
+    gap: 12px;
+    margin-bottom: 14px;
   }
 
   .browse-hero h1 {
-    font-size: 56px;
+    font: var(--type-heading-2);
   }
 
-  .browse-hero p {
-    font-size: var(--text-base);
+  .browse-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .how-card ol {
@@ -530,24 +704,23 @@
 
   .ride-filters {
     gap: 8px;
-    margin-bottom: 18px;
+    margin-bottom: 10px;
+    position: relative;
   }
 
-  /* Phone: search and apply on the first row, city and dates on the second. */
   .ride-filter-main {
     display: contents;
   }
 
   .ride-filter-search {
     order: 1;
-    flex: 1 1 calc(100% - 56px);
+    flex: 1 1 calc(100% - 54px);
   }
 
   .ride-filter-actions {
     order: 2;
   }
 
-  /* The basis keeps the city wide enough for its placeholder; Clear filters wraps to its own row instead. */
   .ride-filter-city {
     order: 3;
     flex: 1 1 152px;
@@ -562,22 +735,17 @@
     order: 5;
   }
 
-  .ride-filters {
-    position: relative;
-  }
-
-  /* Tighter insets leave room for the longest city placeholder (Kazakh) beside the date button. */
   .ride-date-filters > summary {
     gap: 6px;
     padding: 0 12px;
   }
 
   .ride-filter-icon {
-    left: 14px;
+    left: 12px;
   }
 
   .ride-filter-main input {
-    padding-left: 40px;
+    padding-left: 38px;
     padding-right: 10px;
   }
 
@@ -588,7 +756,7 @@
   }
 
   .apply-filters {
-    width: 48px;
+    width: 44px;
     padding: 0;
   }
 
@@ -605,31 +773,25 @@
     display: block;
   }
 
+  .ride-chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+    margin-bottom: 14px;
+  }
+
+  .filter-chip {
+    flex-shrink: 0;
+  }
+
   .ride-list {
     gap: 14px;
   }
 
-  .ride-card {
-    min-height: 290px;
-    padding: 16px;
-    border-radius: var(--radius-lg);
-    --city-art-left: 92px;
+  .ride-card-media {
+    height: 152px;
   }
-
-  .ride-card .date-plate {
-    top: 16px;
-    left: 16px;
-  }
-
-  .ride-card-status {
-    top: 16px;
-    right: 16px;
-  }
-
-  .ride-card h3 {
-    font-size: 24px;
-  }
-
 }
 
 @media (max-width: 360px) {
@@ -641,5 +803,9 @@
 @media (prefers-reduced-motion: reduce) {
   .loading-skeleton > span {
     animation: none;
+  }
+
+  .ride-card:hover {
+    transform: none;
   }
 }

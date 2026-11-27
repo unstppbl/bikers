@@ -49,6 +49,10 @@ function ClubCollection({ personal }: { personal: boolean }) {
     return { pathname: value === 'discover' ? '/clubs' : '/my-clubs', search: next.toString() }
   }
   return <div className="page-content collection-page"><div className="collection-heading"><div className="page-heading"><span className="eyebrow">{t('clubsEyebrow')}</span><h1>{t(personal ? 'myClubs' : 'clubsTitle')}</h1><p>{t(personal ? 'myClubsText' : 'clubsText')}</p></div><Link className="button button-primary" to="/clubs/new"><Plus size={17} />{t('createClub')}</Link></div>
+    <nav className="pillar-tabs" aria-label={t('communityHeading')}>
+      <Link to="/clubs" aria-current="page">{t('communityClubsTab')}</Link>
+      <Link to="/bikes">{t('communityBikesTab')}</Link>
+    </nav>
     <nav className="collection-tabs" aria-label={t('clubs')}><Link className={!personal ? 'active' : ''} aria-current={!personal ? 'page' : undefined} to={tab('discover')}>{t('allClubs')}</Link><Link className={personal ? 'active' : ''} aria-current={personal ? 'page' : undefined} to={tab('organizing')}>{t('myClubs')}</Link></nav>
     {personal && <nav className="collection-tabs ride-view-tabs" aria-label={t('myClubs')}>{personalClubViews.map((value) => <Link key={value} className={view === value ? 'active' : ''} aria-current={view === value ? 'page' : undefined} to={tab(value)}>{t(value)}</Link>)}</nav>}
     <ClubList view={view} />

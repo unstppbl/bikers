@@ -102,10 +102,26 @@ describe('same-origin API boundary', () => {
 })
 
 describe('untrusted and revoked ride data', () => {
+  it('removes unpublished expanded details when reducing a full participant view to a public preview', () => {
+    const ride = publicRide({ id: 'r1', city: 'Test city', date: '2026-12-01', title: 'Private legacy title', description: 'Public summary', status: 'published', public_details_published: false, time_window: 'morning', style: 'touring', surface: 'asphalt', distance_km: 120, distance_override_km: 0, capacity: 8, approved_count: 3, organizer_name: 'Private host', meeting_point: 'Private place', can_manage: true })
+    expect(ride).toMatchObject({ id: 'r1', city: 'Test city', description: 'Public summary', can_manage: false })
+    for (const field of ['title', 'time_window', 'style', 'surface', 'distance_km', 'capacity', 'approved_count', 'organizer_name', 'distance_override_km', 'public_details_published', 'meeting_point']) expect(ride).not.toHaveProperty(field)
+  })
   it('removes every participant-only property when reducing a ride to a public preview', () => {
-    const ride = publicRide({ id: 'r1', city: 'Test city', date: '2026-12-01', description: 'Public summary', status: 'published', title: 'Private title', meeting_point: 'Private place', starts_at: '2026-12-01T10:00:00Z', capacity: 8, organizer_id: 'owner', can_manage: true, participation_state: 'approved' })
-    expect(ride).not.toHaveProperty('title')
+    const ride = publicRide({ id: 'r1', city: 'Test city', date: '2026-12-01', title: 'Public ride title', description: 'Public summary', status: 'published', time_window: 'morning', style: 'touring', surface: 'asphalt', distance_km: 120, capacity: 8, approved_count: 3, organizer_name: 'Arman', meeting_point: 'Private place', starts_at: '2026-12-01T10:00:00Z', destination: 'Secret pass', route_url: 'https://example.com/private', expectations: 'Bring rain gear', organizer_id: 'owner', can_manage: true, participation_state: 'approved' })
+    expect(ride.title).toBe('Public ride title')
+    expect(ride.time_window).toBe('morning')
+    expect(ride.style).toBe('touring')
+    expect(ride.surface).toBe('asphalt')
+    expect(ride.distance_km).toBe(120)
+    expect(ride.capacity).toBe(8)
+    expect(ride.approved_count).toBe(3)
+    expect(ride.organizer_name).toBe('Arman')
     expect(ride).not.toHaveProperty('meeting_point')
+    expect(ride).not.toHaveProperty('starts_at')
+    expect(ride).not.toHaveProperty('destination')
+    expect(ride).not.toHaveProperty('route_url')
+    expect(ride).not.toHaveProperty('expectations')
     expect(ride).not.toHaveProperty('organizer_id')
     expect(ride.can_manage).toBe(false)
   })

@@ -129,8 +129,8 @@ Retry does not bypass CI, main, configuration, schema or health checks.
 Compose changes and migrations require an explicit reviewed rollout through
 [Operations](operations.md#repository-deployments-on-jarvis). The automatic path
 never supplies `--migrate-to`. The current explicit rollout supports schema
-14 to 15. Pause both controls before merging schema-dependent code and follow
-the [ride poll procedure](operations.md#ride-poll-schema-upgrade). Existing
+15 to 16. Pause both controls before merging schema-dependent code and follow
+the [public ride details procedure](operations.md#public-ride-details-schema-upgrade). Existing
 receipts and migration checksums must match the source before building or
 restarting the app.
 

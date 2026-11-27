@@ -1,32 +1,51 @@
-// The create buttons in the top bar and the tab bar show newRideShort. newRideLabel is their accessible name and must contain that text.
-// backToMe leads back to the Me page from the pages reached from it; back ("Back to rides") is for links to the rides feed.
-// An edit form leads back to the page it edits: backToRide, backToClub and backToBike.
+// Shell navigation, theme switcher, and shared back-link copy.
 export const shellEn = {
-  navMain: 'Main navigation', navTabs: 'Sections', tabMe: 'Me', tabGarage: 'Garage', newRideShort: 'New ride', newRideLabel: 'New ride',
-  meGuestTitle: 'Your space', meGuestText: 'Sign in with Telegram to join rides, keep a garage and follow your clubs.',
+  navMain: 'Main navigation', navTabs: 'Sections',
+  tabExplore: 'Explore', tabCommunity: 'Community', tabMe: 'You', tabGarage: 'Garage',
+  newRideShort: 'New ride', newRideLabel: 'New ride',
+  themeToggle: 'Switch appearance ({mode})', themeAuto: 'Auto', themeLight: 'Daylight', themeDark: 'Dark',
+  appearanceTitle: 'Appearance', appearanceHint: 'Follow your device theme or pick Daylight for bright outdoor rides.',
+  meGuestTitle: 'Your space', meGuestText: 'Sign in with Telegram to join rides, track your garage and connect with local clubs.',
   meEditProfile: 'Edit profile', meHubLabel: 'Your space and settings', backToMe: 'Back to your space',
   backToRide: 'Back to ride', backToClub: 'Back to club', backToBike: 'Back to motorcycle',
-  ridesFeedText: 'Ask to join. The organizer shares the plan once you’re in.',
-  planAfterApproval: 'Plan after approval', allDates: 'Any date', rideCoverAlt: 'Ride in {city}', cityPhotoAlt: 'Photo of {city}',
+  ridesFeedText: 'Discover group rides across Kazakhstan. Exact meeting points unlock once approved.',
+  planAfterApproval: 'Meetup locked until approved', allDates: 'Any date', rideCoverAlt: 'Ride in {city}', cityPhotoAlt: 'Photo of {city}',
   planTitle: 'The plan', planLocked: 'Shared after approval', youAreGoing: 'You’re going',
+  communityHeading: 'Community', communityClubsTab: 'Clubs', communityBikesTab: 'Riders’ bikes',
+  mePrimaryBike: 'My garage', meAddFirstBike: 'Add your motorcycle', meAddFirstBikeText: 'Track maintenance logs and share your bike with the community.',
+  meOpenGarage: 'Open garage',
 }
 
 export const shellRu: Record<keyof typeof shellEn, string> = {
-  navMain: 'Основная навигация', navTabs: 'Разделы', tabMe: 'Я', tabGarage: 'Гараж', newRideShort: 'Создать', newRideLabel: 'Создать поездку',
-  meGuestTitle: 'Ваше пространство', meGuestText: 'Войдите через Telegram, чтобы присоединяться к поездкам, вести гараж и следить за клубами.',
+  navMain: 'Основная навигация', navTabs: 'Разделы',
+  tabExplore: 'Обзор', tabCommunity: 'Клубы', tabMe: 'Профиль', tabGarage: 'Гараж',
+  newRideShort: 'Создать', newRideLabel: 'Создать поездку',
+  themeToggle: 'Сменить тему ({mode})', themeAuto: 'Авто', themeLight: 'Светлая', themeDark: 'Тёмная',
+  appearanceTitle: 'Оформление', appearanceHint: 'Следуйте настройкам устройства или включите светлую тему для поездок на солнце.',
+  meGuestTitle: 'Ваше пространство', meGuestText: 'Войдите через Telegram, чтобы присоединяться к поездкам, вести гараж и общаться в клубах.',
   meEditProfile: 'Изменить профиль', meHubLabel: 'Ваше пространство и настройки', backToMe: 'К вашему пространству',
   backToRide: 'К поездке', backToClub: 'К клубу', backToBike: 'К мотоциклу',
-  ridesFeedText: 'Попроситесь в поездку. Организатор откроет план, когда вас одобрит.',
-  planAfterApproval: 'План после одобрения', allDates: 'Любая дата', rideCoverAlt: 'Поездка, {city}', cityPhotoAlt: 'Фото: {city}',
+  ridesFeedText: 'Групповые поездки по Казахстану. Точное место встречи откроется после одобрения.',
+  planAfterApproval: 'Место встречи после одобрения', allDates: 'Любая дата', rideCoverAlt: 'Поездка, {city}', cityPhotoAlt: 'Фото: {city}',
   planTitle: 'План', planLocked: 'Откроется после одобрения', youAreGoing: 'Вы едете',
+  communityHeading: 'Сообщество', communityClubsTab: 'Клубы', communityBikesTab: 'Мотоциклы',
+  mePrimaryBike: 'Мой гараж', meAddFirstBike: 'Добавьте мотоцикл', meAddFirstBikeText: 'Ведите журнал обслуживания и делитесь мотоциклом с сообществом.',
+  meOpenGarage: 'Открыть гараж',
 }
 
 export const shellKk: Record<keyof typeof shellEn, string> = {
-  navMain: 'Негізгі навигация', navTabs: 'Бөлімдер', tabMe: 'Мен', tabGarage: 'Гараж', newRideShort: 'Құру', newRideLabel: 'Сапар құру',
-  meGuestTitle: 'Жеке кеңістік', meGuestText: 'Сапарларға қосылу, гараж жүргізу және клубтарды бақылау үшін Telegram арқылы кіріңіз.',
+  navMain: 'Негізгі навигация', navTabs: 'Бөлімдер',
+  tabExplore: 'Шолу', tabCommunity: 'Қауым', tabMe: 'Мен', tabGarage: 'Гараж',
+  newRideShort: 'Құру', newRideLabel: 'Сапар құру',
+  themeToggle: 'Тақырыпты ауыстыру ({mode})', themeAuto: 'Авто', themeLight: 'Жарық', themeDark: 'Қараңғы',
+  appearanceTitle: 'Көрініс', appearanceHint: 'Құрылғы баптауын қолданыңыз немесе күн астында оқу үшін жарық тақырыпты таңдаңыз.',
+  meGuestTitle: 'Жеке кеңістік', meGuestText: 'Сапарларға қосылу, гараж жүргізу және клубтармен байланысу үшін Telegram арқылы кіріңіз.',
   meEditProfile: 'Профильді өзгерту', meHubLabel: 'Жеке кеңістік пен баптаулар', backToMe: 'Жеке кеңістікке оралу',
   backToRide: 'Сапарға оралу', backToClub: 'Клубқа оралу', backToBike: 'Мотоциклге оралу',
-  ridesFeedText: 'Қосылуға сұраныс жіберіңіз. Ұйымдастырушы мақұлдаған соң жоспарды ашады.',
-  planAfterApproval: 'Жоспар мақұлданғаннан кейін', allDates: 'Кез келген күн', rideCoverAlt: 'Сапар, {city}', cityPhotoAlt: '{city} қаласының суреті',
+  ridesFeedText: 'Қазақстан бойынша топтық сапарлар. Нақты кездесу орны мақұлданған соң ашылады.',
+  planAfterApproval: 'Кездесу орны мақұлданған соң', allDates: 'Кез келген күн', rideCoverAlt: 'Сапар, {city}', cityPhotoAlt: '{city} қаласының суреті',
   planTitle: 'Жоспар', planLocked: 'Мақұлданғаннан кейін ашылады', youAreGoing: 'Сіз барасыз',
+  communityHeading: 'Қауымдастық', communityClubsTab: 'Клубтар', communityBikesTab: 'Мотоциклдер',
+  mePrimaryBike: 'Менің гаражым', meAddFirstBike: 'Мотоцикл қосыңыз', meAddFirstBikeText: 'Қызмет көрсету тарихын жүргізіңіз және мотоцикліңізбен бөлісіңіз.',
+  meOpenGarage: 'Гаражды ашу',
 }

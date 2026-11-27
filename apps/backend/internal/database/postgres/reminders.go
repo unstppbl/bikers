@@ -17,7 +17,7 @@ type reminderTransaction struct {
 func loadReminderContext(ctx context.Context, tx pgx.Tx, rideID, actor string) (models.ReminderContext, error) {
 	c := models.ReminderContext{UserID: actor}
 	var err error
-	c.Ride, err = scanRide(tx.QueryRow(ctx, "SELECT "+rideColumns+" FROM rides WHERE id=$1 FOR UPDATE", rideID))
+	c.Ride, err = scanRide(tx.QueryRow(ctx, "SELECT "+rideColumns+" FROM rides r WHERE r.id=$1 FOR UPDATE OF r", rideID))
 	if err != nil {
 		return c, err
 	}

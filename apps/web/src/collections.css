@@ -1,23 +1,20 @@
-/* Collections (garage, motorcycle catalogue, clubs, my rides): big titles, pill filters and photo-led cards.
-   Loaded after styles.css so these rules replace the earlier compact cards. */
+/* Collections (garage, riders' bikes, clubs, my rides): adaptive cards with crisp telemetry tags. */
 
-/* A page title with its main action beside it. A collection page (a list) sets a bigger title on phones.
-   A detail page (a club, a motorcycle) uses .detail-heading and keeps the page-title scale from styles.css. */
 .collection-heading, .detail-heading {
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  gap: 24px;
-  margin-bottom: 28px;
+  gap: 20px;
+  margin-bottom: 20px;
 }
 
 .collection-heading .page-heading, .detail-heading .page-heading {
   margin: 0;
-  max-width: 650px;
+  max-width: 640px;
 }
 
 .collection-heading .page-heading > p, .detail-heading .page-heading > p {
-  max-width: 570px;
+  max-width: 560px;
 }
 
 .collection-heading .page-heading > p {
@@ -26,26 +23,28 @@
 
 .collection-heading > .button, .detail-heading > .button {
   flex-shrink: 0;
-  min-height: 48px;
+  min-height: 44px;
+  padding: 8px 18px;
+  border-radius: var(--radius-pill);
   margin-top: 0;
   white-space: nowrap;
 }
 
-/* Segmented tabs, as on the Me screen. */
 .collection-tabs {
   gap: 4px;
   padding: 4px;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface);
+  box-shadow: var(--shadow-card);
 }
 
 .collection-tabs a {
-  min-height: 44px;
-  padding: 8px 16px;
+  min-height: 40px;
+  padding: 6px 14px;
   border-radius: 9px;
-  color: var(--text-subtle);
+  color: var(--text-muted);
   font: var(--type-button-sm);
 }
 
@@ -57,16 +56,16 @@
 .collection-tabs a.active {
   background: var(--surface-raised);
   color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--border);
 }
 
-/* Club and motorcycle search share the ride filter bar's pill fields. */
 .club-filters, .bike-catalogue-filters {
   flex-wrap: wrap;
 }
 
 .club-filters > .ride-filter-fields, .bike-catalogue-filters > .ride-filter-fields {
   display: flex;
-  flex: 1 1 480px;
+  flex: 1 1 460px;
   gap: 10px;
   min-width: 0;
 }
@@ -75,7 +74,6 @@
   flex: 1 1 0;
 }
 
-/* A field error stays visible. */
 .club-filters .field-label, .club-filters .field-hint:not(.field-error), .bike-catalogue-filters .field-label {
   position: absolute;
   width: 1px;
@@ -86,26 +84,26 @@
 }
 
 .club-filters input, .bike-catalogue-filters input {
-  min-height: 48px;
-  padding-left: 18px;
-  border-radius: var(--radius-pill);
+  min-height: 44px;
+  padding-left: 16px;
+  border-radius: var(--radius-md);
   background: var(--surface);
   border-color: var(--border);
+  box-shadow: var(--shadow-card);
 }
 
 .club-filters .ride-filter-actions .button, .bike-catalogue-filters .ride-filter-actions .button {
-  min-height: 48px;
-  border-radius: var(--radius-pill);
+  min-height: 44px;
+  border-radius: var(--radius-md);
 }
 
 .club-filters .ride-filter-actions .text-button, .bike-catalogue-filters .ride-filter-actions .text-button {
   color: var(--text-muted);
 }
 
-/* Motorcycle cards: the photo runs edge to edge; the model name and a year plate sit under it. */
 .bike-grid, .club-grid {
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 310px), 1fr));
+  gap: 18px;
 }
 
 .bike-card {
@@ -113,6 +111,12 @@
   padding: 0;
   overflow: hidden;
   border-radius: var(--radius-xl);
+  transition: border-color var(--motion-fast) var(--motion-ease), transform var(--motion-fast) var(--motion-ease);
+}
+
+.bike-card:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-2px);
 }
 
 .bike-card > .model-reference {
@@ -121,7 +125,7 @@
 }
 
 .bike-card .model-reference-frame {
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 16 / 10;
   border-radius: 0;
 }
 
@@ -130,10 +134,9 @@
 }
 
 .bike-card .model-reference figcaption {
-  padding: 8px 18px 0;
+  padding: 8px 16px 0;
 }
 
-/* Photo captions stay quiet; only the credit links use the accent. */
 .model-reference figcaption > p, .model-reference figcaption > p > span {
   color: var(--text-subtle);
 }
@@ -147,68 +150,68 @@
   font: var(--type-caption-5);
 }
 
-/* Without a photo, the make becomes the artwork, at the same height as a photo.
-   The card names the make already, so assistive technology skips the artwork. */
+/* Clean typographic make placeholder when no photo exists */
 .bike-card:not(:has(.model-reference))::before {
   content: attr(data-make);
   content: attr(data-make) / "";
   order: -1;
   display: flex;
   align-items: flex-end;
-  aspect-ratio: 4 / 3;
-  padding: 0 0 12px 14px;
+  aspect-ratio: 16 / 10;
+  padding: 16px;
   overflow: hidden;
   background: var(--surface-raised);
-  color: var(--surface-hover);
-  font: 800 96px/.82 var(--font-display);
-  text-transform: uppercase;
+  color: var(--text-subtle);
+  font: 700 32px/1 var(--font-display);
+  letter-spacing: -0.02em;
+  opacity: 0.65;
   white-space: nowrap;
 }
 
 .bike-card-main {
-  padding: 16px 18px 0;
+  padding: 14px 16px 0;
 }
 
-/* The credit links' 44px boxes already leave space above the make. */
 .bike-card:has(> .model-reference) .bike-card-main {
-  padding-top: 2px;
+  padding-top: 4px;
 }
 
 .bike-card-top .eyebrow {
   color: var(--text-subtle);
-  font: var(--type-body-4);
+  font: var(--type-caption-3);
 }
 
 .bike-identity {
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin: 6px 0 0;
+  gap: 10px;
+  margin: 4px 0 0;
 }
 
 .bike-identity strong, .bike-identity h2 {
-  font: 800 30px/1.02 var(--font-display);
+  font: var(--type-title-1);
   color: var(--text);
   overflow-wrap: anywhere;
 }
 
 .bike-card-main:hover .bike-identity h2 {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 .bike-identity > span {
   flex-shrink: 0;
-  padding: 4px 9px 3px;
+  padding: 3px 8px;
   border-radius: var(--radius-sm);
-  background: var(--plate);
-  color: var(--on-plate);
-  font: 800 18px/1 var(--font-display);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font: var(--type-mono-sm);
 }
 
 .bike-card-bottom {
-  margin: 16px 18px 0;
-  padding: 12px 0 16px;
+  margin: 12px 16px 0;
+  padding: 10px 0 14px;
   color: var(--text-muted);
 }
 
@@ -216,10 +219,9 @@
   font: var(--type-button-sm);
 }
 
-/* A motorcycle's own page leads with its photo, edge to edge, with the caption and credits underneath. */
 .bike-detail-page > .model-reference-detail {
   display: block;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
   padding: 0;
   overflow: hidden;
   border-radius: var(--radius-xl);
@@ -227,7 +229,7 @@
 
 .bike-detail-page > .model-reference-detail .model-reference-frame {
   aspect-ratio: auto;
-  height: clamp(240px, 45vw, 600px);
+  height: clamp(220px, 42vw, 520px);
   border-radius: 0;
 }
 
@@ -236,47 +238,51 @@
 }
 
 .bike-detail-page > .model-reference-detail figcaption {
-  padding: 12px 20px 16px;
+  padding: 12px 18px 14px;
 }
 
-/* The public page sets the year on a plate beside the name, as the cards do. The title follows the page-title scale
-   of .page-heading; the report link sits close below it inside the card. */
 .public-bike-heading {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  margin: 12px 0 0;
+  margin: 10px 0 0;
 }
 
 .public-bike-year {
   flex-shrink: 0;
   margin: 4px 0 0;
-  padding: 6px 10px 5px;
+  padding: 5px 10px;
   border-radius: var(--radius-sm);
-  background: var(--plate);
-  color: var(--on-plate);
-  font: 800 24px/1 var(--font-display);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font: var(--type-mono-md);
 }
 
-/* A club's city, on its card and its page. */
 .city-label {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   color: var(--text-muted);
+  font: var(--type-caption-2);
 }
 
-/* Club cards: the emblem leads, the name is set in the display face. */
 .club-card {
-  padding: 22px;
+  padding: 18px 20px;
   border-radius: var(--radius-xl);
   gap: 0;
+  transition: border-color var(--motion-fast) var(--motion-ease), transform var(--motion-fast) var(--motion-ease);
+}
+
+.club-card:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-2px);
 }
 
 .club-card > h2 {
   margin-top: 6px;
-  font: 800 30px/1.02 var(--font-display);
+  font: var(--type-title-1);
 }
 
 .club-card > p {
@@ -289,15 +295,17 @@
 
 .club-emblem {
   border-radius: var(--radius-md);
-  background: var(--plate);
-  color: var(--on-plate);
+  background: var(--accent-surface);
+  border: 1px solid var(--accent-border);
+  color: var(--accent-text);
   font-family: var(--font-display);
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .club-card:nth-child(3n+2) .club-emblem, .club-card:nth-child(3n+3) .club-emblem {
-  background: var(--plate);
-  color: var(--on-plate);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  color: var(--text);
 }
 
 .club-card-bottom {
@@ -308,14 +316,12 @@
   border-radius: var(--radius-pill);
 }
 
-/* Club detail: the link to share on the left, report controls on the right, as on ride pages.
-   An open report form takes the whole row under its button. */
 .club-toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 12px;
-  margin: 16px 0 28px;
+  margin: 14px 0 24px;
 }
 
 .club-toolbar .share-link > .button {
@@ -353,13 +359,12 @@
   .collection-heading, .detail-heading {
     flex-direction: column;
     align-items: stretch;
-    gap: 16px;
-    margin-bottom: 20px;
+    gap: 14px;
+    margin-bottom: 16px;
   }
 
-  /* The phone title scale: lists keep a bigger title than detail pages (styles.css). */
   .collection-heading h1 {
-    font: var(--type-heading-3);
+    font: var(--type-heading-2);
   }
 
   .collection-heading > .button, .detail-heading > .button {
@@ -401,8 +406,10 @@
   .bike-card, .club-card {
     border-radius: var(--radius-lg);
   }
+}
 
-  .bike-card:not(:has(.model-reference))::before {
-    font-size: 80px;
+@media (prefers-reduced-motion: reduce) {
+  .bike-card:hover, .club-card:hover {
+    transform: none;
   }
 }

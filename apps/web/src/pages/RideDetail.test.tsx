@@ -92,10 +92,10 @@ describe('ride plan', () => {
   })
 
   it.each(['requested', 'removed'] as const)('keeps the meetup and update private when access is %s', async (state) => {
-    currentRide = { ...ride, participation_state: state }
+    currentRide = { ...ride, starts_at: undefined, meeting_point: undefined, participation_state: state }
     mount()
 
-    expect(await screen.findByRole('heading', { name: 'A ride in Almaty' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: ride.title! })).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'Navigate to meeting point' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Save offline copy' })).not.toBeInTheDocument()
     expect(screen.queryByText(ride.meeting_point!)).not.toBeInTheDocument()
@@ -166,10 +166,10 @@ describe('offline ride-day brief', () => {
     mount()
     const save = await screen.findByRole('button', { name: 'Save offline copy' })
     await waitFor(() => expect(save).toBeEnabled())
-    currentRide = { ...ride, participation_state: 'removed' }
+    currentRide = { ...ride, starts_at: undefined, meeting_point: undefined, participation_state: 'removed' }
     fireEvent.click(save)
 
-    expect(await screen.findByRole('heading', { name: 'A ride in Almaty' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'You no longer have access to this ride.' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Save offline copy' })).not.toBeInTheDocument()
     expect(createObjectURL).not.toHaveBeenCalled()
     expect(announcementReads).toBe(1)
@@ -209,5 +209,25 @@ describe('ride sharing', () => {
     expect(screen.getByRole('link', { name: 'Share to Telegram' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Copy link' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Share to an app' })).not.toBeInTheDocument()
+  })
+
+  it('switches approved Ride Room tabs between Plan, Chat, Riders and Album', async () => {
+    mount()
+    const tablist = await screen.findByRole('tablist')
+    const planTab = within(tablist).getByRole('tab', { name: 'Plan' })
+    const chatTab = within(tablist).getByRole('tab', { name: 'Chat' })
+    const ridersTab = within(tablist).getByRole('tab', { name: 'Riders' })
+    const albumTab = within(tablist).getByRole('tab', { name: 'Album' })
+    expect(planTab).toHaveAttribute('aria-selected', 'true')
+
+    fireEvent.click(chatTab)
+    expect(chatTab).toHaveAttribute('aria-selected', 'true')
+    expect(planTab).toHaveAttribute('aria-selected', 'false')
+
+    fireEvent.click(ridersTab)
+    expect(ridersTab).toHaveAttribute('aria-selected', 'true')
+
+    fireEvent.click(albumTab)
+    expect(albumTab).toHaveAttribute('aria-selected', 'true')
   })
 })

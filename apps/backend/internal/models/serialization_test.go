@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// These are the pre-refactor public JSON shapes, including ordering and omissions.
+// Keep public omissions and full-ride editing metadata explicit in the wire contract.
 func TestPublicSerializationRemainsStable(t *testing.T) {
 	cases := []struct {
 		name  string
@@ -15,9 +15,9 @@ func TestPublicSerializationRemainsStable(t *testing.T) {
 		{"profile", Profile{}, `{"display_name":"","city":"","languages":null,"interests":"","locale":""}`},
 		{"user", User{}, `{"id":"","profile":{"display_name":"","city":"","languages":null,"interests":"","locale":""},"onboarding_complete":false}`},
 		{"summary", RideSummary{}, `{"id":"","city":"","date":"","description":"","status":""}`},
-		{"ride", Ride{}, `{"id":"","city":"","date":"","description":"","status":"","title":"","starts_at":"0001-01-01T00:00:00Z","timezone":"","meeting_point":"","destination":"","route_url":"","expectations":"","capacity":0,"plan_version":0,"organizer_id":""}`},
+		{"ride", Ride{}, `{"id":"","city":"","date":"","description":"","status":"","starts_at":"0001-01-01T00:00:00Z","timezone":"","meeting_point":"","destination":"","route_url":"","expectations":"","plan_version":0,"organizer_id":"","public_details_published":false,"distance_override_km":0}`},
 		{"summary with cover", RideSummary{Cover: &Photo{}}, `{"id":"","city":"","date":"","description":"","status":"","cover":{"id":"","url":"","width":0,"height":0,"created_at":"0001-01-01T00:00:00Z"}}`},
-		{"organizer ride", Ride{CoverVersion: 2}, `{"id":"","city":"","date":"","description":"","status":"","title":"","starts_at":"0001-01-01T00:00:00Z","timezone":"","meeting_point":"","destination":"","route_url":"","expectations":"","capacity":0,"plan_version":0,"organizer_id":"","cover_version":2}`},
+		{"organizer ride", Ride{CoverVersion: 2}, `{"id":"","city":"","date":"","description":"","status":"","starts_at":"0001-01-01T00:00:00Z","timezone":"","meeting_point":"","destination":"","route_url":"","expectations":"","plan_version":0,"organizer_id":"","cover_version":2,"public_details_published":false,"distance_override_km":0}`},
 		{"ride cover", RideCover{}, `{"image":null}`},
 		{"message", Message{}, `{"id":"","sequence":0,"sender_id":"","sender_name":"","body":"","created_at":"0001-01-01T00:00:00Z","client_message_id":""}`},
 		{"event", Event{}, `{"type":"","ride_id":""}`},

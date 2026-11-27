@@ -22,7 +22,7 @@ export function useSessionTask() {
     const controller = new AbortController()
     const currentSession = capture()
     const expectedActor = user?.id
-    if (!expectedActor || queryClient.getQueryData<Session>(['session'])?.user?.id !== expectedActor || queryClient.getQueryState(['session'])?.status !== 'success') controller.abort()
+    if (!expectedActor || epoch !== getSessionEpoch() || queryClient.getQueryData<Session>(['session'])?.user?.id !== expectedActor || queryClient.getQueryState(['session'])?.status !== 'success') controller.abort()
     pending.current.add(controller)
     return {
       signal: controller.signal,
@@ -30,5 +30,5 @@ export function useSessionTask() {
       current: () => !controller.signal.aborted && currentSession() && queryClient.getQueryData<Session>(['session'])?.user?.id === expectedActor && queryClient.getQueryState(['session'])?.status === 'success',
       finish: () => pending.current.delete(controller),
     }
-  }, [capture, queryClient, user?.id])
+  }, [capture, epoch, queryClient, user?.id])
 }

@@ -212,7 +212,7 @@ describe('community routes', () => {
     await waitFor(() => expect(writes).toEqual(['{"version":1}']))
   })
 
-  it.each([['ru', 'Маршруты', 'Основная навигация', 'Обзор карты'], ['kk', 'Бағыттар', 'Негізгі навигация', 'Картаны шолу']])('localizes the route hub and navigation in %s', async (locale, label, mainNav, mapNav) => {
+  it.each([['ru', 'Маршруты', 'Обзор', 'Основная навигация', 'Обзор карты'], ['kk', 'Бағыттар', 'Шолу', 'Негізгі навигация', 'Картаны шолу']])('localizes the route hub and navigation in %s', async (locale, label, exploreLabel, mainNav, mapNav) => {
     localStorage.setItem('bikerskz.locale', locale)
     vi.stubGlobal('fetch', vi.fn(async (url: string) => {
       if (url.endsWith('/session')) return response({ user: null })
@@ -222,7 +222,8 @@ describe('community routes', () => {
     }))
     mount('/routes', true)
     await screen.findByRole('heading', { name: label })
-    for (const nav of [mainNav, mapNav]) expect(within(screen.getByRole('navigation', { name: nav })).getByRole('link', { name: label })).toHaveAttribute('aria-current', 'page')
+    expect(within(screen.getByRole('navigation', { name: mainNav })).getByRole('link', { name: exploreLabel })).toHaveAttribute('aria-current', 'page')
+    expect(within(screen.getByRole('navigation', { name: mapNav })).getByRole('link', { name: label })).toHaveAttribute('aria-current', 'page')
   })
 })
 

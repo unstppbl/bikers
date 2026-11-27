@@ -5,7 +5,7 @@ import { Resvg } from '@resvg/resvg-js'
 // app-icon.svg holds outlined glyphs, so rendering needs no fonts.
 // The Apple touch and maskable icons fill the rounded corners with the ground colour,
 // because iOS and Android apply their own masks.
-const ground = '#131211'
+const ground = '#0b0e13'
 const icons = [
   { file: 'app-icon-192.png', size: 192 },
   { file: 'app-icon-512.png', size: 512 },

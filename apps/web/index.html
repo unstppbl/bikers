@@ -3,12 +3,24 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#131211" />
-    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#0b0e13" />
+    <meta name="color-scheme" content="light dark" />
     <meta name="description" content="Find your people. Plan a ride. A motorcycle community for Kazakhstan." />
     <link rel="icon" type="image/svg+xml" href="/app-icon.svg" />
     <link rel="apple-touch-icon" href="/app-icon-180.png" />
     <title>BIKERS.KZ — Ride together</title>
+    <script>
+      (function () {
+        try {
+          var mode = localStorage.getItem('bikerskz.theme');
+          var light = mode === 'light' || (mode !== 'dark' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
+          if (mode === 'light' || mode === 'dark') document.documentElement.setAttribute('data-theme', mode);
+          document.documentElement.setAttribute('data-resolved-theme', light ? 'light' : 'dark');
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) meta.setAttribute('content', light ? '#f4f6f9' : '#0b0e13');
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
