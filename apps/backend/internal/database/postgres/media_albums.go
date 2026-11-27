@@ -23,7 +23,7 @@ func (s *Store) WithRideMedia(ctx context.Context, rideID, actor string, decide 
 		return err
 	}
 	defer tx.Rollback(ctx)
-	ride, err := scanRide(tx.QueryRow(ctx, "SELECT "+rideColumns+" FROM rides WHERE id=$1 FOR UPDATE", rideID))
+	ride, err := scanRide(tx.QueryRow(ctx, "SELECT "+rideColumns+" FROM rides r WHERE r.id=$1 FOR UPDATE OF r", rideID))
 	if err != nil {
 		return err
 	}

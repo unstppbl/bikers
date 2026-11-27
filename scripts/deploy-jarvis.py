@@ -29,8 +29,9 @@ MIGRATION_FILES = (
     'schema_013_place_speed_cameras.sql',
     'schema_014_ride_covers.sql',
     'schema_015_ride_polls.sql',
+    'schema_016_ride_public_specs.sql',
 )
-MIGRATION_FROM, MIGRATION_TO = 14, 15
+MIGRATION_FROM, MIGRATION_TO = 15, 16
 
 GIS_ENVIRONMENT = {'PHOTON_BASE_URL': 'http://photon:2322',
                    'VALHALLA_BASE_URL': 'http://valhalla:8002'}
@@ -50,12 +51,14 @@ BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
 SET LOCAL timezone = 'UTC';
 SET LOCAL bytea_output = 'hex';
 SELECT format(
- 'SELECT json_build_object(''table'',%L,''rows'',count(*),''sha256'',encode(sha256(convert_to(COALESCE(string_agg(row_hash, '''' ORDER BY row_hash COLLATE "C"), ''''),''UTF8'')),''hex''))::text FROM (SELECT encode(sha256(convert_to(to_jsonb(t)::text,''UTF8'')),''hex'') AS row_hash FROM %I.%I t%s) hashed;',
+ 'SELECT json_build_object(''table'',%L,''rows'',count(*),''sha256'',encode(sha256(convert_to(COALESCE(string_agg(row_hash, '''' ORDER BY row_hash COLLATE "C"), ''''),''UTF8'')),''hex''))::text FROM (SELECT encode(sha256(convert_to((%s)::text,''UTF8'')),''hex'') AS row_hash FROM %I.%I t%s) hashed;',
  tablename,
+ CASE WHEN tablename='rides'
+  THEN 'to_jsonb(t) - ARRAY[''style'',''surface'',''distance_km'',''public_details_published'']'
+  ELSE 'to_jsonb(t)' END,
  schemaname,tablename,
- CASE WHEN tablename='schema_migrations' THEN ' WHERE version<=14' ELSE '' END)
+ CASE WHEN tablename='schema_migrations' THEN ' WHERE version<=15' ELSE '' END)
 FROM pg_tables WHERE schemaname='public'
- AND tablename NOT IN ('ride_polls','ride_poll_options','ride_poll_votes')
  ORDER BY tablename
 \gexec
 SELECT json_build_object('sequences',COALESCE(json_agg(to_jsonb(s) ORDER BY sequencename),'[]'::json))::text
@@ -65,12 +68,16 @@ COMMIT;
 """
 
 
-MIGRATION_ADDITIONS_SQL = '''-- bikerskz schema-15 additions
+MIGRATION_ADDITIONS_SQL = '''-- bikerskz schema-16 additions
 BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
 SELECT json_build_object(
- 'ride_polls',(SELECT count(*) FROM ride_polls),
- 'ride_poll_options',(SELECT count(*) FROM ride_poll_options),
- 'ride_poll_votes',(SELECT count(*) FROM ride_poll_votes))::text;
+ 'ride_columns',(SELECT json_object_agg(column_name,
+  json_build_object('type',data_type,'nullable',is_nullable,'default',column_default))
+  FROM information_schema.columns WHERE table_schema='public' AND table_name='rides'
+   AND column_name IN ('style','surface','distance_km','public_details_published')),
+ 'nondefault_ride_rows',(SELECT count(*) FROM rides
+  WHERE style IS DISTINCT FROM '' OR surface IS DISTINCT FROM ''
+   OR distance_km IS DISTINCT FROM 0 OR public_details_published IS DISTINCT FROM false))::text;
 COMMIT;
 '''
 
@@ -133,9 +140,17 @@ def retained_state(checkout, database_id):
 
 def migration_additions(checkout, database_id):
     state = json.loads(query_database(checkout, database_id, MIGRATION_ADDITIONS_SQL))
-    expected = {'ride_polls': 0, 'ride_poll_options': 0, 'ride_poll_votes': 0}
+    expected = {
+        'ride_columns': {
+            'style': {'type': 'text', 'nullable': 'NO', 'default': "''::text"},
+            'surface': {'type': 'text', 'nullable': 'NO', 'default': "''::text"},
+            'distance_km': {'type': 'integer', 'nullable': 'NO', 'default': '0'},
+            'public_details_published': {'type': 'boolean', 'nullable': 'NO', 'default': 'false'},
+        },
+        'nondefault_ride_rows': 0,
+    }
     if state != expected:
-        raise RuntimeError('Migration-15 additions must create three empty poll tables')
+        raise RuntimeError('Migration-16 additions must preserve unpublished ride defaults')
     return state
 
 
@@ -302,7 +317,7 @@ def _deploy(checkout, runtime, migrate_to=None, configure_gis=False):
             run(compose + ['stop', '--timeout', '30', 'app'], cwd=checkout)
             migration_started = True
             # Preserve every old row, including ride covers and private plans.
-            # Exclude only the new poll tables and migration receipt.
+            # Exclude only the four new ride fields and migration receipt.
             quiesced_state = retained_state(checkout, db_id)
         atomic_write(env_file, updated_env)
         run(compose + ['config', '--quiet'], cwd=checkout)

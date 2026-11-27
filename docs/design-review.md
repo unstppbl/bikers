@@ -373,10 +373,13 @@ Key information-architecture and UX changes:
   `/bikes` unified under a shared tab switcher), and `You` (`/me`, `/garage`,
   `/inbox`, `/settings`, `/profile`, `/admin`).
 - **Scannable Ride Tickets & public fit fields:** Backend migration 16 adds
-  optional `style`, `surface`, and `distance_km` columns to `rides` and promotes
-  public-safe fit metadata (`title`, coarse `time_window`, `style`, `surface`,
+  optional `style`, `surface`, and `distance_km` columns to `rides`, plus
+  `public_details_published` defaulting to false. Organizers explicitly publish
+  expanded fit metadata (`title`, coarse `time_window`, `style`, `surface`,
   5 km-rounded `distance_km`, `capacity`, `approved_count`, `organizer_name`)
-  onto `RideSummary`. Exact departure time (`starts_at`), meeting coordinates,
+  onto `RideSummary`; existing titles and identity stay private until that
+  publication. Calculated distance stays distinct from a manual override, so
+  route edits update the estimate. Exact departure time (`starts_at`), meeting coordinates,
   destination, route link, expectations, roster, announcements, chat, and map
   geometry remain strictly private until organizer approval.
 - **Instant discovery filters:** Ride discovery adds one-tap quick-filter chips

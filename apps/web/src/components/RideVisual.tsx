@@ -12,9 +12,9 @@ export function goingLabel(ride: Ride, now = new Date()): 'youAreGoing' | 'appro
 // Compact telemetry date pill for ride cards and headers.
 export function DatePlate({ date, locale, timeWindow, size = 'card' }: { date: string; locale: Locale; timeWindow?: string; size?: 'card' | 'hero' }) {
   const parts = dateParts(date, locale)
-  return <span className={`date-plate date-plate-${size}`} aria-hidden="true">
-    <strong>{parts.day}</strong>
-    <span>{parts.month}</span>
+  return <span className={`date-plate date-plate-${size}`}>
+    <strong aria-hidden="true">{parts.day}</strong>
+    <span aria-hidden="true">{parts.month}</span>
     {timeWindow && <em className="date-plate-window">{timeWindow}</em>}
   </span>
 }

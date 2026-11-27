@@ -18,7 +18,7 @@ func TestRideSharePreviewUsesOnlyCurrentPublicFields(t *testing.T) {
 	const description = `A paved & easy loop <script>alert("test")</script>`
 	created := f.request("POST", "/api/v1/rides", map[string]any{
 		"city": "Almaty", "description": description, "title": "Charyn Canyon Loop",
-		"style": "touring", "surface": "asphalt", "distance_km": 180,
+		"style": "touring", "surface": "asphalt", "distance_km": 180, "publish_public_details": true,
 		"starts_at": "2026-11-07T23:30:00Z", "timezone": "Asia/Almaty",
 		"meeting_point": "PRIVATE MEETUP", "destination": "PRIVATE DESTINATION",
 		"route_url": "https://example.org/private-route", "expectations": "PRIVATE PACE", "capacity": 4,

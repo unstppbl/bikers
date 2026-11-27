@@ -59,10 +59,8 @@ func (m *Manager) Preview(ctx context.Context, id string) (models.RideSummary, e
 	if hidden {
 		return models.RideSummary{}, models.Fail("not_found", "Ride not found")
 	}
-	if ride.DistanceKm == 0 && ride.MapPlan != nil {
-		ride.DistanceKm = models.PublicRideDistanceKm(0, ride.MapPlan)
-	}
-	return publicSummary(ride.RideSummary), nil
+	ride = fullView(ride)
+	return PublicSummary(ride.RideSummary), nil
 }
 
 func (m *Manager) View(ctx context.Context, id string, session *models.Session) (any, error) {
@@ -77,15 +75,12 @@ func (m *Manager) View(ctx context.Context, id string, session *models.Session) 
 		if err != nil {
 			return err
 		}
-		if ride.DistanceKm == 0 && ride.MapPlan != nil {
-			ride.DistanceKm = models.PublicRideDistanceKm(0, ride.MapPlan)
-		}
-		ride.RideSummary = publicSummary(ride.RideSummary)
+		ride = fullView(ride)
 		if session == nil {
 			if hidden {
 				return models.Fail("not_found", "Ride not found")
 			}
-			out = ride.RideSummary
+			out = PublicSummary(ride.RideSummary)
 			return nil
 		}
 		if err := activeRideActor(tx, session.User.ID); err != nil {
@@ -107,7 +102,9 @@ func (m *Manager) View(ctx context.Context, id string, session *models.Session) 
 		if hidden {
 			return models.Fail("not_found", "Ride not found")
 		}
-		out = ride.RideSummary
+		summary := PublicSummary(ride.RideSummary)
+		summary.CanManage, summary.ParticipationState = &canManage, state
+		out = summary
 		return nil
 	})
 	return out, rideError(err)
@@ -153,6 +150,8 @@ func (m *Manager) Create(ctx context.Context, actor models.User, input models.Ri
 		StartsAt: input.StartsAt, Timezone: input.Timezone, MeetingPoint: input.MeetingPoint,
 		Destination: input.Destination, RouteURL: input.RouteURL, Expectations: input.Expectations,
 		PlanVersion: 1, OrganizerID: actor.ID, MapPlan: plan,
+		PublicDetailsPublished: input.PublishPublicDetails,
+		DistanceOverrideKm:     input.DistanceKm,
 	}
 	stored, err := m.repo.CreateRide(ctx, ride, "approved", m.now().UTC(), func(owner models.GarageOwner) error {
 		if owner.Status != "active" {
@@ -222,7 +221,8 @@ func (m *Manager) Update(ctx context.Context, actor models.User, id string, patc
 		}
 		significant := !ride.StartsAt.Equal(input.StartsAt) || ride.MeetingPoint != input.MeetingPoint || ride.Destination != input.Destination || ride.RouteURL != input.RouteURL || ride.Expectations != input.Expectations || !reflect.DeepEqual(ride.MapPlan, plan)
 		ride.City, ride.Description, ride.Title = input.City, input.Description, input.Title
-		ride.Style, ride.Surface, ride.DistanceKm = input.Style, input.Surface, input.DistanceKm
+		ride.Style, ride.Surface, ride.DistanceOverrideKm = input.Style, input.Surface, input.DistanceKm
+		ride.PublicDetailsPublished = input.PublishPublicDetails
 		ride.StartsAt, ride.Timezone, ride.MeetingPoint = input.StartsAt, input.Timezone, input.MeetingPoint
 		ride.Destination, ride.RouteURL, ride.Expectations, ride.Capacity = input.Destination, input.RouteURL, input.Expectations, input.Capacity
 		ride.MapPlan = plan
@@ -525,9 +525,13 @@ func (m *Manager) publish(ride, kind string) {
 	}
 }
 
-// publicSummary keeps only fields that anyone who can see the ride may read.
-// Exact meeting coordinates, departure minute, roster and chat remain private.
-func publicSummary(summary models.RideSummary) models.RideSummary {
+// PublicSummary keeps only explicitly published fields. Existing ride details
+// remain participant-only until the organizer chooses expanded publication.
+func PublicSummary(summary models.RideSummary) models.RideSummary {
+	if !summary.DetailsPublished {
+		return models.RideSummary{ID: summary.ID, City: summary.City, Date: summary.Date,
+			Description: summary.Description, Status: summary.Status, Cover: summary.Cover}
+	}
 	return models.RideSummary{
 		ID:            summary.ID,
 		City:          summary.City,
@@ -546,7 +550,14 @@ func publicSummary(summary models.RideSummary) models.RideSummary {
 	}
 }
 
+func fullView(ride models.Ride) models.Ride {
+	ride.DetailsPublished = ride.PublicDetailsPublished
+	ride.DistanceKm = models.PublicRideDistanceKm(ride.DistanceOverrideKm, ride.MapPlan)
+	return ride
+}
+
 func ownerView(ride models.Ride) models.Ride {
+	ride = fullView(ride)
 	yes := true
 	ride.CanManage = &yes
 	ride.ParticipationState = "approved"
@@ -605,7 +616,10 @@ func validateInput(input models.RideInput) (models.RideInput, error) {
 func invalidRide() error { return models.Fail("invalid_ride", "Check ride fields") }
 
 func patchedInput(ride models.Ride, patch models.RidePatch) models.RideInput {
-	input := models.RideInput{City: ride.City, Description: ride.Description, Title: ride.Title, Style: ride.Style, Surface: ride.Surface, DistanceKm: ride.DistanceKm, StartsAt: ride.StartsAt, Timezone: ride.Timezone, MeetingPoint: ride.MeetingPoint, Destination: ride.Destination, RouteURL: ride.RouteURL, Expectations: ride.Expectations, Capacity: ride.Capacity}
+	input := models.RideInput{City: ride.City, Description: ride.Description, Title: ride.Title, Style: ride.Style, Surface: ride.Surface, DistanceKm: ride.DistanceOverrideKm, StartsAt: ride.StartsAt, Timezone: ride.Timezone, MeetingPoint: ride.MeetingPoint, Destination: ride.Destination, RouteURL: ride.RouteURL, Expectations: ride.Expectations, Capacity: ride.Capacity, PublishPublicDetails: ride.PublicDetailsPublished}
+	if patch.PublishPublicDetails != nil {
+		input.PublishPublicDetails = *patch.PublishPublicDetails
+	}
 	if patch.City != nil {
 		input.City = *patch.City
 	}

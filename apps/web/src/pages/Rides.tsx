@@ -115,7 +115,7 @@ function RideForm({ ride, source, poll, reload }: { ride?: Ride; source?: Commun
   const timezone = ride?.timezone ?? poll?.timezone ?? rideTimezone
   const initialTime = localRideTime(ride?.starts_at ?? poll?.startsAt, timezone)
   const initialSurface: RideSurface = ride?.surface ?? (source?.surface && source.surface !== 'unknown' ? source.surface : '')
-  const initialDistance = ride?.distance_km ? String(ride.distance_km) : source?.distance_meters ? String(Math.max(5, Math.round((source.distance_meters / 1000) / 5) * 5)) : ''
+  const initialDistance = ride?.distance_override_km ? String(ride.distance_override_km) : ''
   const [form, setForm] = useState({
     title: ride?.title ?? source?.title ?? '',
     city: ride?.city ?? poll?.city ?? source?.city ?? user?.profile.city ?? '',
@@ -129,6 +129,7 @@ function RideForm({ ride, source, poll, reload }: { ride?: Ride; source?: Commun
     route_url: ride?.route_url ?? '',
     expectations: ride?.expectations ?? '',
     capacity: String(ride?.capacity ?? 8),
+    publish_public_details: ride ? ride.public_details_published === true : true,
   })
   const [mapDraft, setMapDraft] = useState<MapDraft>({ points: initialPlan?.points ?? [], valid: true })
   const [confirmedPlan, setConfirmedPlan] = useState('')
@@ -157,6 +158,7 @@ function RideForm({ ride, source, poll, reload }: { ride?: Ride; source?: Commun
       style: form.style,
       surface: form.surface,
       distance_km: parsedDistance,
+      publish_public_details: form.publish_public_details,
       starts_at: startsAt.toISOString(),
       timezone,
       meeting_point: form.meeting_point.trim(),
@@ -183,6 +185,8 @@ function RideForm({ ride, source, poll, reload }: { ride?: Ride; source?: Commun
     finally { setBusy(false) }
   }
   const backPath = ride ? `/rides/${ride.id}` : poll ? ridePollPath(poll.id) : '/'
+  const hour = form.starts_at ? Number(form.starts_at.slice(11, 13)) : undefined
+  const timeWindow = hour === undefined ? '' : hour >= 5 && hour < 12 ? 'morning' : hour >= 12 && hour < 17 ? 'afternoon' : hour >= 17 && hour < 22 ? 'evening' : 'night'
   return <div className="page-content form-page"><Link className="back-link" to={backPath}><ArrowLeft size={17} />{t(ride ? 'backToRide' : poll ? 'pollBack' : 'back')}</Link><div className="page-heading"><span className="eyebrow">{t('createEyebrow')}</span><h1>{t(ride ? 'editTitle' : 'createTitle')}</h1><p>{t('createText')}</p></div>
     {ride && <RideCoverEditor ride={ride} />}
     {!ride && !source && !poll && <div className="ride-poll-entry ride-poll-start-entry"><PollForTimeLink /></div>}
@@ -191,11 +195,14 @@ function RideForm({ ride, source, poll, reload }: { ride?: Ride; source?: Commun
     <form onSubmit={(event) => void submit(event)} noValidate>
       <section className="surface form-section">
         <div className="form-section-heading"><span className="form-section-number">01</span><div><h2>{t('formStepBasics')}</h2><p>{t('publicFieldsHint')}</p></div><Compass size={20} /></div>
+        <label className="map-plan-confirm"><input type="checkbox" checked={form.publish_public_details} disabled={busy} onChange={(event) => update('publish_public_details', event.target.checked)} />{t('publishPublicDetails')}</label>
+        <p className="section-intro">{t('publishPublicDetailsHint')}</p>
         <Field label={t('title')} value={form.title} onChange={(event) => update('title', event.target.value)} placeholder={t('titlePlaceholder')} maxLength={150} required disabled={busy} />
         <div className="form-grid">
           <CitySelector label={t('city')} value={form.city} onChange={(city) => update('city', city)} placeholder={t('cityPlaceholder')} required disabled={busy} />
           <Field label={`${t('rideDistanceKm')} · ${t('optional')}`} hint={t('rideDistanceHint')} type="number" inputMode="numeric" min="0" max="50000" value={form.distance_km} onChange={(event) => update('distance_km', event.target.value)} disabled={busy} />
         </div>
+        <Field label={t('capacity')} hint={t('capacityHint')} type="number" min="1" max="1000" inputMode="numeric" value={form.capacity} onChange={(event) => update('capacity', event.target.value)} required disabled={busy} />
         <div className="field">
           <span className="field-label">{t('rideStyle')} · {t('optional')}</span>
           <div className="spec-pills" role="group" aria-label={t('rideStyle')}>
@@ -213,10 +220,7 @@ function RideForm({ ride, source, poll, reload }: { ride?: Ride; source?: Commun
       </section>
       <section className="surface form-section">
         <div className="form-section-heading"><span className="form-section-number">02</span><div><h2>{t('formStepRoute')}</h2><p>{t('privateFieldsHint')}</p></div><LockKeyhole size={20} /></div>
-        <div className="form-grid">
-          <Field label={t('startsAt')} hint={timezone !== rideTimezone ? timezone : t('timezoneHint')} type="datetime-local" value={form.starts_at} onChange={(event) => update('starts_at', event.target.value)} required disabled={busy} />
-          <Field label={t('capacity')} hint={t('capacityHint')} type="number" min="1" max="1000" inputMode="numeric" value={form.capacity} onChange={(event) => update('capacity', event.target.value)} required disabled={busy} />
-        </div>
+        <Field label={t('startsAt')} hint={timezone !== rideTimezone ? timezone : t('timezoneHint')} type="datetime-local" value={form.starts_at} onChange={(event) => update('starts_at', event.target.value)} required disabled={busy} />
         <MapPlanEditor initialPlan={initialPlan} referenceLine={referenceLine} meeting={form.meeting_point} destination={form.destination} onMeeting={(value) => update('meeting_point', value)} onDestination={(value) => update('destination', value)} onChange={setMapDraft} disabled={busy} startWithMap={!ride} />
         {source && <label className="map-plan-confirm">
           <input type="checkbox" checked={sourcePlanReady && confirmedPlan === planSignature} disabled={busy || !sourcePlanReady} onChange={(event) => setConfirmedPlan(event.target.checked ? planSignature : '')} />
@@ -230,8 +234,14 @@ function RideForm({ ride, source, poll, reload }: { ride?: Ride; source?: Commun
         <div className="privacy-preview-grid">
           <div className="privacy-preview-card">
             <h3>{t('previewGuestTab')}</h3>
-            <strong>{form.title.trim() || t('titlePlaceholder')}</strong>
-            <span className="caption-2 muted">{[form.city.trim(), form.distance_km ? t('approxKm', { km: Number(form.distance_km) }) : '', form.style ? t(`style_${form.style}`) : '', form.surface ? t(`surface_${form.surface}`) : ''].filter(Boolean).join(' · ') || '—'}</span>
+            <strong>{form.publish_public_details ? form.title.trim() || t('titlePlaceholder') : form.city.trim() || '—'}</strong>
+            <span className="caption-2 muted">{[form.city.trim(), form.starts_at.slice(0, 10), form.publish_public_details && timeWindow ? t(`window_${timeWindow}`) : ''].filter(Boolean).join(' · ') || '—'}</span>
+            <p>{form.description.trim() || t('descriptionPlaceholder')}</p>
+            {form.publish_public_details && <>
+              <span className="caption-2 muted">{[Number(form.distance_km) > 0 ? t('approxKm', { km: Number(form.distance_km) }) : mapDraft.points.length > 1 ? t('rideDistanceAutomatic') : '', form.style ? t(`style_${form.style}`) : '', form.surface ? t(`surface_${form.surface}`) : ''].filter(Boolean).join(' · ')}</span>
+              <span className="caption-2 muted">{t('byOrganizer', { name: user?.profile.display_name ?? '' })}</span>
+              <span className="caption-5 muted">{t('spotsCount', { approved: ride?.approved_count ?? 1, capacity: Number(form.capacity) || 8 })}</span>
+            </>}
             <span className="caption-5 muted"><LockKeyhole size={12} /> {t('planAfterApproval')}</span>
           </div>
           <div className="privacy-preview-card">

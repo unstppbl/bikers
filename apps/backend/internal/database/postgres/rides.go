@@ -18,11 +18,11 @@ const rideApprovedCountExpr = `(SELECT count(*)::integer FROM participation pa W
 
 const rideOrganizerNameExpr = `COALESCE((SELECT u.display_name FROM users u WHERE u.id=r.organizer_id), '')`
 
-const rideColumns = "r.id::text,r.city,r.description,r.status,r.title,r.style,r.surface,r.distance_km,r.starts_at,r.timezone,r.meeting_point,r.destination,r.route_url,r.expectations,r.capacity,r.plan_version,r.organizer_id::text,to_char(r.starts_at AT TIME ZONE r.timezone,'YYYY-MM-DD')," + rideTimeWindowExpr + "," + rideApprovedCountExpr + "," + rideOrganizerNameExpr + ",r.map_plan,r.cover_version"
+const rideColumns = "r.id::text,r.city,r.description,r.status,r.title,r.style,r.surface,r.distance_km,r.starts_at,r.timezone,r.meeting_point,r.destination,r.route_url,r.expectations,r.capacity,r.plan_version,r.organizer_id::text,to_char(r.starts_at AT TIME ZONE r.timezone,'YYYY-MM-DD')," + rideTimeWindowExpr + "," + rideApprovedCountExpr + "," + rideOrganizerNameExpr + ",r.map_plan,r.cover_version,r.public_details_published"
 
 func scanRide(row pgx.Row) (models.Ride, error) {
 	var ride models.Ride
-	err := row.Scan(&ride.ID, &ride.City, &ride.Description, &ride.Status, &ride.Title, &ride.Style, &ride.Surface, &ride.DistanceKm, &ride.StartsAt, &ride.Timezone, &ride.MeetingPoint, &ride.Destination, &ride.RouteURL, &ride.Expectations, &ride.Capacity, &ride.PlanVersion, &ride.OrganizerID, &ride.Date, &ride.TimeWindow, &ride.ApprovedCount, &ride.OrganizerName, &ride.MapPlan, &ride.CoverVersion)
+	err := row.Scan(&ride.ID, &ride.City, &ride.Description, &ride.Status, &ride.Title, &ride.Style, &ride.Surface, &ride.DistanceOverrideKm, &ride.StartsAt, &ride.Timezone, &ride.MeetingPoint, &ride.Destination, &ride.RouteURL, &ride.Expectations, &ride.Capacity, &ride.PlanVersion, &ride.OrganizerID, &ride.Date, &ride.TimeWindow, &ride.ApprovedCount, &ride.OrganizerName, &ride.MapPlan, &ride.CoverVersion, &ride.PublicDetailsPublished)
 	return ride, repositoryError(err)
 }
 func readParticipation(ctx context.Context, q querier, rideID, userID string) (string, error) {
@@ -44,7 +44,7 @@ func (s *Store) ListRides(ctx context.Context, query database.RideListQuery) ([]
 	rows, err := s.pool.Query(ctx, `
 		SELECT r.id::text,r.city,to_char(r.starts_at AT TIME ZONE r.timezone,'YYYY-MM-DD'),
 		       r.title,r.description,r.status,`+rideTimeWindowExpr+`,r.style,r.surface,`+ridePublicDistanceExpr+`,
-		       r.capacity,`+rideApprovedCountExpr+`,`+rideOrganizerNameExpr+`,COALESCE(p.state,''),r.organizer_id::text
+		       r.capacity,`+rideApprovedCountExpr+`,`+rideOrganizerNameExpr+`,COALESCE(p.state,''),r.organizer_id::text,r.public_details_published
 		FROM rides r
 		LEFT JOIN participation p ON p.ride_id=r.id AND p.user_id::text=$1
 		WHERE (NOT EXISTS(SELECT 1 FROM moderation_hidden h WHERE h.target_type='ride' AND h.target_id=r.id)
@@ -59,9 +59,9 @@ func (s *Store) ListRides(ctx context.Context, query database.RideListQuery) ([]
 		  AND (($9::boolean AND (r.starts_at < $10 OR r.status='cancelled'))
 		       OR (NOT $9::boolean AND r.status='published' AND r.starts_at >= $10))
 		  AND ($11='' OR (to_char(r.starts_at AT TIME ZONE r.timezone,'YYYY-MM-DD'),r.id) `+comparison+` ($11,$12::uuid))
-		  AND ($14='' OR strpos(lower(r.title),lower($14))>0 OR strpos(lower(r.description),lower($14))>0)
-		  AND ($15='' OR r.style=$15)
-		  AND ($16='' OR r.surface=$16)
+		  AND ($14='' OR (r.public_details_published AND strpos(lower(r.title),lower($14))>0) OR strpos(lower(r.description),lower($14))>0)
+		  AND ($15='' OR (r.public_details_published AND r.style=$15))
+		  AND ($16='' OR (r.public_details_published AND r.surface=$16))
 		ORDER BY to_char(r.starts_at AT TIME ZONE r.timezone,'YYYY-MM-DD') `+direction+`,r.id `+direction+`
 		LIMIT $13`, query.UserID, query.CityAliases, query.FromDate, query.ToDate,
 		query.OrganizerOnly, query.ExcludeOrganizer, query.ParticipationState, query.RelatedOnly,
@@ -75,7 +75,7 @@ func (s *Store) ListRides(ctx context.Context, query database.RideListQuery) ([]
 	for rows.Next() {
 		var listing models.RideListing
 		v := &listing.Summary
-		if err = rows.Scan(&v.ID, &v.City, &v.Date, &v.Title, &v.Description, &v.Status, &v.TimeWindow, &v.Style, &v.Surface, &v.DistanceKm, &v.Capacity, &v.ApprovedCount, &v.OrganizerName, &v.ParticipationState, &listing.OrganizerID); err != nil {
+		if err = rows.Scan(&v.ID, &v.City, &v.Date, &v.Title, &v.Description, &v.Status, &v.TimeWindow, &v.Style, &v.Surface, &v.DistanceKm, &v.Capacity, &v.ApprovedCount, &v.OrganizerName, &v.ParticipationState, &listing.OrganizerID, &v.DetailsPublished); err != nil {
 			return nil, repositoryError(err)
 		}
 		out = append(out, listing)
@@ -147,7 +147,7 @@ func (s *Store) CreateRide(ctx context.Context, ride models.Ride, organizerState
 	if err = decide(owner); err != nil {
 		return models.Ride{}, err
 	}
-	_, err = tx.Exec(ctx, `INSERT INTO rides(id,organizer_id,city,description,title,style,surface,distance_km,starts_at,timezone,meeting_point,destination,route_url,expectations,capacity,status,plan_version,created_at,map_plan) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`, ride.ID, ride.OrganizerID, ride.City, ride.Description, ride.Title, ride.Style, ride.Surface, ride.DistanceKm, ride.StartsAt, ride.Timezone, ride.MeetingPoint, ride.Destination, ride.RouteURL, ride.Expectations, ride.Capacity, ride.Status, ride.PlanVersion, at, ride.MapPlan)
+	_, err = tx.Exec(ctx, `INSERT INTO rides(id,organizer_id,city,description,title,style,surface,distance_km,starts_at,timezone,meeting_point,destination,route_url,expectations,capacity,status,plan_version,created_at,map_plan,public_details_published) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)`, ride.ID, ride.OrganizerID, ride.City, ride.Description, ride.Title, ride.Style, ride.Surface, ride.DistanceOverrideKm, ride.StartsAt, ride.Timezone, ride.MeetingPoint, ride.Destination, ride.RouteURL, ride.Expectations, ride.Capacity, ride.Status, ride.PlanVersion, at, ride.MapPlan, ride.PublicDetailsPublished)
 	if err != nil {
 		return models.Ride{}, repositoryError(err)
 	}
@@ -210,7 +210,7 @@ func (t *rideTransaction) SetParticipation(userID, state string, at time.Time) e
 }
 func (t *rideTransaction) UpdateRide(ride models.Ride) error {
 	// Identity/ownership and message sequence are not changed by a plan update.
-	updated, err := scanRide(t.tx.QueryRow(t.ctx, `UPDATE rides r SET city=$2,description=$3,title=$4,style=$5,surface=$6,distance_km=$7,starts_at=$8,timezone=$9,meeting_point=$10,destination=$11,route_url=$12,expectations=$13,capacity=$14,status=$15,plan_version=$16,map_plan=$17 WHERE r.id=$1 RETURNING `+rideColumns, t.ride.ID, ride.City, ride.Description, ride.Title, ride.Style, ride.Surface, ride.DistanceKm, ride.StartsAt, ride.Timezone, ride.MeetingPoint, ride.Destination, ride.RouteURL, ride.Expectations, ride.Capacity, ride.Status, ride.PlanVersion, ride.MapPlan))
+	updated, err := scanRide(t.tx.QueryRow(t.ctx, `UPDATE rides r SET city=$2,description=$3,title=$4,style=$5,surface=$6,distance_km=$7,starts_at=$8,timezone=$9,meeting_point=$10,destination=$11,route_url=$12,expectations=$13,capacity=$14,status=$15,plan_version=$16,map_plan=$17,public_details_published=$18 WHERE r.id=$1 RETURNING `+rideColumns, t.ride.ID, ride.City, ride.Description, ride.Title, ride.Style, ride.Surface, ride.DistanceOverrideKm, ride.StartsAt, ride.Timezone, ride.MeetingPoint, ride.Destination, ride.RouteURL, ride.Expectations, ride.Capacity, ride.Status, ride.PlanVersion, ride.MapPlan, ride.PublicDetailsPublished))
 	if err != nil {
 		return err
 	}

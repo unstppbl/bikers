@@ -13,7 +13,7 @@ All paths below are relative to `apps/backend/internal`.
 | `database` | Repository interfaces and callback types used to coordinate transactions. |
 | `database/postgres` | SQL, schema migrations, stored-record mapping, locks, transaction boundaries, and persistence concurrency guards. |
 | `managers/accounts` | OTP challenges, account and session rules, profiles, authentication limits, the external Gateway interface, and strict provider request/phone/status binding decisions. |
-| `managers/rides` | Ride plans, public and participant visibility, organizer decisions, participation, capacity, plan versions, discovery/personal-list selection, filter validation, signed pagination cursors, and public ride-cover access, reservations, and replacement. |
+| `managers/rides` | Ride plans, public and participant visibility, explicit expanded-detail publication, effective/manual distance projection, organizer decisions, participation, capacity, plan versions, discovery/personal-list selection, filter validation, signed pagination cursors, and public ride-cover access, reservations, and replacement. |
 | `managers/polls` | Unlisted ride scheduling, proposal and time validation, anonymous browser availability, and organizer-only time selection. |
 | `managers/geo` | Kazakhstan map envelope, language/point/query validation, per-user request budgets, bounded geocoder/routing concurrency, normalized map plans, and the external Geocoder/Router interfaces. |
 | `managers/places` | Public useful-place discovery, moderated new/correction/closure suggestions, contribution quotas, publication/version decisions, and pinned local OSM import validation/preservation. |

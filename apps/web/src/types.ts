@@ -46,6 +46,8 @@ export interface Ride {
   style?: RideStyle
   surface?: RideSurface
   distance_km?: number
+  distance_override_km?: number
+  public_details_published?: boolean
   capacity?: number
   approved_count?: number
   organizer_name?: string
@@ -76,6 +78,7 @@ export interface RideInput {
   style?: RideStyle
   surface?: RideSurface
   distance_km?: number
+  publish_public_details?: boolean
   starts_at: string
   timezone: string
   meeting_point: string

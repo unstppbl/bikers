@@ -321,9 +321,17 @@ function RideRoom({ ride, draft, setDraft, onAccessLost, onConnected }: { ride: 
   const nextSequence = query.data?.next_sequence
   useEffect(() => {
     const viewport = messagesViewport.current
-    if (viewport && nextSequence !== undefined && followMessages.current) {
-      viewport.scrollTop = viewport.scrollHeight
+    if (!viewport || nextSequence === undefined) return
+    const follow = () => {
+      if (viewport.clientHeight > 0 && followMessages.current) viewport.scrollTop = viewport.scrollHeight
     }
+    follow()
+    // Hidden mobile panes have no layout. Follow once the chat has a viewport,
+    // including when the pane opens or a breakpoint makes desktop chat visible.
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(follow)
+    observer.observe(viewport)
+    return () => observer.disconnect()
   }, [nextSequence])
 
   async function send(event?: FormEvent) {
@@ -345,7 +353,7 @@ function RideRoom({ ride, draft, setDraft, onAccessLost, onConnected }: { ride: 
   const messages = query.data?.messages ?? []
   function changeBody(value: string) { setDraft((current) => ({ ...current, body: value })) }
   return <section className="surface room-card" aria-labelledby="room-heading"><div className="room-heading"><div className="panel-title"><span className="panel-icon room-panel-icon"><MessageCircle size={20} /></span><div><h2 id="room-heading">{t('rideRoom')}</h2><p>{t('roomText')}</p></div></div><span className={`room-connection ${connection === 'connected' ? 'is-connected' : ''}`} title={t(connection === 'connected' ? 'connected' : 'connecting')}><span className="status-dot" /><span>{t(connection === 'connected' ? 'connected' : 'connecting')}</span></span></div>
-    <div className="messages" ref={messagesViewport} onScroll={(event) => { const viewport = event.currentTarget; followMessages.current = viewport.scrollHeight - viewport.clientHeight - viewport.scrollTop <= 64 }} aria-live="polite" aria-relevant="additions text">{query.isPending ? <Loading /> : query.isError ? <ErrorNotice error={query.error} retry={() => void query.refetch()} /> : !messages.length ? <div className="chat-empty"><MessageCircle size={26} strokeWidth={1.4} /><h3>{t('messagesEmpty')}</h3><p>{t('messagesEmptyText')}</p></div> : messages.map((message) => <div key={message.sequence} className={`message message-with-actions ${message.sender_id === user?.id ? 'own-message' : ''}`}><Avatar userId={message.sender_id} name={message.sender_name} scope={{ kind: 'ride', id: ride.id }} /><div className="message-content"><div className="message-meta"><strong>{message.sender_name}</strong><time dateTime={message.created_at}>{formatRideDateTime(message.created_at, ride.timezone ?? 'Asia/Almaty', locale, true)}</time></div><p>{message.body}</p><CommunityBadge userId={message.sender_id} /></div><MessageActions message={message} rideId={ride.id} /></div>)}</div>
+    <div className="messages" ref={messagesViewport} onScroll={(event) => { const viewport = event.currentTarget; if (viewport.clientHeight > 0) followMessages.current = viewport.scrollHeight - viewport.clientHeight - viewport.scrollTop <= 64 }} aria-live="polite" aria-relevant="additions text">{query.isPending ? <Loading /> : query.isError ? <ErrorNotice error={query.error} retry={() => void query.refetch()} /> : !messages.length ? <div className="chat-empty"><MessageCircle size={26} strokeWidth={1.4} /><h3>{t('messagesEmpty')}</h3><p>{t('messagesEmptyText')}</p></div> : messages.map((message) => <div key={message.sequence} className={`message message-with-actions ${message.sender_id === user?.id ? 'own-message' : ''}`}><Avatar userId={message.sender_id} name={message.sender_name} scope={{ kind: 'ride', id: ride.id }} /><div className="message-content"><div className="message-meta"><strong>{message.sender_name}</strong><time dateTime={message.created_at}>{formatRideDateTime(message.created_at, ride.timezone ?? 'Asia/Almaty', locale, true)}</time></div><p>{message.body}</p><CommunityBadge userId={message.sender_id} /></div><MessageActions message={message} rideId={ride.id} /></div>)}</div>
     {query.data?.more && <button className="text-button" onClick={() => void query.refetch()} disabled={query.isFetching}>{t('retry')}<ChevronRight size={16} /></button>}
     {sendError != null && <ErrorNotice error={sendError} />}
     {ride.status === 'cancelled' ? <div className="room-read-only"><LockKeyhole size={16} />{t('roomReadOnly')}</div> : <form className="message-composer" onSubmit={(event) => void send(event)}><label className="sr-only" htmlFor="message-body">{t('messageLabel')}</label><textarea id="message-body" placeholder={t('messagePlaceholder')} value={draft.body} maxLength={2000} rows={2} disabled={sending || !online} onChange={(event) => changeBody(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send() } }} /><button className="button button-primary send-button" aria-label={sending ? t('sendingMessage') : t('send')} disabled={sending || !draft.body.trim() || !online} type="submit"><Send size={19} /></button></form>}

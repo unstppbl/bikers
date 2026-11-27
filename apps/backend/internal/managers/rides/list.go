@@ -138,7 +138,7 @@ func (m *Manager) List(ctx context.Context, session *models.Session, input model
 		}
 	}
 	for _, row := range rows {
-		summary := publicSummary(row.Summary)
+		summary := PublicSummary(row.Summary)
 		if session != nil {
 			canManage := row.OrganizerID == query.UserID
 			summary.CanManage = &canManage

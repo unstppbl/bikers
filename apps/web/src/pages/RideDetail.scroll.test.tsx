@@ -23,6 +23,13 @@ class TestSocket {
   constructor() { TestSocket.sockets.push(this) }
   close() {}
 }
+class TestResizeObserver {
+  static callbacks = new Set<() => void>()
+  constructor(private callback: () => void) {}
+  observe() { TestResizeObserver.callbacks.add(this.callback) }
+  disconnect() { TestResizeObserver.callbacks.delete(this.callback) }
+  static resize() { for (const callback of TestResizeObserver.callbacks) callback() }
+}
 function Controls() {
   const navigate = useNavigate()
   return <><button onClick={() => void navigate('/rides/ride-a')}>Open ride A</button><button onClick={() => void navigate('/rides/ride-b')}>Open ride B</button><button onClick={() => void navigate(-1)}>Go back</button></>
@@ -59,22 +66,24 @@ function fixture(path = '/rides/ride-a') {
 }
 
 let pageTop = 0
+let phoneLayout = false
 let intoView: ReturnType<typeof vi.fn>
 const originalIntoView = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'scrollIntoView')
 const scrollProperties = ['clientHeight', 'scrollHeight', 'scrollTop'] as const
 const originalScrollProperties = scrollProperties.map((name) => Object.getOwnPropertyDescriptor(HTMLElement.prototype, name))
 beforeEach(() => {
-  pageTop = 0; TestSocket.sockets = []; setCsrfToken(); vi.stubGlobal('WebSocket', TestSocket)
+  pageTop = 0; phoneLayout = false; TestSocket.sockets = []; TestResizeObserver.callbacks.clear(); setCsrfToken(); vi.stubGlobal('WebSocket', TestSocket); vi.stubGlobal('ResizeObserver', TestResizeObserver)
   vi.mocked(window.scrollTo).mockImplementation((left: unknown, top?: number) => { pageTop = typeof left === 'object' && left !== null ? (left as ScrollToOptions).top ?? pageTop : top ?? 0 })
   // Model the native ancestor-scrolling behavior that JSDOM cannot lay out:
   // scrolling a chat descendant into view can also move the document viewport.
   intoView = vi.fn(function(this: HTMLElement) { if (this.closest('.messages')) pageTop = 900 })
   Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', { configurable: true, value: intoView })
   const offsets = new WeakMap<HTMLElement, number>()
+  const hidden = (element: HTMLElement) => phoneLayout && element.closest('.ride-layout')?.getAttribute('data-room-tab') !== 'chat'
   Object.defineProperties(HTMLElement.prototype, {
-    clientHeight: { configurable: true, get(this: HTMLElement) { return this.matches('.messages') ? 200 : 0 } },
-    scrollHeight: { configurable: true, get(this: HTMLElement) { return this.matches('.messages') ? Math.max(220, this.querySelectorAll('.message').length * 50) : 0 } },
-    scrollTop: { configurable: true, get(this: HTMLElement) { return offsets.get(this) ?? 0 }, set(this: HTMLElement, value: number) { offsets.set(this, Math.max(0, Math.min(value, this.scrollHeight - this.clientHeight))) } },
+    clientHeight: { configurable: true, get(this: HTMLElement) { return this.matches('.messages') && !hidden(this) ? 200 : 0 } },
+    scrollHeight: { configurable: true, get(this: HTMLElement) { return this.matches('.messages') && !hidden(this) ? Math.max(220, this.querySelectorAll('.message').length * 50) : 0 } },
+    scrollTop: { configurable: true, get(this: HTMLElement) { return hidden(this) ? 0 : offsets.get(this) ?? 0 }, set(this: HTMLElement, value: number) { if (!hidden(this)) offsets.set(this, Math.max(0, Math.min(value, this.scrollHeight - this.clientHeight))) } },
   })
 })
 afterEach(() => {
@@ -88,6 +97,41 @@ function viewport() {
 }
 
 describe('ride room scroll ownership', () => {
+  it('opens delayed mobile chat at recent messages and preserves a reader position across tab changes', async () => {
+    phoneLayout = true
+    const f = fixture()
+    await screen.findByRole('heading', { name: 'Ride A plan' })
+    const chat = viewport()
+    expect(chat.clientHeight).toBe(0)
+    await f.release()
+    await screen.findByText('ride-a message 20')
+    expect(chat.scrollTop).toBe(0)
+    await userEvent.click(screen.getByRole('tab', { name: 'Chat' }))
+    act(() => TestResizeObserver.resize())
+    expect(chat.scrollTop).toBe(800)
+    const socketCount = TestSocket.sockets.length
+    chat.scrollTop = 100; fireEvent.scroll(chat)
+    await userEvent.click(screen.getByRole('tab', { name: 'Plan' }))
+    fireEvent.scroll(chat)
+    act(() => TestResizeObserver.resize())
+    await userEvent.click(screen.getByRole('tab', { name: 'Chat' }))
+    act(() => TestResizeObserver.resize())
+    expect(chat.scrollTop).toBe(100)
+    expect(TestSocket.sockets).toHaveLength(socketCount)
+  })
+
+  it('initializes recent chat when a desktop breakpoint reveals a hidden pane', async () => {
+    phoneLayout = true
+    const f = fixture()
+    await screen.findByRole('heading', { name: 'Ride A plan' })
+    await f.release()
+    await screen.findByText('ride-a message 20')
+    const chat = viewport()
+    expect(chat.scrollTop).toBe(0)
+    phoneLayout = false
+    act(() => TestResizeObserver.resize())
+    expect(chat.scrollTop).toBe(800)
+  })
   it('keeps normal route entry at the top when chat mounts and its delayed history arrives', async () => {
     const f = fixture('/')
     await screen.findByRole('heading', { name: 'Rides' })
